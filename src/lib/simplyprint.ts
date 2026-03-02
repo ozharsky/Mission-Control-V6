@@ -31,8 +31,8 @@ class SimplyPrintAPI {
 
   constructor(config: SimplyPrintConfig) {
     this.apiKey = config.apiKey;
-    // Use Vercel proxy or fallback to direct (for local dev with CORS extension)
-    this.proxyUrl = config.proxyUrl || 'https://your-vercel-app.vercel.app/api/simplyprint';
+    // Use V5 proxy by default
+    this.proxyUrl = config.proxyUrl || 'https://mission-control-fawn-eight.vercel.app/api/printers';
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {

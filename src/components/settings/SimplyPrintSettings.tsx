@@ -4,7 +4,7 @@ import { Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 
 export function SimplyPrintSettings() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('simplyprint_api_key') || '');
-  const [proxyUrl, setProxyUrl] = useState(localStorage.getItem('simplyprint_proxy_url') || 'https://your-vercel-app.vercel.app/api/simplyprint');
+  const [proxyUrl, setProxyUrl] = useState(localStorage.getItem('simplyprint_proxy_url') || 'https://mission-control-fawn-eight.vercel.app/api/printers');
   const [isConnected, setIsConnected] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
