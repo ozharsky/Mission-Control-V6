@@ -253,6 +253,7 @@ export function FileManager({ projectId }: FileManagerProps) {
           const fileData = { ...uploadedFile };
           if (!fileData.projectId) delete (fileData as any).projectId;
           if (!fileData.category) delete (fileData as any).category;
+          if (!fileData.thumbnailUrl) delete (fileData as any).thumbnailUrl;
           
           // Save to Firebase Realtime Database
           await setData(`v6/files/${uploadedFile.id}`, fileData);
