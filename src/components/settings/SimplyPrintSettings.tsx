@@ -4,6 +4,7 @@ import { Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 
 export function SimplyPrintSettings() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('simplyprint_api_key') || '');
+  const [proxyUrl, setProxyUrl] = useState(localStorage.getItem('simplyprint_proxy_url') || 'https://your-vercel-app.vercel.app/api/simplyprint');
   const [isConnected, setIsConnected] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -12,9 +13,11 @@ export function SimplyPrintSettings() {
 
   useEffect(() => {
     const savedKey = localStorage.getItem('simplyprint_api_key');
+    const savedProxy = localStorage.getItem('simplyprint_proxy_url');
     if (savedKey) {
       setApiKey(savedKey);
-      initSimplyPrint(savedKey);
+      if (savedProxy) setProxyUrl(savedProxy);
+      initSimplyPrint(savedKey, savedProxy || undefined);
       setIsConnected(true);
       fetchPrinters();
     }
@@ -33,7 +36,8 @@ export function SimplyPrintSettings() {
   const handleSave = () => {
     if (apiKey.trim()) {
       localStorage.setItem('simplyprint_api_key', apiKey);
-      initSimplyPrint(apiKey);
+      localStorage.setItem('simplyprint_proxy_url', proxyUrl);
+      initSimplyPrint(apiKey, proxyUrl);
       setIsConnected(true);
       fetchPrinters();
     }
@@ -44,7 +48,7 @@ export function SimplyPrintSettings() {
     setTestResult(null);
     
     try {
-      const api = initSimplyPrint(apiKey);
+      const api = initSimplyPrint(apiKey, proxyUrl);
       const printerList = await api.getPrinters();
       
       if (printerList.length > 0) {
@@ -62,7 +66,7 @@ export function SimplyPrintSettings() {
     } catch (error) {
       setTestResult({
         success: false,
-        message: 'Connection failed. Check your API key.'
+        message: 'Connection failed. Check your API key and proxy URL.'
       });
     }
     
@@ -71,6 +75,7 @@ export function SimplyPrintSettings() {
 
   const handleClear = () => {
     localStorage.removeItem('simplyprint_api_key');
+    localStorage.removeItem('simplyprint_proxy_url');
     setApiKey('');
     clearSimplyPrint();
     setIsConnected(false);
@@ -99,6 +104,20 @@ export function SimplyPrintSettings() {
             />
             <p className="mt-2 text-xs text-gray-500">
               Find your API key in SimplyPrint → Settings → API
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">Proxy URL (for CORS)</label>
+            <input
+              type="text"
+              value={proxyUrl}
+              onChange={(e) => setProxyUrl(e.target.value)}
+              placeholder="https://your-app.vercel.app/api/simplyprint"
+              className="w-full rounded-xl border border-surface-hover bg-background px-4 py-3 text-white placeholder-gray-500 focus:border-primary focus:outline-none"
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              Deploy the proxy from /api/simplyprint.js to Vercel
             </p>
           </div>
 

@@ -1,8 +1,9 @@
 // SimplyPrint API Integration for Mission Control V6
+// Uses Vercel proxy to avoid CORS issues
 
 interface SimplyPrintConfig {
   apiKey: string;
-  baseUrl?: string;
+  proxyUrl?: string;
 }
 
 interface SimplyPrintPrinter {
@@ -26,15 +27,16 @@ interface SimplyPrintPrinter {
 
 class SimplyPrintAPI {
   private apiKey: string;
-  private baseUrl: string;
+  private proxyUrl: string;
 
   constructor(config: SimplyPrintConfig) {
     this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl || 'https://api.simplyprint.io/v1';
+    // Use Vercel proxy or fallback to direct (for local dev with CORS extension)
+    this.proxyUrl = config.proxyUrl || 'https://your-vercel-app.vercel.app/api/simplyprint';
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = `${this.proxyUrl}?path=${encodeURIComponent(endpoint.replace(/^\//, ''))}`;
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -53,7 +55,7 @@ class SimplyPrintAPI {
 
   async getPrinters(): Promise<SimplyPrintPrinter[]> {
     try {
-      const data = await this.request('/printers');
+      const data = await this.request('printers');
       return data.printers || [];
     } catch (error) {
       console.error('Failed to fetch printers:', error);
@@ -63,7 +65,7 @@ class SimplyPrintAPI {
 
   async getPrinterStatus(printerId: string): Promise<SimplyPrintPrinter | null> {
     try {
-      const data = await this.request(`/printers/${printerId}/status`);
+      const data = await this.request(`printers/${printerId}/status`);
       return data;
     } catch (error) {
       console.error(`Failed to fetch printer ${printerId} status:`, error);
@@ -73,7 +75,7 @@ class SimplyPrintAPI {
 
   async startPrint(printerId: string, fileId: string): Promise<boolean> {
     try {
-      await this.request(`/printers/${printerId}/print`, {
+      await this.request(`printers/${printerId}/print`, {
         method: 'POST',
         body: JSON.stringify({ file_id: fileId }),
       });
@@ -86,7 +88,7 @@ class SimplyPrintAPI {
 
   async pausePrint(printerId: string): Promise<boolean> {
     try {
-      await this.request(`/printers/${printerId}/pause`, { method: 'POST' });
+      await this.request(`printers/${printerId}/pause`, { method: 'POST' });
       return true;
     } catch (error) {
       console.error('Failed to pause print:', error);
@@ -96,7 +98,7 @@ class SimplyPrintAPI {
 
   async cancelPrint(printerId: string): Promise<boolean> {
     try {
-      await this.request(`/printers/${printerId}/cancel`, { method: 'POST' });
+      await this.request(`printers/${printerId}/cancel`, { method: 'POST' });
       return true;
     } catch (error) {
       console.error('Failed to cancel print:', error);
@@ -106,7 +108,7 @@ class SimplyPrintAPI {
 
   async getFiles(printerId: string): Promise<any[]> {
     try {
-      const data = await this.request(`/printers/${printerId}/files`);
+      const data = await this.request(`printers/${printerId}/files`);
       return data.files || [];
     } catch (error) {
       console.error('Failed to fetch files:', error);
@@ -118,8 +120,8 @@ class SimplyPrintAPI {
 // Create singleton instance
 let simplyPrintInstance: SimplyPrintAPI | null = null;
 
-export function initSimplyPrint(apiKey: string) {
-  simplyPrintInstance = new SimplyPrintAPI({ apiKey });
+export function initSimplyPrint(apiKey: string, proxyUrl?: string) {
+  simplyPrintInstance = new SimplyPrintAPI({ apiKey, proxyUrl });
   return simplyPrintInstance;
 }
 
