@@ -291,27 +291,32 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
     }
   }, []);
 
+  // Sync with prop changes from parent
+  useEffect(() => {
+    setPrinters(initialPrinters);
+  }, [initialPrinters]);
+
   const fetchSimplyPrintPrinters = async () => {
     setIsLoading(true);
     const api = getSimplyPrint();
     if (api) {
       const spPrinters = await api.getPrinters();
-      // Convert SimplyPrint printers to our format
+      // The proxy already returns data in the correct flat format
       const convertedPrinters: Printer[] = spPrinters.map((sp: any) => ({
-        id: sp.id,
+        id: sp.id?.toString(),
         name: sp.name,
         status: sp.status,
-        temp: sp.temperature?.nozzle,
-        targetTemp: sp.temperature?.targetNozzle,
-        bedTemp: sp.temperature?.bed,
-        targetBedTemp: sp.temperature?.targetBed,
-        job: sp.currentJob ? {
-          name: sp.currentJob.name,
-          progress: sp.currentJob.progress,
-          timeLeft: sp.currentJob.timeLeft,
-          layer: sp.currentJob.layer,
+        temp: sp.temp || 0,
+        targetTemp: sp.targetTemp || 0,
+        bedTemp: sp.bedTemp || 0,
+        targetBedTemp: sp.targetBedTemp || 0,
+        job: sp.job ? {
+          name: sp.job.file || sp.job.name,
+          progress: sp.job.percentage || sp.progress || 0,
+          timeLeft: sp.job.time,
+          layer: sp.job.layer,
         } : undefined,
-        lastSeen: sp.lastSeen,
+        lastSeen: sp.lastSeen || new Date().toISOString(),
       }));
       setPrinters(convertedPrinters);
     }
