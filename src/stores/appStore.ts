@@ -15,6 +15,27 @@ interface Task {
   status: 'pending' | 'in-progress' | 'completed';
   createdBy: 'user' | 'agent';
   createdAt: string;
+  projectId?: string;
+}
+
+interface ProjectTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  priority: 'low' | 'medium' | 'high';
+}
+
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  status: 'active' | 'completed' | 'on-hold';
+  progress: number;
+  tasksCompleted: number;
+  tasksTotal: number;
+  dueDate?: string;
+  tags: string[];
+  tasks: ProjectTask[];
 }
 
 interface Notification {
@@ -27,38 +48,31 @@ interface Notification {
 }
 
 interface AppState {
-  // Agent
   agent: AgentState | null;
-  
-  // Tasks
   tasks: {
     pending: Task[];
     inProgress: Task[];
     completed: Task[];
   };
-  
-  // Notifications
   notifications: Notification[];
   unreadCount: number;
-  
-  // Data
   printers: any[];
   revenue: any;
   priorities: any[];
-  projects: any[];
+  projects: Project[];
   
-  // Actions
   setAgent: (agent: AgentState) => void;
   addTask: (task: Omit<Task, 'id'>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+  addProject: (project: Omit<Project, 'id'>) => Promise<void>;
+  updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
+  addProjectTask: (projectId: string, task: Omit<ProjectTask, 'id'>) => Promise<void>;
+  toggleProjectTask: (projectId: string, taskId: string) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
-  
-  // Firebase subscriptions
   initSubscriptions: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  // Initial state
   agent: null,
   tasks: { pending: [], inProgress: [], completed: [] },
   notifications: [],
@@ -68,7 +82,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   priorities: [],
   projects: [],
   
-  // Actions
   setAgent: (agent) => {
     set({ agent });
     setData('v6/agent', agent);
@@ -79,7 +92,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   updateTask: async (id, updates) => {
-    // Find which list the task is in
     const { tasks } = get();
     let path = '';
     
@@ -92,18 +104,55 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   
+  addProject: async (project) => {
+    await pushData('v6/data/projects', project);
+  },
+  
+  updateProject: async (id, updates) => {
+    await updateData(`v6/data/projects/${id}`, updates);
+  },
+  
+  addProjectTask: async (projectId, task) => {
+    const { projects } = get();
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      const newTask = { ...task, id: Date.now().toString() };
+      const updatedTasks = [...project.tasks, newTask];
+      await updateData(`v6/data/projects/${projectId}`, {
+        tasks: updatedTasks,
+        tasksTotal: updatedTasks.length,
+      });
+    }
+  },
+  
+  toggleProjectTask: async (projectId, taskId) => {
+    const { projects } = get();
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      const updatedTasks = project.tasks.map(t =>
+        t.id === taskId ? { ...t, completed: !t.completed } : t
+      );
+      const completedCount = updatedTasks.filter(t => t.completed).length;
+      const progress = Math.round((completedCount / updatedTasks.length) * 100);
+      
+      await updateData(`v6/data/projects/${projectId}`, {
+        tasks: updatedTasks,
+        tasksCompleted: completedCount,
+        progress,
+        status: progress === 100 ? 'completed' : project.status,
+      });
+    }
+  },
+  
   markNotificationRead: async (id) => {
     await updateData(`v6/notifications/${id}`, { read: true });
   },
   
-  // Initialize Firebase subscriptions
   initSubscriptions: () => {
-    // Subscribe to agent status
     subscribeToData('v6/agent', (data) => {
       if (data) set({ agent: data });
     });
     
-    // Subscribe to tasks
     subscribeToData('v6/tasks', (data) => {
       if (data) {
         set({
@@ -116,7 +165,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     });
     
-    // Subscribe to notifications
     subscribeToData('v6/notifications', (data) => {
       if (data) {
         const notifications = Object.values(data) as Notification[];
@@ -127,7 +175,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     });
     
-    // Subscribe to V5 data (for migration/parity)
+    subscribeToData('v6/data/projects', (data) => {
+      if (data) set({ projects: Object.values(data) });
+    });
+    
     subscribeToData('data/printers', (data) => {
       if (data) set({ printers: Object.values(data) });
     });
@@ -138,10 +189,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     subscribeToData('data/priorities', (data) => {
       if (data) set({ priorities: Object.values(data) });
-    });
-    
-    subscribeToData('data/projects', (data) => {
-      if (data) set({ projects: Object.values(data) });
     });
   }
 }));
