@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { SimplyPrintSettings } from './settings/SimplyPrintSettings';
 
 interface FirebaseConfig {
   apiKey: string;
@@ -201,6 +202,8 @@ export function SettingsPage() {
           <li>Copy the firebaseConfig values</li>
         </ol>
       </div>
+
+      <SimplyPrintSettings />
     </div>
   );
 }
