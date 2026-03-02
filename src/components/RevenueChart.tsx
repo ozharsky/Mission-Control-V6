@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { 
   TrendingUp, TrendingDown, DollarSign, ShoppingCart, Calendar, 
-  BarChart3, Table, Plus, X, ChevronLeft, ChevronRight, Target 
+  BarChart3, Table, Plus, X, Upload, Download, FileText
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { setData } from '../lib/firebase';
+import { parseEtsyCSV, readFile, aggregateRevenueByMonth, downloadTemplate } from '../lib/csv';
 
 interface RevenueData {
   month: string;
@@ -62,12 +63,16 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
   const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m' | 'all'>('6m');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<RevenueData | null>(null);
   const [newEntry, setNewEntry] = useState({
     month: new Date().toISOString().slice(0, 7), // YYYY-MM
     value: '',
     orders: '',
   });
+  const [importPreview, setImportPreview] = useState<{ month: string; value: number; orders: number }[] | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredData = useMemo(() => {
     if (timeRange === 'all') return data;
@@ -282,13 +287,21 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
             >
               <Plus className="h-4 w-4" />
               Add Entry
+            </button>
+
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 rounded-lg border border-surface-hover px-4 py-2 text-sm font-medium hover:bg-surface-hover"
+            >
+              <Upload className="h-4 w-4" />
+              Import CSV
             </button>
 
             <div className="flex rounded-lg border border-surface-hover">
@@ -437,6 +450,129 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
           </div>
         )}
       </div>
+
+      {/* CSV Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-surface-hover bg-surface p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-semibold">Import Revenue CSV</h3>
+              <button 
+                onClick={() => { setShowImportModal(false); setImportPreview(null); }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {!importPreview ? (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-400">
+                  Upload an Etsy Orders CSV or a simple revenue CSV. 
+                  The file should have columns for date, revenue, and orders.
+                </p>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => downloadTemplate('etsy')}
+                    className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover"
+                  >
+                    <Download className="h-4 w-4" />
+                    Etsy Template
+                  </button>
+                  <button
+                    onClick={() => downloadTemplate('revenue')}
+                    className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover"
+                  >
+                    <Download className="h-4 w-4" />
+                    Simple Template
+                  </button>
+                </div>
+
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="cursor-pointer rounded-xl border-2 border-dashed border-surface-hover bg-background p-8 text-center transition-colors hover:border-primary"
+                >
+                  <Upload className="mx-auto mb-2 h-8 w-8 text-gray-500" />
+                  <p className="text-sm text-gray-400">Click to select CSV file</p>
+                  <p className="text-xs text-gray-600">or drag and drop</p>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    try {
+                      const text = await readFile(file);
+                      const orders = parseEtsyCSV(text);
+                      const aggregated = aggregateRevenueByMonth(orders);
+                      setImportPreview(aggregated);
+                    } catch (err) {
+                      alert('Failed to parse CSV. Please check the format.');
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-400">
+                  Preview of data to import ({importPreview.length} months):
+                </p>
+
+                <div className="max-h-64 overflow-y-auto rounded-xl border border-surface-hover">
+                  <table className="w-full text-sm">
+                    <thead className="bg-surface-hover">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Month</th>
+                        <th className="px-4 py-2 text-right">Revenue</th>
+                        <th className="px-4 py-2 text-right">Orders</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.map((row) => (
+                        <tr key={row.month} className="border-t border-surface-hover">
+                          <td className="px-4 py-2">{row.month}</td>
+                          <td className="px-4 py-2 text-right">{formatCurrency(row.value)}</td>
+                          <td className="px-4 py-2 text-right">{row.orders}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setImportPreview(null)}
+                    className="flex-1 rounded-xl border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setIsImporting(true);
+                      for (const row of importPreview) {
+                        await setData(`v6/data/revenue/${row.month}`, row);
+                      }
+                      setIsImporting(false);
+                      setShowImportModal(false);
+                      setImportPreview(null);
+                    }}
+                    disabled={isImporting}
+                    className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+                  >
+                    {isImporting ? 'Importing...' : `Import ${importPreview.length} Entries`}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
