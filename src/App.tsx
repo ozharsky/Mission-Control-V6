@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from './stores/appStore';
 import { initTheme } from './stores/themeStore';
+import { initSimplyPrint, getSimplyPrint } from './lib/simplyprint';
 import { Navigation } from './components/Navigation';
 import { AgentPanel } from './components/AgentPanel';
 import { TaskBoard } from './components/TaskBoard';
@@ -23,15 +24,57 @@ function App() {
     unreadCount, 
     printers, 
     revenue,
-    projects 
+    projects,
+    setPrinters
   } = useAppStore();
   
   const [activeSection, setActiveSection] = useState('dashboard');
-
+  
   useEffect(() => {
     initSubscriptions();
     initTheme();
+    
+    // Initialize SimplyPrint on app load if API key exists
+    const apiKey = localStorage.getItem('simplyprint_api_key');
+    const proxyUrl = localStorage.getItem('simplyprint_proxy_url');
+    if (apiKey) {
+      initSimplyPrint(apiKey, proxyUrl || undefined);
+      fetchLivePrinters();
+    }
   }, []);
+  
+  const fetchLivePrinters = async () => {
+    const api = getSimplyPrint();
+    if (api) {
+      const printerList = await api.getPrinters();
+      // Transform SimplyPrint data to match component format
+      const transformed = printerList.map((printer: any) => {
+        const temps = printer.temps || printer.temperature || {};
+        const current = temps.current || {};
+        const target = temps.target || {};
+        const toolTemp = Array.isArray(current.tool) ? current.tool[0] : current.tool;
+        const targetToolTemp = Array.isArray(target.tool) ? target.tool[0] : target.tool;
+        
+        return {
+          id: printer.id,
+          name: printer.printer?.name || printer.name,
+          status: printer.printer?.state || printer.status,
+          temp: toolTemp || 0,
+          targetTemp: targetToolTemp || 0,
+          bedTemp: current.bed || 0,
+          targetBedTemp: target.bed || 0,
+          job: printer.job ? {
+            name: printer.job.file,
+            progress: printer.job.percentage,
+            timeLeft: printer.job.time,
+            layer: printer.job.layer
+          } : undefined,
+          lastSeen: new Date().toISOString()
+        };
+      });
+      setPrinters(transformed);
+    }
+  };
 
   const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => ({
     month,

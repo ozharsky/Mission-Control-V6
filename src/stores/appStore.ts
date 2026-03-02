@@ -62,6 +62,7 @@ interface AppState {
   projects: Project[];
   
   setAgent: (agent: AgentState) => void;
+  setPrinters: (printers: any[]) => void;
   addTask: (task: Omit<Task, 'id'>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
@@ -85,6 +86,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setAgent: (agent) => {
     set({ agent });
     setData('v6/agent', agent);
+  },
+  
+  setPrinters: (printers) => {
+    set({ printers });
   },
   
   addTask: async (task) => {
@@ -180,9 +185,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     
     subscribeToData('data/printers', (data) => {
-      if (data) {
+      // Only use Firebase data if we don't have live SimplyPrint data
+      const { printers } = get();
+      if (data && printers.length === 0) {
         // Transform printer data to match component expectations
-        const printers = Object.values(data).map((printer: any) => {
+        const printersList = Object.values(data).map((printer: any) => {
           // Extract temps from SimplyPrint API format
           const temps = printer.temps || printer.temperature || {};
           const current = temps.current || {};
@@ -200,7 +207,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             targetBedTemp: target.bed ?? printer.targetBedTemp ?? 0,
           };
         });
-        set({ printers });
+        set({ printers: printersList });
       }
     });
     
