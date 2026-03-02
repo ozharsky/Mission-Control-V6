@@ -97,7 +97,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   addTask: async (task) => {
-    await pushData('v6/tasks/pending', task);
+    // Remove undefined values before saving to Firebase
+    const cleanTask = Object.fromEntries(
+      Object.entries(task).filter(([_, v]) => v !== undefined)
+    );
+    await pushData('v6/tasks/pending', cleanTask);
   },
   
   updateTask: async (id, updates) => {
