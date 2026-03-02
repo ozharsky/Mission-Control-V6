@@ -180,7 +180,28 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     
     subscribeToData('data/printers', (data) => {
-      if (data) set({ printers: Object.values(data) });
+      if (data) {
+        // Transform printer data to match component expectations
+        const printers = Object.values(data).map((printer: any) => {
+          // Extract temps from SimplyPrint API format
+          const temps = printer.temps || printer.temperature || {};
+          const current = temps.current || {};
+          const target = temps.target || {};
+          
+          // Handle tool array or single value
+          const toolTemp = Array.isArray(current.tool) ? current.tool[0] : current.tool;
+          const targetToolTemp = Array.isArray(target.tool) ? target.tool[0] : target.tool;
+          
+          return {
+            ...printer,
+            temp: toolTemp ?? printer.temp ?? 0,
+            targetTemp: targetToolTemp ?? printer.targetTemp ?? 0,
+            bedTemp: current.bed ?? printer.bedTemp ?? 0,
+            targetBedTemp: target.bed ?? printer.targetBedTemp ?? 0,
+          };
+        });
+        set({ printers });
+      }
     });
     
     subscribeToData('data/revenueHistory', (data) => {
