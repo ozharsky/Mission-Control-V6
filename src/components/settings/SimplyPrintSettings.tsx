@@ -15,9 +15,9 @@ export function SimplyPrintSettings() {
     const savedKey = localStorage.getItem('simplyprint_api_key');
     let savedProxy = localStorage.getItem('simplyprint_proxy_url');
     
-    // Fix old proxy URLs that might be missing protocol
-    if (savedProxy && !savedProxy.startsWith('http')) {
-      savedProxy = 'https://' + savedProxy;
+    // Fix old proxy URLs - strip any query parameters
+    if (savedProxy) {
+      savedProxy = savedProxy.split('?')[0];
       localStorage.setItem('simplyprint_proxy_url', savedProxy);
     }
     
@@ -42,8 +42,8 @@ export function SimplyPrintSettings() {
 
   const handleSave = () => {
     if (apiKey.trim()) {
-      // Ensure proxy URL has protocol
-      let fixedProxyUrl = proxyUrl.trim();
+      // Strip any query parameters from proxy URL
+      let fixedProxyUrl = proxyUrl.trim().split('?')[0];
       if (fixedProxyUrl && !fixedProxyUrl.startsWith('http')) {
         fixedProxyUrl = 'https://' + fixedProxyUrl;
       }
