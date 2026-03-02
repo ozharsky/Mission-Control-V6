@@ -79,7 +79,7 @@ function App() {
     month,
     value: data.value || 0,
     orders: data.orders || 0
-  })) : [];
+  })).sort((a, b) => a.month.localeCompare(b.month)) : [];
 
   const renderSection = () => {
     switch (activeSection) {

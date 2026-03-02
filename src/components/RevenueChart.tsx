@@ -139,7 +139,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
     };
   }, [filteredData, goal]);
 
-  const maxValue = Math.max(...filteredData.map(d => d.value), goal * 1.1);
+  const maxValue = Math.max(...filteredData.map(d => d.value), goal * 1.1, 100); // Minimum 100 to prevent division by zero
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -371,7 +371,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         {viewMode === 'chart' ? (
           filteredData.length > 0 ? (
             <>
-              <div className="flex items-end gap-2">
+              <div className="flex items-end gap-2" style={{ minHeight: '200px' }}>
                 {filteredData.map((item) => {
                   const height = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
                   const isGoalMet = item.value >= goal;
