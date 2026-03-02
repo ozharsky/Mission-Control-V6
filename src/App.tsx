@@ -47,18 +47,26 @@ function App() {
     const api = getSimplyPrint();
     if (api) {
       const printerList = await api.getPrinters();
+      console.log('Raw printer data:', printerList);
+      
       // Transform SimplyPrint data to match component format
       const transformed = printerList.map((printer: any) => {
-        const temps = printer.temps || printer.temperature || {};
+        // SimplyPrint API nests printer data under "printer" key
+        const printerData = printer.printer || printer;
+        const temps = printerData.temps || {};
         const current = temps.current || {};
         const target = temps.target || {};
+        
+        // Handle tool array or single value
         const toolTemp = Array.isArray(current.tool) ? current.tool[0] : current.tool;
         const targetToolTemp = Array.isArray(target.tool) ? target.tool[0] : target.tool;
         
+        console.log('Processing printer:', printerData.name, 'temps:', { toolTemp, bed: current.bed });
+        
         return {
-          id: printer.id,
-          name: printer.printer?.name || printer.name,
-          status: printer.printer?.state || printer.status,
+          id: printer.id?.toString() || printer.printer?.id,
+          name: printerData.name || 'Unknown Printer',
+          status: printerData.state || 'offline',
           temp: toolTemp || 0,
           targetTemp: targetToolTemp || 0,
           bedTemp: current.bed || 0,
