@@ -49,31 +49,27 @@ function App() {
       const printerList = await api.getPrinters();
       console.log('Raw printer data:', printerList);
       
-      // Transform SimplyPrint data to match component format
+      // The proxy already returns data in the correct format
+      // { printers: [{ id, name, status, temp, targetTemp, bedTemp, targetBedTemp, ... }] }
       const transformed = printerList.map((printer: any) => {
-        // SimplyPrint API nests printer data under "printer" key
-        const printerData = printer.printer || printer;
-        const temps = printerData.temps || {};
-        const current = temps.current || {};
-        const target = temps.target || {};
-        
-        // Handle tool array or single value
-        const toolTemp = Array.isArray(current.tool) ? current.tool[0] : current.tool;
-        const targetToolTemp = Array.isArray(target.tool) ? target.tool[0] : target.tool;
-        
-        console.log('Processing printer:', printerData.name, 'temps:', { toolTemp, bed: current.bed });
+        console.log('Processing printer:', printer.name, 'temps:', { 
+          temp: printer.temp, 
+          targetTemp: printer.targetTemp,
+          bedTemp: printer.bedTemp,
+          targetBedTemp: printer.targetBedTemp 
+        });
         
         return {
-          id: printer.id?.toString() || printer.printer?.id,
-          name: printerData.name || 'Unknown Printer',
-          status: printerData.state || 'offline',
-          temp: toolTemp || 0,
-          targetTemp: targetToolTemp || 0,
-          bedTemp: current.bed || 0,
-          targetBedTemp: target.bed || 0,
+          id: printer.id?.toString(),
+          name: printer.name || 'Unknown Printer',
+          status: printer.status || 'offline',
+          temp: printer.temp || 0,
+          targetTemp: printer.targetTemp || 0,
+          bedTemp: printer.bedTemp || 0,
+          targetBedTemp: printer.targetBedTemp || 0,
           job: printer.job ? {
-            name: printer.job.file,
-            progress: printer.job.percentage,
+            name: printer.job.file || printer.job.name,
+            progress: printer.job.percentage || printer.progress || 0,
             timeLeft: printer.job.time,
             layer: printer.job.layer
           } : undefined,
