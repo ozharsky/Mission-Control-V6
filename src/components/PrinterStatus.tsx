@@ -27,13 +27,13 @@ interface PrinterStatusProps {
   lastUpdate?: number;
 }
 
-// Printer images mapping
+// Printer images mapping - served from public folder
 const PRINTER_IMAGES: Record<string, string> = {
-  'P2S': './images/p2s.png',
-  'P1S': './images/p1s.png',
-  'Centauri Carbon': './images/centauri-carbon.png',
-  'A1 Mini': './images/a1-mini.png',
-  'X1 Carbon': './images/x1-carbon.png',
+  'P2S': '/images/p2s.png',
+  'P1S': '/images/p1s.png',
+  'Centauri Carbon': '/images/centauri-carbon.png',
+  'A1 Mini': '/images/a1-mini.png',
+  'X1 Carbon': '/images/x1-carbon.png',
 };
 
 const PRINTER_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMxYTFhMjUiLz48cGF0aCBkPSJNNTAgMTUwTDEwMCA1MEwxNTAgMTUwSDUwWiIgc3Ryb2tlPSIjMzMzIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48cmVjdCB4PSI3NSIgeT0iMTAwIiB3aWR0aD0iNTAiIGhlaWdodD0iNjAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSIxMDAiIHk9IjE4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY0NzQ4YiIgZm9udC1zaXplPSIxNCI+UHJpbnRlcjwvdGV4dD48L3N2Zz4=';
