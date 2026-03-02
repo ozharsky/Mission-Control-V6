@@ -14,21 +14,39 @@ function getFirebaseConfig() {
   };
 }
 
-// Initialize Firebase only if config exists
-const config = getFirebaseConfig();
+// Initialize Firebase only if configured
 let app: any = null;
 let db: any = null;
 
-if (config.apiKey && config.databaseURL) {
-  app = initializeApp(config);
-  db = getDatabase(app);
-} else {
-  console.warn('Firebase not configured. Please set credentials in Settings.');
+export function initFirebase() {
+  const config = getFirebaseConfig();
+  
+  if (!config.databaseURL) {
+    console.log('⚠️ Firebase not configured - set credentials in Settings');
+    return null;
+  }
+  
+  try {
+    app = initializeApp(config);
+    db = getDatabase(app);
+    console.log('✅ Firebase initialized');
+    return { app, db };
+  } catch (error) {
+    console.error('❌ Firebase initialization failed:', error);
+    return null;
+  }
+}
+
+// Auto-initialize
+const firebase = initFirebase();
+if (firebase) {
+  app = firebase.app;
+  db = firebase.db;
 }
 
 export { db };
 
-// Helper functions with null checks
+// Helper functions
 export const subscribeToData = (path: string, callback: (data: any) => void) => {
   if (!db) {
     console.warn('Firebase not initialized');
@@ -41,28 +59,19 @@ export const subscribeToData = (path: string, callback: (data: any) => void) => 
 };
 
 export const updateData = (path: string, data: any) => {
-  if (!db) {
-    console.warn('Firebase not initialized');
-    return Promise.reject('Firebase not initialized');
-  }
+  if (!db) return Promise.reject('Firebase not initialized');
   const dataRef = ref(db, path);
   return update(dataRef, data);
 };
 
 export const setData = (path: string, data: any) => {
-  if (!db) {
-    console.warn('Firebase not initialized');
-    return Promise.reject('Firebase not initialized');
-  }
+  if (!db) return Promise.reject('Firebase not initialized');
   const dataRef = ref(db, path);
   return set(dataRef, data);
 };
 
 export const pushData = (path: string, data: any) => {
-  if (!db) {
-    console.warn('Firebase not initialized');
-    return Promise.reject('Firebase not initialized');
-  }
+  if (!db) return Promise.reject('Firebase not initialized');
   const dataRef = ref(db, path);
   return push(dataRef, data);
 };
