@@ -1,26 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, CheckCircle, Circle, Clock, Calendar, User, X } from 'lucide-react';
+import { ArrowLeft, Plus, CheckCircle, Circle, Clock, Calendar } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
-
-interface ProjectTask {
-  id: string;
-  title: string;
-  completed: boolean;
-  priority: 'low' | 'medium' | 'high';
-}
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: 'active' | 'completed' | 'on-hold';
-  progress: number;
-  tasksCompleted: number;
-  tasksTotal: number;
-  dueDate?: string;
-  tags: string[];
-  tasks: ProjectTask[];
-}
+import type { Project } from '../types';
 
 interface ProjectDetailsProps {
   project: Project;

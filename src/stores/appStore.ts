@@ -1,51 +1,7 @@
 import { create } from 'zustand';
 import { subscribeToData, updateData, setData, pushData } from '../lib/firebase';
-
-interface AgentState {
-  status: 'online' | 'offline' | 'busy';
-  currentTask: string;
-  lastSeen: string;
-  model: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  priority: 'low' | 'medium' | 'high';
-  status: 'pending' | 'in-progress' | 'completed';
-  createdBy: 'user' | 'agent';
-  createdAt: string;
-  projectId?: string;
-}
-
-interface ProjectTask {
-  id: string;
-  title: string;
-  completed: boolean;
-  priority: 'low' | 'medium' | 'high';
-}
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: 'active' | 'completed' | 'on-hold';
-  progress: number;
-  tasksCompleted: number;
-  tasksTotal: number;
-  dueDate?: string;
-  tags: string[];
-  tasks: ProjectTask[];
-}
-
-interface Notification {
-  id: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-  title: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-}
+import type { Task, Project, ProjectTask, Notification, AgentState } from '../types';
+import { cleanForFirebase } from '../types';
 
 interface AppState {
   agent: AgentState | null;
@@ -61,7 +17,7 @@ interface AppState {
   priorities: any[];
   projects: Project[];
   _lastPrinterUpdate?: number;
-  
+
   setAgent: (agent: AgentState) => void;
   setPrinters: (printers: any[]) => void;
   addTask: (task: Omit<Task, 'id'>) => Promise<void>;
@@ -86,44 +42,41 @@ export const useAppStore = create<AppState>((set, get) => ({
   priorities: [],
   projects: [],
   _lastPrinterUpdate: 0,
-  
+
   setAgent: (agent) => {
     set({ agent });
     setData('v6/agent', agent);
   },
-  
+
   setPrinters: (printers) => {
     set({ printers, _lastPrinterUpdate: Date.now() });
   },
-  
+
   addTask: async (task) => {
-    // Remove undefined values before saving to Firebase
-    const cleanTask = Object.fromEntries(
-      Object.entries(task).filter(([_, v]) => v !== undefined)
-    );
+    const cleanTask = cleanForFirebase(task);
     await pushData('v6/tasks/pending', cleanTask);
   },
-  
+
   updateTask: async (id, updates) => {
     const { tasks } = get();
     let path = '';
-    
+
     if (tasks.pending.find(t => t.id === id)) path = 'v6/tasks/pending/' + id;
     else if (tasks.inProgress.find(t => t.id === id)) path = 'v6/tasks/inProgress/' + id;
     else if (tasks.completed.find(t => t.id === id)) path = 'v6/tasks/completed/' + id;
-    
+
     if (path) {
       await updateData(path, updates);
     }
   },
-  
+
   moveTask: async (id, fromStatus, toStatus) => {
     const { tasks } = get();
-    
+
     // Find the task
     let task: Task | undefined;
     let fromPath = '';
-    
+
     if (fromStatus === 'pending') {
       task = tasks.pending.find(t => t.id === id);
       fromPath = 'v6/tasks/pending/' + id;
@@ -134,36 +87,36 @@ export const useAppStore = create<AppState>((set, get) => ({
       task = tasks.completed.find(t => t.id === id);
       fromPath = 'v6/tasks/completed/' + id;
     }
-    
+
     if (!task) return;
-    
+
     // Delete from old location
     await setData(fromPath, null);
-    
+
     // Add to new location with updated status
     const updatedTask = { ...task, status: toStatus };
-    const toPath = toStatus === 'pending' ? 'v6/tasks/pending' : 
-                   toStatus === 'in-progress' ? 'v6/tasks/inProgress' : 
+    const toPath = toStatus === 'pending' ? 'v6/tasks/pending' :
+                   toStatus === 'in-progress' ? 'v6/tasks/inProgress' :
                    'v6/tasks/completed';
-    
+
     await pushData(toPath, updatedTask);
   },
-  
+
   deleteTask: async (id, status) => {
     const path = status === 'pending' ? `v6/tasks/pending/${id}` :
                  status === 'in-progress' ? `v6/tasks/inProgress/${id}` :
                  `v6/tasks/completed/${id}`;
     await setData(path, null);
   },
-  
+
   addProject: async (project) => {
     await pushData('v6/data/projects', project);
   },
-  
+
   updateProject: async (id, updates) => {
     await updateData(`v6/data/projects/${id}`, updates);
   },
-  
+
   addProjectTask: async (projectId, task) => {
     const { projects } = get();
     const project = projects.find(p => p.id === projectId);
@@ -176,7 +129,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     }
   },
-  
+
   toggleProjectTask: async (projectId, taskId) => {
     const { projects } = get();
     const project = projects.find(p => p.id === projectId);
@@ -186,7 +139,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       );
       const completedCount = updatedTasks.filter(t => t.completed).length;
       const progress = Math.round((completedCount / updatedTasks.length) * 100);
-      
+
       await updateData(`v6/data/projects/${projectId}`, {
         tasks: updatedTasks,
         tasksCompleted: completedCount,
@@ -195,16 +148,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     }
   },
-  
+
   markNotificationRead: async (id) => {
     await updateData(`v6/notifications/${id}`, { read: true });
   },
-  
+
   initSubscriptions: () => {
     subscribeToData('v6/agent', (data) => {
       if (data) set({ agent: data });
     });
-    
+
     subscribeToData('v6/tasks', (data) => {
       if (data) {
         set({
@@ -216,7 +169,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
       }
     });
-    
+
     subscribeToData('v6/notifications', (data) => {
       if (data) {
         const notifications = Object.values(data) as Notification[];
@@ -226,24 +179,24 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
       }
     });
-    
+
     subscribeToData('v6/data/projects', (data) => {
       if (data) set({ projects: Object.values(data) });
     });
-    
+
     subscribeToData('data/printers', (data) => {
       // Skip Firebase printer data if SimplyPrint API is configured
       const simplyPrintKey = localStorage.getItem('simplyprint_api_key');
       if (simplyPrintKey) {
         return; // Use live SimplyPrint data instead
       }
-      
+
       // Also skip if we recently got live data (within last 5 seconds)
       const { _lastPrinterUpdate } = get();
       if (_lastPrinterUpdate && Date.now() - _lastPrinterUpdate < 5000) {
         return;
       }
-      
+
       if (data) {
         // Transform printer data to match component expectations
         const printersList = Object.values(data).map((printer: any) => {
@@ -251,11 +204,11 @@ export const useAppStore = create<AppState>((set, get) => ({
           const temps = printer.temps || printer.temperature || {};
           const current = temps.current || {};
           const target = temps.target || {};
-          
+
           // Handle tool array or single value
           const toolTemp = Array.isArray(current.tool) ? current.tool[0] : current.tool;
           const targetToolTemp = Array.isArray(target.tool) ? target.tool[0] : target.tool;
-          
+
           return {
             ...printer,
             temp: toolTemp ?? printer.temp ?? 0,
@@ -267,11 +220,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ printers: printersList });
       }
     });
-    
+
     subscribeToData('data/revenueHistory', (data) => {
       if (data) set({ revenue: data });
     });
-    
+
     subscribeToData('data/priorities', (data) => {
       if (data) set({ priorities: Object.values(data) });
     });

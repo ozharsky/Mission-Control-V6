@@ -4,20 +4,7 @@ import {
   ArrowRight, ArrowLeft, Trash2, Edit2, X, User, Bot 
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
-
-interface Task {
-  id: string;
-  title: string;
-  priority: 'low' | 'medium' | 'high';
-  status: 'pending' | 'in-progress' | 'completed';
-  createdBy: 'user' | 'agent';
-  createdAt: string;
-  tags?: string[];
-  description?: string;
-  dueDate?: string;
-  projectId?: string;
-  assignee?: 'Oleg' | 'KimiClaw' | null;
-}
+import type { Task } from '../types';
 
 interface Project {
   id: string;

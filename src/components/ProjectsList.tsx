@@ -2,26 +2,7 @@ import { useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { Plus, X, ArrowRight } from 'lucide-react';
 import { ProjectDetails } from './ProjectDetails';
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: 'active' | 'completed' | 'on-hold';
-  progress: number;
-  tasksCompleted: number;
-  tasksTotal: number;
-  dueDate?: string;
-  tags: string[];
-  tasks: ProjectTask[];
-}
-
-interface ProjectTask {
-  id: string;
-  title: string;
-  completed: boolean;
-  priority: 'low' | 'medium' | 'high';
-}
+import type { Project, ProjectTask } from '../types';
 
 interface ProjectsListProps {
   projects: Project[];
