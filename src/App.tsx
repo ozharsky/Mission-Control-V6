@@ -117,6 +117,9 @@ function App() {
       case 'files':
         return <FileManager />;
 
+      case 'agent':
+        return <AgentPanel />;
+
       case 'settings':
         return <SettingsPage />;
 
