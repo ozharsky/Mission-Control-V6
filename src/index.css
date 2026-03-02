@@ -33,3 +33,36 @@ body {
 * {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
+
+/* Light mode text color overrides */
+:root.light .text-white {
+  color: var(--text-primary);
+}
+
+:root.light .text-gray-400 {
+  color: var(--text-secondary);
+}
+
+:root.light .text-gray-500 {
+  color: var(--text-muted);
+}
+
+:root.light .text-gray-600 {
+  color: #495057;
+}
+
+:root.light .border-surface-hover {
+  border-color: var(--border-color);
+}
+
+:root.light .bg-surface {
+  background-color: var(--bg-secondary);
+}
+
+:root.light .bg-surface-hover {
+  background-color: var(--bg-tertiary);
+}
+
+:root.light .bg-background {
+  background-color: var(--bg-primary);
+}
