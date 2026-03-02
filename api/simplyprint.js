@@ -1,7 +1,7 @@
-// SimplyPrint Proxy for CORS
-// Deploy this to Vercel as a serverless function
+// Vercel Serverless Function for SimplyPrint Proxy
+// This file should be at: api/simplyprint.js
 
-export default async function handler(req, res) {
+module.exports = (req, res) => {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { path } = req.query;
+  const path = req.query.path || '';
   const apiKey = req.headers.authorization?.replace('Bearer ', '');
 
   if (!apiKey) {
@@ -21,21 +21,42 @@ export default async function handler(req, res) {
     return;
   }
 
-  const targetUrl = `https://api.simplyprint.io/v1${path ? '/' + path : ''}`;
+  const targetUrl = `https://api.simplyprint.io/v1/${path}`;
 
-  try {
-    const response = await fetch(targetUrl, {
-      method: req.method,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+  // Use node-fetch or built-in https
+  const https = require('https');
+  const url = new URL(targetUrl);
+
+  const options = {
+    hostname: url.hostname,
+    path: url.pathname + url.search,
+    method: req.method,
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+  };
+
+  const proxyReq = https.request(options, (proxyRes) => {
+    let data = '';
+    proxyRes.on('data', (chunk) => data += chunk);
+    proxyRes.on('end', () => {
+      try {
+        const jsonData = JSON.parse(data);
+        res.status(proxyRes.statusCode).json(jsonData);
+      } catch (e) {
+        res.status(500).json({ error: 'Invalid JSON response', data });
+      }
     });
+  });
 
-    const data = await response.json();
-    res.status(response.status).json(data);
-  } catch (error) {
+  proxyReq.on('error', (error) => {
     res.status(500).json({ error: 'Proxy error', message: error.message });
+  });
+
+  if (req.method !== 'GET' && req.body) {
+    proxyReq.write(JSON.stringify(req.body));
   }
-}
+
+  proxyReq.end();
+};
