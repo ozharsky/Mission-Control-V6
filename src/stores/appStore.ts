@@ -60,6 +60,7 @@ interface AppState {
   revenue: any;
   priorities: any[];
   projects: Project[];
+  _lastPrinterUpdate?: number;
   
   setAgent: (agent: AgentState) => void;
   setPrinters: (printers: any[]) => void;
@@ -82,6 +83,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   revenue: null,
   priorities: [],
   projects: [],
+  _lastPrinterUpdate: 0,
   
   setAgent: (agent) => {
     set({ agent });
@@ -89,7 +91,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   setPrinters: (printers) => {
-    set({ printers });
+    set({ printers, _lastPrinterUpdate: Date.now() });
   },
   
   addTask: async (task) => {
@@ -189,6 +191,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       const simplyPrintKey = localStorage.getItem('simplyprint_api_key');
       if (simplyPrintKey) {
         return; // Use live SimplyPrint data instead
+      }
+      
+      // Also skip if we recently got live data (within last 5 seconds)
+      const { _lastPrinterUpdate } = get();
+      if (_lastPrinterUpdate && Date.now() - _lastPrinterUpdate < 5000) {
+        return;
       }
       
       if (data) {
