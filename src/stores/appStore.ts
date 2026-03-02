@@ -185,9 +185,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     
     subscribeToData('data/printers', (data) => {
-      // Only use Firebase data if we don't have live SimplyPrint data
-      const { printers } = get();
-      if (data && printers.length === 0) {
+      // Skip Firebase printer data if SimplyPrint API is configured
+      const simplyPrintKey = localStorage.getItem('simplyprint_api_key');
+      if (simplyPrintKey) {
+        return; // Use live SimplyPrint data instead
+      }
+      
+      if (data) {
         // Transform printer data to match component expectations
         const printersList = Object.values(data).map((printer: any) => {
           // Extract temps from SimplyPrint API format
