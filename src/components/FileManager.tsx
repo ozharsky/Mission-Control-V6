@@ -239,8 +239,13 @@ export function FileManager({ projectId }: FileManagerProps) {
         });
         
         if (uploadedFile) {
+          // Remove undefined values before saving to Firebase
+          const fileData = { ...uploadedFile };
+          if (!fileData.projectId) delete (fileData as any).projectId;
+          if (!fileData.category) delete (fileData as any).category;
+          
           // Save to Firebase Realtime Database
-          await setData(`v6/files/${uploadedFile.id}`, uploadedFile);
+          await setData(`v6/files/${uploadedFile.id}`, fileData);
           uploadedFiles.push(uploadedFile);
         }
         
