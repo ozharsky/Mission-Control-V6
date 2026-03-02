@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Zap, Moon, AlertCircle, CheckCircle, Layers, Flame, Clock, MoreHorizontal, Settings, Power } from 'lucide-react';
+import { RefreshCw, Zap, Moon, AlertCircle, CheckCircle, Layers, Flame, Clock, MoreHorizontal, Settings, Power, Pause, Play, Square } from 'lucide-react';
+import { getSimplyPrint, SimplyPrintPrinter } from '../lib/simplyprint';
 
 interface PrinterJob {
   name: string;
@@ -88,10 +89,38 @@ function StatusBadge({ status }: { status: string }) {
 function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [isControlling, setIsControlling] = useState(false);
   const isPrinting = printer.status === 'printing';
   const hasJob = printer.job?.name;
   const timeLeft = printer.job?.timeLeft ? formatDuration(printer.job.timeLeft) : null;
   const imageUrl = PRINTER_IMAGES[printer.name] || PRINTER_PLACEHOLDER;
+
+  const handlePause = async () => {
+    setIsControlling(true);
+    const api = getSimplyPrint();
+    if (api) {
+      await api.pausePrint(printer.id);
+    }
+    setIsControlling(false);
+  };
+
+  const handleResume = async () => {
+    setIsControlling(true);
+    const api = getSimplyPrint();
+    if (api) {
+      await api.startPrint(printer.id, '');
+    }
+    setIsControlling(false);
+  };
+
+  const handleCancel = async () => {
+    setIsControlling(true);
+    const api = getSimplyPrint();
+    if (api) {
+      await api.cancelPrint(printer.id);
+    }
+    setIsControlling(false);
+  };
 
   return (
     <div
@@ -205,20 +234,40 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
 
         {/* Actions */}
         <div className="flex gap-2">
-          <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-surface-hover py-2.5 text-sm font-medium transition-colors hover:bg-surface-hover">
-            <Settings className="h-4 w-4"></Settings>
-            Details
-          </button>
-          
-          {printer.status === 'offline' || printer.status === 'error' ? (
-            <button className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-success py-2.5 text-sm font-medium text-white transition-colors hover:bg-success/80">
+          {isPrinting ? (
+            <>
+              <button 
+                onClick={handlePause}
+                disabled={isControlling}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-warning/30 bg-warning/10 py-2.5 text-sm font-medium text-warning transition-colors hover:bg-warning/20 disabled:opacity-50"
+              >
+                <Pause className="h-4 w-4"></Pause>
+                Pause
+              </button>
+              <button 
+                onClick={handleCancel}
+                disabled={isControlling}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-danger/30 bg-danger/10 py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/20 disabled:opacity-50"
+              >
+                <Square className="h-4 w-4"></Square>
+                Stop
+              </button>
+            </>
+          ) : printer.status === 'idle' || printer.status === 'operational' ? (
+            <>
+              <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-surface-hover py-2.5 text-sm font-medium transition-colors hover:bg-surface-hover">
+                <Settings className="h-4 w-4"></Settings>
+                Details
+              </button>
+              <button className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover">
+                <Zap className="h-4 w-4"></Zap>
+                Print
+              </button>
+            </>
+          ) : (
+            <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-2.5 text-sm font-medium text-white transition-colors hover:bg-success/80">
               <Power className="h-4 w-4"></Power>
               Connect
-            </button>
-          ) : (
-            <button className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover">
-              <Zap className="h-4 w-4"></Zap>
-              Print
             </button>
           )}
         </div>
@@ -227,8 +276,55 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
   );
 }
 
-export function PrinterStatus({ printers, onRefresh, lastUpdate }: PrinterStatusProps) {
+export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate }: PrinterStatusProps) {
   const [filter, setFilter] = useState<'all' | 'printing' | 'idle' | 'error'>('all');
+  const [printers, setPrinters] = useState<Printer[]>(initialPrinters);
+  const [isLoading, setIsLoading] = useState(false);
+  const [useSimplyPrint, setUseSimplyPrint] = useState(false);
+
+  // Check if SimplyPrint is configured
+  useEffect(() => {
+    const apiKey = localStorage.getItem('simplyprint_api_key');
+    setUseSimplyPrint(!!apiKey);
+    if (apiKey) {
+      fetchSimplyPrintPrinters();
+    }
+  }, []);
+
+  const fetchSimplyPrintPrinters = async () => {
+    setIsLoading(true);
+    const api = getSimplyPrint();
+    if (api) {
+      const spPrinters = await api.getPrinters();
+      // Convert SimplyPrint printers to our format
+      const convertedPrinters: Printer[] = spPrinters.map((sp: any) => ({
+        id: sp.id,
+        name: sp.name,
+        status: sp.status,
+        temp: sp.temperature?.nozzle,
+        targetTemp: sp.temperature?.targetNozzle,
+        bedTemp: sp.temperature?.bed,
+        targetBedTemp: sp.temperature?.targetBed,
+        job: sp.currentJob ? {
+          name: sp.currentJob.name,
+          progress: sp.currentJob.progress,
+          timeLeft: sp.currentJob.timeLeft,
+          layer: sp.currentJob.layer,
+        } : undefined,
+        lastSeen: sp.lastSeen,
+      }));
+      setPrinters(convertedPrinters);
+    }
+    setIsLoading(false);
+  };
+
+  const handleRefresh = () => {
+    if (useSimplyPrint) {
+      fetchSimplyPrintPrinters();
+    } else if (onRefresh) {
+      onRefresh();
+    }
+  };
 
   const onlineCount = printers.filter(p => 
     p.status === 'operational' || p.status === 'printing' || p.status === 'idle'
@@ -258,16 +354,22 @@ export function PrinterStatus({ printers, onRefresh, lastUpdate }: PrinterStatus
           </div>
 
           <div className="flex items-center gap-3">
-            {lastUpdate && (
+            {lastUpdate && !useSimplyPrint && (
               <span className="text-sm text-gray-500">
                 Updated {formatTimeAgo(lastUpdate)}
               </span>
             )}
+            {useSimplyPrint && (
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                SimplyPrint
+              </span>
+            )}
             <button
-              onClick={onRefresh}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white transition-all hover:bg-primary-hover hover:shadow-lg"
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white transition-all hover:bg-primary-hover hover:shadow-lg disabled:opacity-50"
             >
-              <RefreshCw className="h-4 w-4"></RefreshCw>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}></RefreshCw>
               Refresh
             </button>
           </div>
