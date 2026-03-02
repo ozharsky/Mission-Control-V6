@@ -260,9 +260,10 @@ export function FileManager({ projectId }: FileManagerProps) {
         }
         
         setUploadProgress(((i + 1) / fileList.length) * 100);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Upload failed:', error);
-        alert(`Failed to upload ${file.name}`);
+        const errorMessage = error?.message || 'Unknown error';
+        alert(`Failed to upload ${file.name}: ${errorMessage}`);
       }
     }
     
@@ -340,6 +341,7 @@ export function FileManager({ projectId }: FileManagerProps) {
               ref={fileInputRef}
               type="file"
               multiple
+              accept="*/*"
               className="hidden"
               onChange={handleFileSelect}
             />
