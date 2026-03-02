@@ -51,6 +51,7 @@ function FileCard({
 }) {
   const Icon = getFileIcon(file.type);
   const isImage = file.type.startsWith('image/');
+  const [imgError, setImgError] = useState(false);
 
   if (viewMode === 'list') {
     return (
@@ -104,7 +105,7 @@ function FileCard({
     <div className="group relative rounded-xl border border-surface-hover bg-background p-4 transition-all hover:border-primary hover:shadow-lg"
     >
       <div className="mb-3 aspect-square rounded-lg bg-surface overflow-hidden">
-        {isImage && file.thumbnailUrl ? (
+        {isImage && file.thumbnailUrl && !imgError ? (
           <a 
             href={file.url}
             target="_blank"
@@ -115,7 +116,8 @@ function FileCard({
               src={file.thumbnailUrl} 
               alt={file.name}
               className="h-full w-full object-cover"
-              crossOrigin="anonymous"
+              onError={() => setImgError(true)}
+              loading="lazy"
             />
           </a>
         ) : (
