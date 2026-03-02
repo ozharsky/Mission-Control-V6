@@ -4,12 +4,13 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        background: '#0f0f1a',
-        surface: '#1a1a2e',
-        'surface-hover': '#252542',
+        background: 'var(--bg-primary)',
+        surface: 'var(--bg-secondary)',
+        'surface-hover': 'var(--bg-tertiary)',
         primary: {
           DEFAULT: '#6366f1',
           hover: '#4f46e5',
@@ -27,6 +28,14 @@ export default {
           DEFAULT: '#ef4444',
           light: 'rgba(239, 68, 68, 0.1)',
         },
+      },
+      textColor: {
+        DEFAULT: 'var(--text-primary)',
+        secondary: 'var(--text-secondary)',
+        muted: 'var(--text-muted)',
+      },
+      borderColor: {
+        DEFAULT: 'var(--border-color)',
       },
     },
   },

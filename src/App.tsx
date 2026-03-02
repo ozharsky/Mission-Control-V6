@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from './stores/appStore';
+import { initTheme } from './stores/themeStore';
 import { Navigation } from './components/Navigation';
 import { AgentPanel } from './components/AgentPanel';
 import { TaskBoard } from './components/TaskBoard';
@@ -11,6 +12,7 @@ import { ProjectsList } from './components/ProjectsList';
 import { CalendarView } from './components/CalendarView';
 import { FileManager } from './components/FileManager';
 import { SettingsPage } from './components/SettingsPage';
+import { ThemeToggleSimple } from './components/ThemeToggle';
 
 function App() {
   const { 
@@ -28,6 +30,7 @@ function App() {
 
   useEffect(() => {
     initSubscriptions();
+    initTheme();
   }, []);
 
   const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => ({
@@ -99,6 +102,7 @@ function App() {
             </div>
             
             <div className="flex items-center gap-4">
+              <ThemeToggleSimple />
               <NotificationBell count={unreadCount} notifications={notifications} />
               <div className="hidden items-center gap-2 sm:flex">
                 <div className={`h-2 w-2 rounded-full ${agent?.status === 'online' ? 'bg-success' : 'bg-gray-500'}`} />
