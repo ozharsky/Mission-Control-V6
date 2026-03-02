@@ -165,3 +165,40 @@ export function downloadTemplate(type: 'revenue' | 'etsy'): void {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// Export data as JSON
+export function exportToJSON(data: any, filename: string): void {
+  const json = JSON.stringify(data, null, 2);
+  downloadFile(json, filename, 'application/json');
+}
+
+// Export as CSV
+export function exportToCSV(data: any[], filename: string): void {
+  if (!data || data.length === 0) return;
+
+  const headers = Object.keys(data[0]);
+  const csv = [
+    headers.join(','),
+    ...data.map(row => headers.map(h => {
+      const val = row[h]?.toString() || '';
+      if (val.includes(',') || val.includes('"')) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    }).join(','))
+  ].join('\n');
+
+  downloadFile(csv, filename, 'text/csv');
+}
+
+function downloadFile(content: string, filename: string, type: string): void {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

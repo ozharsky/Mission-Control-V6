@@ -1,146 +1,223 @@
 import { useState } from 'react';
-import { subscribeToData, setData } from '../lib/firebase';
+import { 
+  Database, Upload, Download, AlertCircle, CheckCircle, 
+  ArrowRight, RefreshCw, FileJson, FileSpreadsheet 
+} from 'lucide-react';
+import { setData, getData } from '../lib/firebase';
+import { migrateV5ToV6 } from '../lib/migrateV5';
+import { exportToCSV, exportToJSON } from '../lib/csv';
 
-export function DataMigration() {
-  const [status, setStatus] = useState<'idle' | 'migrating' | 'success' | 'error'>('idle');
-  const [progress, setProgress] = useState('');
-  const [error, setError] = useState('');
+interface DataMigrationProps {
+  onClose?: () => void;
+}
 
-  const runMigration = async () => {
-    setStatus('migrating');
-    setProgress('Starting migration...');
+export function DataMigration({ onClose }: DataMigrationProps) {
+  const [activeTab, setActiveTab] = useState<'migrate' | 'export' | 'import'>('migrate');
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [migrationResult, setMigrationResult] = useState<any>(null);
+  const [v5Data, setV5Data] = useState('');
 
+  const handleMigrate = async () => {
+    setIsMigrating(true);
     try {
-      // Check if V5 data exists
-      setProgress('Checking V5 data...');
-      
-      // Migrate priorities
-      setProgress('Migrating priorities...');
-      const prioritiesUnsub = subscribeToData('data/priorities', (data) => {
-        if (data) {
-          const priorities = Object.entries(data).map(([id, p]: [string, any]) => ({
-            id,
-            text: p.text || '',
-            board: p.board || 'all',
-            completed: p.completed || false,
-            dueDate: p.dueDate || null,
-            tags: p.tags || [],
-            createdAt: p.createdAt || new Date().toISOString(),
-            updatedAt: p.updatedAt || new Date().toISOString()
-          }));
-          setData('v6/data/priorities', priorities);
-        }
-      });
-
-      // Migrate projects
-      setProgress('Migrating projects...');
-      const projectsUnsub = subscribeToData('data/projects', (data) => {
-        if (data) {
-          setData('v6/data/projects', data);
-        }
-      });
-
-      // Migrate revenue
-      setProgress('Migrating revenue...');
-      const revenueUnsub = subscribeToData('data/revenueHistory', (data) => {
-        if (data) {
-          setData('v6/data/revenue', data);
-        }
-      });
-
-      // Migrate notes
-      setProgress('Migrating notes...');
-      const notesUnsub = subscribeToData('data/notes', (data) => {
-        if (data) {
-          setData('v6/data/notes', data);
-        }
-      });
-
-      // Migrate printers
-      setProgress('Migrating printers...');
-      const printersUnsub = subscribeToData('data/printers', (data) => {
-        if (data) {
-          setData('v6/data/printers', data);
-        }
-      });
-
-      // Initialize V6 structure
-      setProgress('Initializing V6 structure...');
-      await setData('v6/agent', {
-        status: 'online',
-        currentTask: 'Migration complete',
-        lastSeen: new Date().toISOString(),
-        model: 'kimi-coding/k2p5'
-      });
-
-      await setData('v6/tasks', {
-        pending: {},
-        inProgress: {},
-        completed: {}
-      });
-
-      await setData('v6/notifications', {
-        'welcome': {
-          id: 'welcome',
-          type: 'success',
-          title: 'Welcome to V6',
-          message: 'Migration completed successfully!',
-          timestamp: new Date().toISOString(),
-          read: false
-        }
-      });
-
-      // Cleanup subscriptions after a delay
-      setTimeout(() => {
-        prioritiesUnsub();
-        projectsUnsub();
-        revenueUnsub();
-        notesUnsub();
-        printersUnsub();
-      }, 5000);
-
-      setStatus('success');
-      setProgress('Migration complete!');
-
+      // Parse V5 data from textarea
+      const data = JSON.parse(v5Data);
+      const result = await migrateV5ToV6(data);
+      setMigrationResult(result);
+      setMigrationStatus('success');
     } catch (err) {
-      setStatus('error');
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error('Migration failed:', err);
+      setMigrationStatus('error');
+    }
+    setIsMigrating(false);
+  };
+
+  const handleExport = async (format: 'json' | 'csv') => {
+    try {
+      // Fetch all V6 data
+      const [tasks, projects, revenue, files] = await Promise.all([
+        getData('v6/tasks'),
+        getData('v6/data/projects'),
+        getData('v6/data/revenue'),
+        getData('v6/files'),
+      ]);
+
+      const data = {
+        tasks,
+        projects,
+        revenue,
+        files,
+        exportedAt: new Date().toISOString(),
+        version: 'v6',
+      };
+
+      if (format === 'json') {
+        exportToJSON(data, `mission-control-backup-${new Date().toISOString().slice(0, 10)}.json`);
+      } else {
+        // Export each data type as separate CSV
+        if (revenue) {
+          const revenueArray = Object.entries(revenue).map(([month, val]: [string, any]) => ({
+            month,
+            revenue: val.value,
+            orders: val.orders,
+          }));
+          exportToCSV(revenueArray, `revenue-${new Date().toISOString().slice(0, 10)}.csv`);
+        }
+      }
+    } catch (err) {
+      alert('Export failed: ' + (err as Error).message);
     }
   };
 
   return (
-    <div className="rounded-xl border border-surface-hover bg-surface p-6">
-      <h2 className="mb-4 text-lg font-semibold">Data Migration</h2>
-      
-      <p className="mb-4 text-gray-400">
-        Migrate your data from Mission Control V5 to V6.
-      </p>
+    <div className="space-y-6">
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-surface-hover">
+        {[
+          { id: 'migrate', label: 'Migrate V5', icon: Database },
+          { id: 'export', label: 'Export', icon: Download },
+          { id: 'import', label: 'Import', icon: Upload },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === tab.id
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {status === 'idle' && (
-        <button
-          onClick={runMigration}
-          className="rounded-lg bg-primary px-6 py-2 text-white hover:bg-primary-hover"
-        >
-          Start Migration
-        </button>
-      )}
+      {/* Migrate Tab */}
+      {activeTab === 'migrate' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-surface-hover bg-surface p-6">
+            <h3 className="mb-4 text-lg font-semibold">Migrate from V5</h3>
+            
+            <p className="mb-4 text-sm text-gray-400">
+              Paste your V5 data JSON below to migrate projects, priorities, and tasks to V6.
+              You can export V5 data from the browser console or Firebase.
+            </p>
 
-      {status === 'migrating' && (
-        <div className="flex items-center gap-3">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-          <span>{progress}</span>
+            {migrationStatus === 'success' ? (
+              <div className="rounded-xl bg-success/10 p-4 text-success">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">Migration Complete!</span>
+                </div>                
+                {migrationResult && (
+                  <div className="mt-2 text-sm">
+                    <p>Projects: {migrationResult.projects?.length || 0}</p>
+                    <p>Priorities: {migrationResult.priorities?.length || 0}</p>
+                  </div>
+                )}
+              </div>
+            ) : migrationStatus === 'error' ? (
+              <div className="rounded-xl bg-danger/10 p-4 text-danger">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  <span className="font-medium">Migration Failed</span>
+                </div>
+                <p className="mt-2 text-sm">Check the console for details.</p>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={v5Data}
+                  onChange={(e) => setV5Data(e.target.value)}
+                  placeholder="Paste V5 JSON data here..."
+                  rows={10}
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-3 text-white placeholder-gray-500 focus:border-primary focus:outline-none"
+                />
+
+                <button
+                  onClick={handleMigrate}
+                  disabled={!v5Data.trim() || isMigrating}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+                >
+                  {isMigrating ? (
+                    <>
+                      <RefreshCw className="h-5 w-5 animate-spin" />
+                      Migrating...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-5 w-5" />
+                      Start Migration
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      {status === 'success' && (
-        <div className="rounded-lg bg-success-light p-4 text-success">
-          ✅ Migration complete! Refresh the page to see your data.
+      {/* Export Tab */}
+      {activeTab === 'export' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-surface-hover bg-surface p-6">
+            <h3 className="mb-4 text-lg font-semibold">Export Data</h3>
+            
+            <p className="mb-4 text-sm text-gray-400">
+              Download your Mission Control data for backup or analysis.
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <button
+                onClick={() => handleExport('json')}
+                className="flex items-center gap-4 rounded-xl border border-surface-hover bg-background p-4 transition-colors hover:border-primary"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                  <FileJson className="h-6 w-6 text-primary" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">Export as JSON</div>
+                  <div className="text-sm text-gray-500">Full backup</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleExport('csv')}
+                className="flex items-center gap-4 rounded-xl border border-surface-hover bg-background p-4 transition-colors hover:border-primary"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-success/10">
+                  <FileSpreadsheet className="h-6 w-6 text-success" />
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">Export as CSV</div>
+                  <div className="text-sm text-gray-500">Spreadsheet format</div>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {status === 'error' && (
-        <div className="rounded-lg bg-danger-light p-4 text-danger">
-          ❌ Error: {error}
+      {/* Import Tab */}
+      {activeTab === 'import' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-surface-hover bg-surface p-6">
+            <h3 className="mb-4 text-lg font-semibold">Import Data</h3>
+            
+            <p className="mb-4 text-sm text-gray-400">
+              Import data from a previous backup. This will merge with existing data.
+            </p>
+
+            <div
+              className="cursor-pointer rounded-xl border-2 border-dashed border-surface-hover bg-background p-8 text-center transition-colors hover:border-primary"
+            >
+              <Upload className="mx-auto mb-2 h-8 w-8 text-gray-500" />
+              <p className="text-sm text-gray-400">Click to select JSON backup file</p>
+              <p className="text-xs text-gray-600">Or drag and drop</p>
+            </div>
+          </div>
         </div>
       )}
     </div>

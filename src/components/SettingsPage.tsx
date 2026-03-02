@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { SimplyPrintSettings } from './settings/SimplyPrintSettings';
+import { DataMigration } from './DataMigration';
 
 interface FirebaseConfig {
   apiKey: string;
@@ -204,6 +205,11 @@ export function SettingsPage() {
       </div>
 
       <SimplyPrintSettings />
+
+      <div className="mt-8 border-t border-surface-hover pt-8">
+        <h3 className="mb-4 text-lg font-semibold">Data Management</h3>
+        <DataMigration />
+      </div>
     </div>
   );
 }

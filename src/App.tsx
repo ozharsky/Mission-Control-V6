@@ -9,6 +9,7 @@ import { NotificationBell } from './components/NotificationBell';
 import { DashboardStats } from './components/DashboardStats';
 import { PrinterStatus } from './components/PrinterStatus';
 import { RevenueChart } from './components/RevenueChart';
+import { RevenueGoals } from './components/RevenueGoals';
 import { ProjectsList } from './components/ProjectsList';
 import { CalendarView } from './components/CalendarView';
 import { FileManager } from './components/FileManager';
@@ -139,7 +140,15 @@ function App() {
         return <PrinterStatus printers={printers} />;
 
       case 'revenue':
-        return <RevenueChart data={revenueData} goal={450} />;
+        return (
+          <div className="space-y-4 lg:space-y-6">
+            <RevenueChart data={revenueData} goal={450} />
+            <RevenueGoals 
+              currentRevenue={revenueData[revenueData.length - 1]?.value || 0}
+              currentOrders={revenueData[revenueData.length - 1]?.orders || 0}
+            />
+          </div>
+        );
 
       case 'projects':
         return <ProjectsList projects={projects} />;
