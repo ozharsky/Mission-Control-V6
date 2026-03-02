@@ -75,3 +75,14 @@ export const pushData = (path: string, data: any) => {
   const dataRef = ref(db, path);
   return push(dataRef, data);
 };
+
+// Get data once (for exports)
+export const getData = (path: string): Promise<any> => {
+  if (!db) return Promise.reject('Firebase not initialized');
+  const dataRef = ref(db, path);
+  return new Promise((resolve, reject) => {
+    onValue(dataRef, (snapshot) => {
+      resolve(snapshot.val());
+    }, reject, { onlyOnce: true });
+  });
+};

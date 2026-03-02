@@ -25,7 +25,7 @@ export function RevenueGoals({ currentRevenue, currentOrders }: RevenueGoalsProp
 
   // Load goals from Firebase
   useEffect(() => {
-    const unsubscribe = subscribeData('v6/settings/goals', (data) => {
+    const unsubscribe = subscribeToData('v6/settings/goals', (data) => {
       if (data) {
         setGoals(data);
         setEditValues(data);
@@ -185,11 +185,4 @@ export function RevenueGoals({ currentRevenue, currentOrders }: RevenueGoalsProp
       </div>
     </div>
   );
-}
-
-// Helper to subscribe to data (since we need a different import)
-function subscribeData(path: string, callback: (data: any) => void) {
-  // This would use the actual subscribeToData from firebase
-  // For now, return a no-op unsubscribe
-  return () => {};
 }

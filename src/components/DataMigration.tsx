@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { 
-  Database, Upload, Download, AlertCircle, CheckCircle, 
+  Database, Upload, Download, AlertCircle, CheckCircle2, 
   ArrowRight, RefreshCw, FileJson, FileSpreadsheet 
 } from 'lucide-react';
 import { setData, getData } from '../lib/firebase';
@@ -108,7 +108,7 @@ export function DataMigration({ onClose }: DataMigrationProps) {
             {migrationStatus === 'success' ? (
               <div className="rounded-xl bg-success/10 p-4 text-success">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5" />
+                  <CheckCircle2 className="h-5 w-5" />
                   <span className="font-medium">Migration Complete!</span>
                 </div>                
                 {migrationResult && (
