@@ -13,7 +13,14 @@ export function SimplyPrintSettings() {
 
   useEffect(() => {
     const savedKey = localStorage.getItem('simplyprint_api_key');
-    const savedProxy = localStorage.getItem('simplyprint_proxy_url');
+    let savedProxy = localStorage.getItem('simplyprint_proxy_url');
+    
+    // Fix old proxy URLs that might be missing protocol
+    if (savedProxy && !savedProxy.startsWith('http')) {
+      savedProxy = 'https://' + savedProxy;
+      localStorage.setItem('simplyprint_proxy_url', savedProxy);
+    }
+    
     if (savedKey) {
       setApiKey(savedKey);
       if (savedProxy) setProxyUrl(savedProxy);
@@ -35,9 +42,15 @@ export function SimplyPrintSettings() {
 
   const handleSave = () => {
     if (apiKey.trim()) {
+      // Ensure proxy URL has protocol
+      let fixedProxyUrl = proxyUrl.trim();
+      if (fixedProxyUrl && !fixedProxyUrl.startsWith('http')) {
+        fixedProxyUrl = 'https://' + fixedProxyUrl;
+      }
+      
       localStorage.setItem('simplyprint_api_key', apiKey);
-      localStorage.setItem('simplyprint_proxy_url', proxyUrl);
-      initSimplyPrint(apiKey, proxyUrl);
+      localStorage.setItem('simplyprint_proxy_url', fixedProxyUrl);
+      initSimplyPrint(apiKey, fixedProxyUrl);
       setIsConnected(true);
       fetchPrinters();
     }

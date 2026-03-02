@@ -31,8 +31,12 @@ class SimplyPrintAPI {
 
   constructor(config: SimplyPrintConfig) {
     this.apiKey = config.apiKey;
-    // Use V5 proxy by default
-    this.proxyUrl = config.proxyUrl || 'https://mission-control-fawn-eight.vercel.app/api/printers';
+    // Use V5 proxy by default, ensure https:// protocol
+    let url = config.proxyUrl || 'https://mission-control-fawn-eight.vercel.app/api/printers';
+    if (!url.startsWith('http')) {
+      url = 'https://' + url;
+    }
+    this.proxyUrl = url;
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
