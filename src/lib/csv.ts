@@ -69,6 +69,7 @@ function parseEtsyDate(dateStr: string): Date | null {
   let day = parseInt(parts[1]);
   let year = parseInt(parts[2]);
 
+  // Handle 2-digit years (25 -> 2025, 26 -> 2026)
   if (year < 100) {
     year = 2000 + year;
   }
@@ -109,7 +110,7 @@ export function parseEtsyCSV(csvText: string): EtsyOrder[] {
       return;
     }
 
-    // Try to find order value - check multiple possible column names
+    // Try to find order value - use 'Order Net' which is the actual revenue
     let orderValue = 0;
     const orderValueStr = row['Order Net'] || row['Order Value'] || row['Order Total'] || row['Net'] || row['Total'];
     
@@ -177,7 +178,7 @@ export function downloadTemplate(type: 'revenue' | 'etsy'): void {
     content = 'Month,Revenue,Orders\n2026-01,500.00,15\n2026-02,750.00,22\n2026-03,600.00,18';
     filename = 'revenue-template.csv';
   } else if (type === 'etsy') {
-    content = 'Sale Date,Order ID,Number of Items,Order Value\n01/15/26,1234567890,2,$45.00\n01/20/26,1234567891,1,$25.00\n02/05/26,1234567892,3,$75.00';
+    content = 'Sale Date,Order ID,Number of Items,Order Value,Order Net\n01/15/26,1234567890,2,$45.00,$42.50\n01/20/26,1234567891,1,$25.00,$23.75\n02/05/26,1234567892,3,$75.00,$71.25';
     filename = 'etsy-orders-template.csv';
   }
 
