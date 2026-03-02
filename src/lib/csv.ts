@@ -81,40 +81,66 @@ function parseEtsyDate(dateStr: string): Date | null {
 
 export function parseEtsyCSV(csvText: string): EtsyOrder[] {
   const rows = parseCSV(csvText);
-  if (rows.length === 0) return [];
+  console.log('Parsed CSV rows:', rows.length);
+  
+  if (rows.length === 0) {
+    console.log('No rows found in CSV');
+    return [];
+  }
+
+  // Log first row to see column names
+  console.log('First row columns:', Object.keys(rows[0]));
+  console.log('First row sample:', rows[0]);
 
   const results: EtsyOrder[] = [];
 
-  rows.forEach((row) => {
-    const dateStr = row['Sale Date'] || row['Date'] || row['date'];
-    const date = parseEtsyDate(dateStr);
-    if (!date) return;
-
-    let orderValue = 0;
-    const orderValueStr = row['Order Value'] || row['Order Net'] || row['Order Total'] || row['Total'];
-    if (orderValueStr) {
-      orderValue = parseFloat(orderValueStr.replace('$', '').replace(',', ''));
+  rows.forEach((row, idx) => {
+    // Try to find date column - check multiple possible names
+    const dateStr = row['Sale Date'] || row['Date'] || row['date'] || row['SaleDate'];
+    
+    if (!dateStr) {
+      console.log(`Row ${idx}: No date found`, row);
+      return;
     }
 
+    const date = parseEtsyDate(dateStr);
+    if (!date) {
+      console.log(`Row ${idx}: Could not parse date: ${dateStr}`);
+      return;
+    }
+
+    // Try to find order value - check multiple possible column names
+    let orderValue = 0;
+    const orderValueStr = row['Order Net'] || row['Order Value'] || row['Order Total'] || row['Net'] || row['Total'];
+    
+    if (orderValueStr) {
+      // Remove $ and commas, then parse
+      const cleanValue = orderValueStr.replace(/[$,]/g, '');
+      orderValue = parseFloat(cleanValue);
+    }
+
+    // Try to find number of items
     let items = 1;
-    const itemsStr = row['Number of Items'] || row['Items'] || row['Quantity'];
+    const itemsStr = row['Number of Items'] || row['Items'] || row['Quantity'] || row['Item Count'];
     if (itemsStr) {
       items = parseInt(itemsStr) || 1;
     }
 
+    // Format date as YYYY-MM
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const formattedDate = `${year}-${month}`;
 
     results.push({
       date: formattedDate,
-      orderId: row['Order ID'] || row['OrderID'] || '',
+      orderId: row['Order ID'] || row['OrderID'] || row['OrderId'] || '',
       items,
       value: orderValue,
       net: orderValue,
     });
   });
 
+  console.log('Successfully parsed orders:', results.length);
   return results;
 }
 
