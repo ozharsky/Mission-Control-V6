@@ -187,55 +187,65 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
 
         {viewMode === 'chart' ? (
           <>
-            {/* Chart */}
-            <div className="flex items-end gap-3">
-              {filteredData.map((item, index) => {
-                const height = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
-                const isGoalMet = item.value >= goal;
+            {filteredData.length > 0 ? (
+              <>
+                {/* Chart */}
+                <div className="flex items-end gap-3">
+                  {filteredData.map((item, index) => {
+                    const height = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
+                    const isGoalMet = item.value >= goal;
 
-                return (
-                  <div key={item.month} className="group flex flex-1 flex-col items-center">
-                    <div className="relative w-full">
-                      <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-surface-hover px-3 py-2 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                        <p className="font-semibold">{formatCurrency(item.value)}</p>
-                        <p className="text-gray-500">{item.orders} orders</p>
+                    return (
+                      <div key={item.month} className="group flex flex-1 flex-col items-center">
+                        <div className="relative w-full">
+                          <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-surface-hover px-3 py-2 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                            <p className="font-semibold">{formatCurrency(item.value)}</p>
+                            <p className="text-gray-500">{item.orders} orders</p>
+                          </div>
+                          
+                          <div
+                            className={`w-full rounded-t-xl transition-all duration-500 ${
+                              isGoalMet ? 'bg-success' : 'bg-primary'
+                            }`}
+                            style={{
+                              height: `${Math.max(height, 4)}%`,
+                              minHeight: '4px',
+                              animationDelay: `${index * 50}ms`,
+                            }}
+                          />
+                        </div>
+                        
+                        <div className="mt-3 text-xs font-medium text-gray-500">
+                          {new Date(item.month + '-01').toLocaleDateString(undefined, { month: 'short' })}
+                        </div>
                       </div>
-                      
-                      <div
-                        className={`w-full rounded-t-xl transition-all duration-500 ${
-                          isGoalMet ? 'bg-success' : 'bg-primary'
-                        }`}
-                        style={{
-                          height: `${Math.max(height, 4)}%`,
-                          minHeight: '4px',
-                          animationDelay: `${index * 50}ms`,
-                        }}
-                      />
-                    </div>
-                    
-                    <div className="mt-3 text-xs font-medium text-gray-500">
-                      {new Date(item.month + '-01').toLocaleDateString(undefined, { month: 'short' })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
 
-            {/* Legend */}
-            <div className="mt-6 flex items-center justify-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-success"></div>
-                <span className="text-sm text-gray-400">Goal Met</span>
+                {/* Legend */}
+                <div className="mt-6 flex items-center justify-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-success"></div>
+                    <span className="text-sm text-gray-400">Goal Met</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-primary"></div>
+                    <span className="text-sm text-gray-400">Below Goal</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-0.5 w-4 border-t-2 border-dashed border-primary"></div>
+                    <span className="text-sm text-gray-400">Target</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="py-16 text-center text-gray-500">
+                <div className="mb-4 text-6xl">📊</div>
+                <h3 className="mb-2 text-xl font-semibold">No revenue data</h3>
+                <p>Add revenue data to see your sales performance</p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-primary"></div>
-                <span className="text-sm text-gray-400">Below Goal</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-0.5 w-4 border-t-2 border-dashed border-primary"></div>
-                <span className="text-sm text-gray-400">Target</span>
-              </div>
-            </div>
+            )}
           </>
         ) : (
           <div className="overflow-x-auto">
