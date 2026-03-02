@@ -16,9 +16,8 @@ const navItems: NavItem[] = [
   { id: 'printers', label: 'Printers', icon: '🖨️' },
   { id: 'revenue', label: 'Revenue', icon: '💰' },
   { id: 'priorities', label: 'Priorities', icon: '📋' },
-  { id: 'projects', label: 'Projects', icon: '📁' },
   { id: 'tasks', label: 'Tasks', icon: '✅' },
-  { id: 'chat', label: 'Agent Chat', icon: '💬' },
+  { id: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
 export function Navigation({ activeSection, onSectionChange }: NavigationProps) {

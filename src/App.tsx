@@ -8,7 +8,7 @@ import { DashboardStats } from './components/DashboardStats';
 import { PrinterStatus } from './components/PrinterStatus';
 import { RevenueChart } from './components/RevenueChart';
 import { PrioritiesBoard } from './components/PrioritiesBoard';
-import { AgentChat } from './components/AgentChat';
+import { SettingsPage } from './components/SettingsPage';
 import { FirebaseSetup } from './components/FirebaseSetup';
 
 function App() {
@@ -91,13 +91,8 @@ function App() {
       case 'tasks':
         return <TaskBoard tasks={tasks} />;
       
-      case 'chat':
-        return (
-          <AgentChat 
-            messages={[]} 
-            onSendMessage={(text) => console.log('Send:', text)} 
-          />
-        );
+      case 'settings':
+        return <SettingsPage />;
       
       default:
         return <div>Section not found</div>;
