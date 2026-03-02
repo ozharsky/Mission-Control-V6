@@ -7,7 +7,7 @@ import { NotificationBell } from './components/NotificationBell';
 import { DashboardStats } from './components/DashboardStats';
 import { PrinterStatus } from './components/PrinterStatus';
 import { RevenueChart } from './components/RevenueChart';
-import { PrioritiesBoard } from './components/PrioritiesBoard';
+import { ProjectsList } from './components/ProjectsList';
 import { SettingsPage } from './components/SettingsPage';
 
 function App() {
@@ -19,7 +19,7 @@ function App() {
     unreadCount, 
     printers, 
     revenue,
-    priorities 
+    projects 
   } = useAppStore();
   
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -59,8 +59,8 @@ function App() {
       case 'revenue':
         return <RevenueChart data={revenueData} goal={450} />;
       
-      case 'priorities':
-        return <PrioritiesBoard priorities={priorities} />;
+      case 'projects':
+        return <ProjectsList projects={projects} />;
       
       case 'tasks':
         return <TaskBoard tasks={tasks} />;
