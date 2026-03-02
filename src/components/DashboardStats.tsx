@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CheckCircle2, Clock, Circle, TrendingUp, MoreHorizontal } from 'lucide-react';
 
 interface DashboardStatsProps {
   pendingTasks: number;
@@ -9,20 +10,20 @@ interface DashboardStatsProps {
 interface StatCardProps {
   label: string;
   value: number;
-  icon: string;
+  icon: React.ReactNode;
   color: 'primary' | 'success' | 'warning' | 'danger';
-  trend?: number;
+  subtext?: string;
 }
 
-function StatCard({ label, value, icon, color, trend }: StatCardProps) {
+function StatCard({ label, value, icon, color, subtext }: StatCardProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [displayValue, setDisplayValue] = useState(0);
 
   const colorClasses = {
-    primary: 'from-primary/20 to-primary/5 text-primary border-primary/30',
-    success: 'from-success/20 to-success/5 text-success border-success/30',
-    warning: 'from-warning/20 to-warning/5 text-warning border-warning/30',
-    danger: 'from-danger/20 to-danger/5 text-danger border-danger/30',
+    primary: 'bg-primary/10 text-primary border-primary/20',
+    success: 'bg-success/10 text-success border-success/20',
+    warning: 'bg-warning/10 text-warning border-warning/20',
+    danger: 'bg-danger/10 text-danger border-danger/20',
   };
 
   useEffect(() => {
@@ -47,28 +48,23 @@ function StatCard({ label, value, icon, color, trend }: StatCardProps) {
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br p-6 transition-all duration-500 hover:scale-[1.02] hover:shadow-lg ${
-        colorClasses[color]
-      } ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
+      className={`relative overflow-hidden rounded-xl border border-surface-hover bg-surface p-4 transition-all duration-500 hover:border-primary/50 sm:p-5 ${
+        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+      }`}
     >
-      <div className="relative z-10">
-        <div className="mb-4 flex items-center justify-between">
-          <span className="text-3xl">{icon}</span>
-          {trend !== undefined && (
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-              trend >= 0 ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
-            }`}>
-              {trend >= 0 ? '+' : ''}{trend}%
-            </span>
-          )}
+      <div className="flex items-start justify-between">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${colorClasses[color]}`}>
+          {icon}
         </div>
-        
-        <div className="text-4xl font-bold">{displayValue}</div>
-        <div className="mt-1 text-sm font-medium opacity-80">{label}</div>
+        {subtext && (
+          <span className="text-xs text-gray-500">{subtext}</span>
+        )}
       </div>
-
-      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/5"></div>
-      <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-white/5"></div>
+      
+      <div className="mt-3">
+        <div className="text-2xl font-bold sm:text-3xl">{displayValue}</div>
+        <div className="text-sm text-gray-400">{label}</div>
+      </div>
     </div>
   );
 }
@@ -78,43 +74,48 @@ export function DashboardStats({ pendingTasks, inProgressTasks, completedTasks }
   const completionRate = total > 0 ? Math.round((completedTasks / total) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className="space-y-4">
+      {/* Stats Grid - Mobile: 2 columns, Desktop: 4 columns */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <StatCard
           label="Pending"
           value={pendingTasks}
-          icon="⏳"
+          icon={<Circle className="h-5 w-5" />}
           color="warning"
+          subtext="To do"
         />
         <StatCard
           label="In Progress"
           value={inProgressTasks}
-          icon="🔄"
+          icon={<Clock className="h-5 w-5" />}
           color="primary"
+          subtext="Active"
         />
         <StatCard
           label="Completed"
           value={completedTasks}
-          icon="✅"
+          icon={<CheckCircle2 className="h-5 w-5" />}
           color="success"
+          subtext="Done"
         />
-        
         <StatCard
-          label="Completion Rate"
+          label="Progress"
           value={completionRate}
-          icon="📈"
+          icon={<TrendingUp className="h-5 w-5" />}
           color="primary"
-          trend={12}
+          subtext="% done"
         />
       </div>
 
-      <div className="rounded-2xl border border-surface-hover bg-surface p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-semibold">Task Progress</h3>
-          <span className="text-sm text-gray-400">{completionRate}% complete</span>
+      {/* Progress Bar - Compact for mobile */}
+      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-medium">Task Distribution</h3>
+          <span className="text-xs text-gray-400">{total} total</span>
         </div>
         
-        <div className="h-4 overflow-hidden rounded-full bg-surface-hover">
+        {/* Stacked Progress Bar */}
+        <div className="h-3 overflow-hidden rounded-full bg-surface-hover">
           <div className="flex h-full">
             <div
               className="h-full bg-warning transition-all duration-1000"
@@ -131,17 +132,18 @@ export function DashboardStats({ pendingTasks, inProgressTasks, completedTasks }
           </div>
         </div>
         
-        <div className="mt-4 flex gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-warning"></div>
+        {/* Legend - Horizontal scroll on mobile if needed */}
+        <div className="mt-3 flex flex-wrap gap-3 text-xs">
+          <div className="flex items-center gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-warning"></div>
             <span className="text-gray-400">Pending</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-primary"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-primary"></div>
             <span className="text-gray-400">In Progress</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-success"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-success"></div>
             <span className="text-gray-400">Completed</span>
           </div>
         </div>
