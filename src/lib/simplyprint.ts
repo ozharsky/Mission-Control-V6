@@ -39,14 +39,13 @@ class SimplyPrintAPI {
     this.proxyUrl = url;
   }
 
-  private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.proxyUrl}?path=${encodeURIComponent(endpoint.replace(/^\//, ''))}`;
+  private async request(action: string, params: Record<string, any> = {}) {
+    const url = `${this.proxyUrl}?action=${action}${Object.entries(params).map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join('')}`;
     const response = await fetch(url, {
-      ...options,
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
-        ...options.headers,
       },
     });
 
@@ -59,8 +58,8 @@ class SimplyPrintAPI {
 
   async getPrinters(): Promise<SimplyPrintPrinter[]> {
     try {
-      const data = await this.request('printers');
-      return data.printers || [];
+      const data = await this.request('get_printers');
+      return data.printers || data.data || [];
     } catch (error) {
       console.error('Failed to fetch printers:', error);
       return [];
@@ -69,8 +68,8 @@ class SimplyPrintAPI {
 
   async getPrinterStatus(printerId: string): Promise<SimplyPrintPrinter | null> {
     try {
-      const data = await this.request(`printers/${printerId}/status`);
-      return data;
+      const data = await this.request('get_printer', { printer_id: printerId });
+      return data.printer || data.data || null;
     } catch (error) {
       console.error(`Failed to fetch printer ${printerId} status:`, error);
       return null;
@@ -79,10 +78,7 @@ class SimplyPrintAPI {
 
   async startPrint(printerId: string, fileId: string): Promise<boolean> {
     try {
-      await this.request(`printers/${printerId}/print`, {
-        method: 'POST',
-        body: JSON.stringify({ file_id: fileId }),
-      });
+      await this.request('start_print', { printer_id: printerId, file_id: fileId });
       return true;
     } catch (error) {
       console.error('Failed to start print:', error);
@@ -92,7 +88,7 @@ class SimplyPrintAPI {
 
   async pausePrint(printerId: string): Promise<boolean> {
     try {
-      await this.request(`printers/${printerId}/pause`, { method: 'POST' });
+      await this.request('pause_print', { printer_id: printerId });
       return true;
     } catch (error) {
       console.error('Failed to pause print:', error);
@@ -102,7 +98,7 @@ class SimplyPrintAPI {
 
   async cancelPrint(printerId: string): Promise<boolean> {
     try {
-      await this.request(`printers/${printerId}/cancel`, { method: 'POST' });
+      await this.request('cancel_print', { printer_id: printerId });
       return true;
     } catch (error) {
       console.error('Failed to cancel print:', error);
@@ -112,8 +108,8 @@ class SimplyPrintAPI {
 
   async getFiles(printerId: string): Promise<any[]> {
     try {
-      const data = await this.request(`printers/${printerId}/files`);
-      return data.files || [];
+      const data = await this.request('get_files', { printer_id: printerId });
+      return data.files || data.data || [];
     } catch (error) {
       console.error('Failed to fetch files:', error);
       return [];
