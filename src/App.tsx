@@ -4,13 +4,22 @@ import { AgentPanel } from './components/AgentPanel';
 import { TaskBoard } from './components/TaskBoard';
 import { NotificationBell } from './components/NotificationBell';
 import { DashboardStats } from './components/DashboardStats';
+import { PrinterStatus } from './components/PrinterStatus';
+import { RevenueChart } from './components/RevenueChart';
 
 function App() {
-  const { initSubscriptions, agent, tasks, notifications, unreadCount } = useAppStore();
+  const { initSubscriptions, agent, tasks, notifications, unreadCount, printers, revenue } = useAppStore();
 
   useEffect(() => {
     initSubscriptions();
   }, []);
+
+  // Mock revenue data for now - will come from Firebase
+  const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => ({
+    month,
+    value: data.value || 0,
+    orders: data.orders || 0
+  })) : [];
 
   return (
     <div className="min-h-screen bg-background text-white">
@@ -51,6 +60,12 @@ function App() {
             inProgressTasks={tasks.inProgress.length}
             completedTasks={tasks.completed.length}
           />
+
+          {/* Printers */}
+          <PrinterStatus printers={printers} />
+
+          {/* Revenue */}
+          <RevenueChart data={revenueData} goal={450} />
           
           {/* Task Board */}
           <TaskBoard tasks={tasks} />
