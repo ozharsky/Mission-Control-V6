@@ -9,7 +9,6 @@ import { PrinterStatus } from './components/PrinterStatus';
 import { RevenueChart } from './components/RevenueChart';
 import { PrioritiesBoard } from './components/PrioritiesBoard';
 import { SettingsPage } from './components/SettingsPage';
-import { FirebaseSetup } from './components/FirebaseSetup';
 
 function App() {
   const { 
@@ -24,35 +23,10 @@ function App() {
   } = useAppStore();
   
   const [activeSection, setActiveSection] = useState('dashboard');
-  const [firebaseConfigured, setFirebaseConfigured] = useState(false);
 
   useEffect(() => {
-    // Check if Firebase is configured
-    const apiKey = localStorage.getItem('mc_firebase_api_key');
-    const databaseURL = localStorage.getItem('mc_firebase_url');
-    setFirebaseConfigured(!!(apiKey && databaseURL));
+    initSubscriptions();
   }, []);
-
-  useEffect(() => {
-    if (firebaseConfigured) {
-      initSubscriptions();
-    }
-  }, [firebaseConfigured]);
-
-  // Update agent status
-  useEffect(() => {
-    if (agent) {
-      const interval = setInterval(() => {
-        // Keep agent status updated
-      }, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [agent]);
-
-  // Show Firebase setup if not configured
-  if (!firebaseConfigured) {
-    return <FirebaseSetup onConfigured={() => setFirebaseConfigured(true)} />;
-  }
 
   const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => ({
     month,
@@ -104,7 +78,6 @@ function App() {
       <Navigation activeSection={activeSection} onSectionChange={setActiveSection} />
       
       <div className="flex-1 lg:ml-0">
-        {/* Header */}
         <header className="sticky top-0 z-10 border-b border-surface-hover bg-surface/80 px-6 py-4 backdrop-blur">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -129,53 +102,6 @@ function App() {
           </div>
         </header>
 
-        {/* Main Content */}
-        <main className="p-6 pb-24 lg:pb-6">
-          <div className="mx-auto max-w-7xl">
-            {renderSection()}
-          </div>
-        </main>
-      </div>
-    </div>
-  );
-}
-
-export default App;      default:
-        return <div>Section not found</div>;
-    }
-  };
-
-  return (
-    <div className="flex min-h-screen bg-background text-white">
-      <Navigation activeSection={activeSection} onSectionChange={setActiveSection} />
-      
-      <div className="flex-1 lg:ml-0">
-        {/* Header */}
-        <header className="sticky top-0 z-10 border-b border-surface-hover bg-surface/80 px-6 py-4 backdrop-blur">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-                🚀
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">Mission Control</h1>
-                <p className="text-sm text-gray-400">V6</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <NotificationBell count={unreadCount} notifications={notifications} />
-              <div className="hidden items-center gap-2 sm:flex">
-                <div className={`h-2 w-2 rounded-full ${agent?.status === 'online' ? 'bg-success' : 'bg-gray-500'}`} />
-                <span className="text-sm text-gray-400">
-                  {agent?.status === 'online' ? 'Agent Online' : 'Agent Offline'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content */}
         <main className="p-6 pb-24 lg:pb-6">
           <div className="mx-auto max-w-7xl">
             {renderSection()}
