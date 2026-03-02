@@ -8,6 +8,8 @@ import { DashboardStats } from './components/DashboardStats';
 import { PrinterStatus } from './components/PrinterStatus';
 import { RevenueChart } from './components/RevenueChart';
 import { ProjectsList } from './components/ProjectsList';
+import { CalendarView } from './components/CalendarView';
+import { FileManager } from './components/FileManager';
 import { SettingsPage } from './components/SettingsPage';
 
 function App() {
@@ -64,6 +66,12 @@ function App() {
       
       case 'tasks':
         return <TaskBoard tasks={tasks} />;
+      
+      case 'calendar':
+        return <CalendarView events={[]} />;
+      
+      case 'files':
+        return <FileManager files={[]} />;
       
       case 'settings':
         return <SettingsPage />;

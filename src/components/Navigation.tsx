@@ -17,6 +17,8 @@ const navItems: NavItem[] = [
   { id: 'revenue', label: 'Revenue', icon: '💰' },
   { id: 'projects', label: 'Projects', icon: '📁' },
   { id: 'tasks', label: 'Tasks', icon: '✅' },
+  { id: 'calendar', label: 'Calendar', icon: '📅' },
+  { id: 'files', label: 'Files', icon: '📎' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
