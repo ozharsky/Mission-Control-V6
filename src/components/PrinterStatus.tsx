@@ -124,140 +124,148 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
 
   return (
     <div
-      className="group relative overflow-hidden rounded-2xl border border-surface-hover bg-surface transition-all duration-300 hover:border-primary hover:shadow-xl hover:shadow-primary/10"
+      className="group relative overflow-hidden rounded-xl border border-surface-hover bg-surface transition-all duration-300 hover:border-primary sm:rounded-2xl"
       style={{ animationDelay: `${index * 100}ms` }}
     >
       {/* Status indicator line */}
-      <div className={`absolute left-0 top-0 h-full w-1 ${
+      <div className={`absolute left-0 top-0 h-full w-0.5 sm:w-1 ${
         printer.status === 'printing' ? 'bg-primary' :
         printer.status === 'operational' || printer.status === 'idle' ? 'bg-success' :
         printer.status === 'error' ? 'bg-danger' : 'bg-gray-600'
       }`}></div>
 
-      <div className="p-5">
-        {/* Header */}
-        <div className="mb-4 flex items-start justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">{printer.name}</h3>
-            <p className="text-xs text-gray-500">{printer.id}</p>
+      <div className="p-2 sm:p-5">
+        {/* Header - Mobile: compact */}
+        <div className="mb-2 flex items-start justify-between sm:mb-4">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-xs font-semibold sm:text-lg">{printer.name}</h3>
+            <p className="hidden text-xs text-gray-500 sm:block">{printer.id}</p>
           </div>
-          <StatusBadge status={printer.status} />
+          <div className="hidden sm:block">
+            <StatusBadge status={printer.status} />
+          </div>
+          {/* Mobile: simple status dot */}
+          <div className={`h-2 w-2 rounded-full sm:hidden ${
+            printer.status === 'printing' ? 'bg-primary' :
+            printer.status === 'operational' || printer.status === 'idle' ? 'bg-success' :
+            printer.status === 'error' ? 'bg-danger' : 'bg-gray-600'
+          }`}></div>
         </div>
 
-        {/* Printer Image */}
-        <div className="mb-4 flex justify-center">
-          <div className="relative h-40 w-40">
+        {/* Printer Image - Mobile: smaller */}
+        <div className="mb-2 flex justify-center sm:mb-4">
+          <div className="relative h-16 w-16 sm:h-40 sm:w-40">
             {!imageLoaded && !imageError && (
-              <div className="flex h-full w-full items-center justify-center rounded-xl bg-surface">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+              <div className="flex h-full w-full items-center justify-center rounded-lg bg-surface sm:rounded-xl">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent sm:h-8 sm:w-8"></div>
               </div>
             )}
             <img
               src={imageError ? PRINTER_PLACEHOLDER : imageUrl}
               alt={printer.name}
-              className={`h-full w-full rounded-xl object-contain transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`h-full w-full rounded-lg object-contain transition-opacity duration-300 sm:rounded-xl ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
             />
           </div>
         </div>
 
-        {/* Temperatures */}
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-surface-hover p-3">
-            <div className="mb-1 flex items-center gap-2 text-xs text-gray-400">
-              <Flame className="h-3.5 w-3.5"></Flame>
-              Nozzle
+        {/* Temperatures - Mobile: single row, smaller text */}
+        <div className="mb-2 grid grid-cols-2 gap-1 sm:mb-4 sm:gap-3">
+          <div className="rounded-lg bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
+            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:gap-2 sm:text-xs">
+              <Flame className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"></Flame>
+              <span className="hidden sm:inline">Nozzle</span>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xl font-bold">{printer.temp || 0}°C</span>
+            <div className="flex items-baseline gap-0.5 sm:gap-1">
+              <span className="text-sm font-bold sm:text-xl">{printer.temp || 0}°</span>
               {printer.targetTemp > 0 && (
-                <span className="text-xs text-gray-500">/ {printer.targetTemp}°C</span>
+                <span className="text-[10px] text-gray-500 sm:text-xs">/{printer.targetTemp}°</span>
               )}
             </div>
           </div>
 
-          <div className="rounded-xl bg-surface-hover p-3">
-            <div className="mb-1 flex items-center gap-2 text-xs text-gray-400">
-              <Layers className="h-3.5 w-3.5"></Layers>
-              Bed
+          <div className="rounded-lg bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
+            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:gap-2 sm:text-xs">
+              <Layers className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"></Layers>
+              <span className="hidden sm:inline">Bed</span>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xl font-bold">{printer.bedTemp || 0}°C</span>
+            <div className="flex items-baseline gap-0.5 sm:gap-1">
+              <span className="text-sm font-bold sm:text-xl">{printer.bedTemp || 0}°</span>
               {printer.targetBedTemp > 0 && (
-                <span className="text-xs text-gray-500">/ {printer.targetBedTemp}°C</span>
+                <span className="text-[10px] text-gray-500 sm:text-xs">/{printer.targetBedTemp}°</span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Job Progress */}
+        {/* Job Progress - Mobile: compact */}
         {isPrinting && hasJob ? (
-          <div className="mb-4 rounded-xl bg-surface-hover p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="max-w-[150px] truncate text-sm font-medium">
+          <div className="mb-2 rounded-lg bg-surface-hover p-2 sm:mb-4 sm:rounded-xl sm:p-4">
+            <div className="mb-1 flex items-center justify-between sm:mb-2">
+              <span className="max-w-[80px] truncate text-[10px] font-medium sm:max-w-[150px] sm:text-sm">
                 {truncateFilename(printer.job?.name)}
               </span>
               {timeLeft && (
-                <span className="flex items-center gap-1 text-xs text-gray-400">
-                  <Clock className="h-3 w-3"></Clock>
+                <span className="flex items-center gap-1 text-[10px] text-gray-400 sm:text-xs">
+                  <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3"></Clock>
                   {timeLeft}
                 </span>
               )}
             </div>
 
-            <div className="mb-2 flex items-center gap-3">
-              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface">
+            <div className="mb-1 flex items-center gap-2 sm:mb-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface sm:h-2.5">
                 <div
                   className="h-full rounded-full bg-primary transition-all duration-500"
                   style={{ width: `${printer.job?.progress || 0}%` }}
                 />
               </div>
-              <span className="text-sm font-bold">{printer.job?.progress || 0}%</span>
+              <span className="text-xs font-bold sm:text-sm">{printer.job?.progress || 0}%</span>
             </div>
 
             {printer.job?.layer && (
-              <p className="text-xs text-gray-500">{printer.job.layer}</p>
+              <p className="hidden text-xs text-gray-500 sm:block">{printer.job.layer}</p>
             )}
           </div>
         ) : printer.error ? (
-          <div className="mb-4 flex items-center gap-2 rounded-xl bg-danger/10 p-3 text-danger">
-            <AlertCircle className="h-4 w-4"></AlertCircle>
-            <span className="text-sm">{printer.error}</span>
+          <div className="mb-2 flex items-center gap-1 rounded-lg bg-danger/10 p-2 text-[10px] text-danger sm:mb-4 sm:gap-2 sm:rounded-xl sm:p-3 sm:text-sm">
+            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4"></AlertCircle>
+            <span className="truncate">{printer.error}</span>
           </div>
         ) : (
-          <div className="mb-4 flex items-center gap-2 rounded-xl bg-success/10 p-3 text-success">
-            <CheckCircle className="h-4 w-4"></CheckCircle>
-            <span className="text-sm">Ready to print</span>
+          <div className="mb-2 flex items-center gap-1 rounded-lg bg-success/10 p-2 text-[10px] text-success sm:mb-4 sm:gap-2 sm:rounded-xl sm:p-3 sm:text-sm">
+            <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4"></CheckCircle>
+            <span>Ready</span>
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-2">
+        {/* Actions - Mobile: icon only */}
+        <div className="flex gap-1 sm:gap-2">
           {isPrinting ? (
             <>
               <button 
                 onClick={handlePause}
                 disabled={isControlling}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-warning/30 bg-warning/10 py-2.5 text-sm font-medium text-warning transition-colors hover:bg-warning/20 disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-warning/30 bg-warning/10 py-1.5 text-[10px] font-medium text-warning transition-colors hover:bg-warning/20 disabled:opacity-50 sm:rounded-xl sm:py-2.5 sm:text-sm"
               >
-                <Pause className="h-4 w-4"></Pause>
-                Pause
+                <Pause className="h-3 w-3 sm:h-4 sm:w-4"></Pause>
+                <span className="hidden sm:inline">Pause</span>
               </button>
               <button 
                 onClick={handleCancel}
                 disabled={isControlling}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-danger/30 bg-danger/10 py-2.5 text-sm font-medium text-danger transition-colors hover:bg-danger/20 disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-danger/30 bg-danger/10 py-1.5 text-[10px] font-medium text-danger transition-colors hover:bg-danger/20 disabled:opacity-50 sm:rounded-xl sm:py-2.5 sm:text-sm"
               >
-                <Square className="h-4 w-4"></Square>
-                Stop
+                <Square className="h-3 w-3 sm:h-4 sm:w-4"></Square>
+                <span className="hidden sm:inline">Stop</span>
               </button>
             </>
           ) : printer.status === 'idle' || printer.status === 'operational' ? (
             <>
-              <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-surface-hover py-2.5 text-sm font-medium transition-colors hover:bg-surface-hover">
-                <Settings className="h-4 w-4"></Settings>
-                Details
+              <button className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-surface-hover py-1.5 text-[10px] font-medium transition-colors hover:bg-surface-hover sm:rounded-xl sm:py-2.5 sm:text-sm">
+                <Settings className="h-3 w-3 sm:h-4 sm:w-4"></Settings>
+                <span className="hidden sm:inline">Details</span>
               </button>
               <button className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover">
                 <Zap className="h-4 w-4"></Zap>
@@ -439,8 +447,8 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
         ))}
       </div>
 
-      {/* Printer Grid */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+      {/* Printer Grid - Mobile: 3 columns, Desktop: normal */}
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
         {filteredPrinters.map((printer, index) => (
           <PrinterCard key={printer.id} printer={printer} index={index} />
         ))}
