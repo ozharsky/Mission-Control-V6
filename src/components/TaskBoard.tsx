@@ -97,9 +97,9 @@ export function TaskBoard({ tasks }: TaskBoardProps) {
   };
 
   const columns = [
-    { id: 'pending', title: 'To Do', icon: Circle, tasks: tasks.pending, color: 'warning', bgColor: 'bg-warning/5' },
-    { id: 'inProgress', title: 'In Progress', icon: Clock, tasks: tasks.inProgress, color: 'primary', bgColor: 'bg-primary/5' },
-    { id: 'completed', title: 'Done', icon: CheckCircle, tasks: tasks.completed, color: 'success', bgColor: 'bg-success/5' },
+    { id: 'pending', title: 'To Do', icon: Circle, tasks: tasks.pending, colorClass: 'warning', bgColor: 'bg-warning/5', iconBg: 'bg-warning/10', iconText: 'text-warning' },
+    { id: 'inProgress', title: 'In Progress', icon: Clock, tasks: tasks.inProgress, colorClass: 'primary', bgColor: 'bg-primary/5', iconBg: 'bg-primary/10', iconText: 'text-primary' },
+    { id: 'completed', title: 'Done', icon: CheckCircle, tasks: tasks.completed, colorClass: 'success', bgColor: 'bg-success/5', iconBg: 'bg-success/10', iconText: 'text-success' },
   ];
 
   return (
@@ -144,8 +144,8 @@ export function TaskBoard({ tasks }: TaskBoardProps) {
           >
             <div className="border-b border-surface-hover/50 px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-${column.color}/10`}>
-                  <column.icon className={`h-4 w-4 text-${column.color}`}></column.icon>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${column.iconBg}`}>
+                  <column.icon className={`h-4 w-4 ${column.iconText}`}></column.icon>
                 </div>
                 <span className="font-semibold">{column.title}</span>
                 <span className="ml-auto rounded-full bg-surface px-3 py-1 text-sm font-medium">

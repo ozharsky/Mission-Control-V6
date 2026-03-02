@@ -21,10 +21,34 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
   const [expanded, setExpanded] = useState(false);
 
   const statusConfig = {
-    online: { color: 'bg-success', text: 'text-success', bg: 'bg-success/10', label: 'Online', icon: '🟢' },
-    offline: { color: 'bg-gray-500', text: 'text-gray-500', bg: 'bg-gray-800', label: 'Offline', icon: '⚫' },
-    printing: { color: 'bg-primary', text: 'text-primary', bg: 'bg-primary/10', label: 'Printing', icon: '🖨️' },
-    error: { color: 'bg-danger', text: 'text-danger', bg: 'bg-danger/10', label: 'Error', icon: '🔴' },
+    online: { 
+      color: 'bg-success', 
+      text: 'text-success', 
+      bg: 'bg-success/10', 
+      label: 'Online', 
+      icon: '🟢' 
+    },
+    offline: { 
+      color: 'bg-gray-500', 
+      text: 'text-gray-500', 
+      bg: 'bg-gray-800', 
+      label: 'Offline', 
+      icon: '⚫' 
+    },
+    printing: { 
+      color: 'bg-primary', 
+      text: 'text-primary', 
+      bg: 'bg-primary/10', 
+      label: 'Printing', 
+      icon: '🖨️' 
+    },
+    error: { 
+      color: 'bg-danger', 
+      text: 'text-danger', 
+      bg: 'bg-danger/10', 
+      label: 'Error', 
+      icon: '🔴' 
+    },
   };
 
   const config = statusConfig[printer.status];
