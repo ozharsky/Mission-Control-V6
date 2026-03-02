@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { useAppStore } from '../stores/appStore';
+import { Plus, X } from 'lucide-react';
+
 interface Project {
   id: string;
   name: string;
@@ -23,6 +27,15 @@ interface ProjectsListProps {
 }
 
 export function ProjectsList({ projects }: ProjectsListProps) {
+  const { addProject } = useAppStore();
+  const [showModal, setShowModal] = useState(false);
+  const [newProject, setNewProject] = useState({
+    name: '',
+    description: '',
+    dueDate: '',
+    tags: ''
+  });
+
   const activeProjects = projects.filter(p => p.status === 'active');
   const completedProjects = projects.filter(p => p.status === 'completed');
   const onHoldProjects = projects.filter(p => p.status === 'on-hold');
@@ -43,8 +56,99 @@ export function ProjectsList({ projects }: ProjectsListProps) {
     return 'bg-danger';
   };
 
+  const handleAddProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProject.name.trim()) return;
+
+    await addProject({
+      name: newProject.name,
+      description: newProject.description,
+      status: 'active',
+      progress: 0,
+      tasksCompleted: 0,
+      tasksTotal: 0,
+      dueDate: newProject.dueDate || undefined,
+      tags: newProject.tags.split(',').map(t => t.trim()).filter(Boolean),
+      tasks: []
+    });
+
+    setNewProject({ name: '', description: '', dueDate: '', tags: '' });
+    setShowModal(false);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Add Project Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-surface-hover bg-surface p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-semibold">New Project</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddProject} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Project Name</label>
+                <input
+                  type="text"
+                  value={newProject.name}
+                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  placeholder="Enter project name"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Description</label>
+                <textarea
+                  value={newProject.description}
+                  onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  placeholder="Enter description"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Due Date</label>
+                <input
+                  type="date"
+                  value={newProject.dueDate}
+                  onChange={(e) => setNewProject({ ...newProject, dueDate: e.target.value })}
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Tags (comma separated)</label>
+                <input
+                  type="text"
+                  value={newProject.tags}
+                  onChange={(e) => setNewProject({ ...newProject, tags: e.target.value })}
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  placeholder="e.g. etsy, urgent, design"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 rounded-xl border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover"
+                >
+                  Create Project
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Active Projects */}
       <div className="rounded-2xl border border-surface-hover bg-surface p-6">
         <div className="mb-6 flex items-center justify-between">
@@ -52,8 +156,11 @@ export function ProjectsList({ projects }: ProjectsListProps) {
             <h2 className="text-xl font-semibold">Active Projects</h2>
             <p className="text-sm text-gray-400">{activeProjects.length} projects in progress</p>
           </div>
-          <button className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover">
-            <span className="text-lg">+</span>
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover"
+          >
+            <Plus className="h-5 w-5" />
             New Project
           </button>
         </div>
@@ -144,7 +251,10 @@ export function ProjectsList({ projects }: ProjectsListProps) {
             <div className="col-span-full rounded-xl border border-dashed border-surface-hover py-12 text-center text-gray-500">
               <div className="mb-2 text-4xl">📁</div>
               <p>No active projects</p>
-              <button className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary-hover">
+              <button 
+                onClick={() => setShowModal(true)}
+                className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary-hover"
+              >
                 Create your first project
               </button>
             </div>
