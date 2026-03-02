@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, ArrowRight } from 'lucide-react';
+import { ProjectDetails } from './ProjectDetails';
 
 interface Project {
   id: string;
@@ -29,6 +30,7 @@ interface ProjectsListProps {
 export function ProjectsList({ projects }: ProjectsListProps) {
   const { addProject } = useAppStore();
   const [showModal, setShowModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [newProject, setNewProject] = useState({
     name: '',
     description: '',
@@ -48,6 +50,11 @@ export function ProjectsList({ projects }: ProjectsListProps) {
       default: return 'bg-gray-800 text-gray-400';
     }
   };
+
+  // Show project details if a project is selected
+  if (selectedProject) {
+    return <ProjectDetails project={selectedProject} onBack={() => setSelectedProject(null)} />;
+  }
 
   const getProgressColor = (progress: number) => {
     if (progress >= 75) return 'bg-success';
@@ -238,11 +245,20 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                   ))}
                 </div>
                 
-                {project.dueDate && (
-                  <span className="text-xs text-gray-500">
-                    Due {new Date(project.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  {project.dueDate && (
+                    <span className="text-xs text-gray-500">
+                      Due {new Date(project.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setSelectedProject(project)}
+                    className="flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+                  >
+                    View
+                    <ArrowRight className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}

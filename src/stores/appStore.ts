@@ -66,6 +66,8 @@ interface AppState {
   setPrinters: (printers: any[]) => void;
   addTask: (task: Omit<Task, 'id'>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+  moveTask: (id: string, fromStatus: Task['status'], toStatus: Task['status']) => Promise<void>;
+  deleteTask: (id: string, status: Task['status']) => Promise<void>;
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
   updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
   addProjectTask: (projectId: string, task: Omit<ProjectTask, 'id'>) => Promise<void>;
@@ -109,6 +111,45 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (path) {
       await updateData(path, updates);
     }
+  },
+  
+  moveTask: async (id, fromStatus, toStatus) => {
+    const { tasks } = get();
+    
+    // Find the task
+    let task: Task | undefined;
+    let fromPath = '';
+    
+    if (fromStatus === 'pending') {
+      task = tasks.pending.find(t => t.id === id);
+      fromPath = 'v6/tasks/pending/' + id;
+    } else if (fromStatus === 'in-progress') {
+      task = tasks.inProgress.find(t => t.id === id);
+      fromPath = 'v6/tasks/inProgress/' + id;
+    } else if (fromStatus === 'completed') {
+      task = tasks.completed.find(t => t.id === id);
+      fromPath = 'v6/tasks/completed/' + id;
+    }
+    
+    if (!task) return;
+    
+    // Delete from old location
+    await setData(fromPath, null);
+    
+    // Add to new location with updated status
+    const updatedTask = { ...task, status: toStatus };
+    const toPath = toStatus === 'pending' ? 'v6/tasks/pending' : 
+                   toStatus === 'in-progress' ? 'v6/tasks/inProgress' : 
+                   'v6/tasks/completed';
+    
+    await pushData(toPath, updatedTask);
+  },
+  
+  deleteTask: async (id, status) => {
+    const path = status === 'pending' ? `v6/tasks/pending/${id}` :
+                 status === 'in-progress' ? `v6/tasks/inProgress/${id}` :
+                 `v6/tasks/completed/${id}`;
+    await setData(path, null);
   },
   
   addProject: async (project) => {
