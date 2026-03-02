@@ -16,70 +16,64 @@ import { SettingsPage } from './components/SettingsPage';
 import { ThemeToggleSimple } from './components/ThemeToggle';
 
 function App() {
-  const { 
-    initSubscriptions, 
-    agent, 
-    tasks, 
-    notifications, 
-    unreadCount, 
-    printers, 
+  const {
+    initSubscriptions,
+    agent,
+    tasks,
+    notifications,
+    unreadCount,
+    printers,
     revenue,
     projects,
     setPrinters
   } = useAppStore();
-  
+
   const [activeSection, setActiveSection] = useState('dashboard');
-  
+
   useEffect(() => {
     initSubscriptions();
     initTheme();
-    
+
     // Initialize SimplyPrint on app load if API key exists
     const apiKey = localStorage.getItem('simplyprint_api_key');
     const proxyUrl = localStorage.getItem('simplyprint_proxy_url');
     if (apiKey) {
       initSimplyPrint(apiKey, proxyUrl || undefined);
-      fetchLivePrinters();
-    }
-  }, []);
-  
-  const fetchLivePrinters = async () => {
-    const api = getSimplyPrint();
-    if (api) {
-      const printerList = await api.getPrinters();
-      console.log('Raw printer data:', printerList);
-      
-      // The proxy already returns data in the correct format
-      // { printers: [{ id, name, status, temp, targetTemp, bedTemp, targetBedTemp, ... }] }
-      const transformed = printerList.map((printer: any) => {
-        console.log('Processing printer:', printer.name, 'temps:', { 
-          temp: printer.temp, 
-          targetTemp: printer.targetTemp,
-          bedTemp: printer.bedTemp,
-          targetBedTemp: printer.targetBedTemp 
-        });
-        
-        return {
-          id: printer.id?.toString(),
-          name: printer.name || 'Unknown Printer',
-          status: printer.status || 'offline',
-          temp: printer.temp || 0,
-          targetTemp: printer.targetTemp || 0,
-          bedTemp: printer.bedTemp || 0,
-          targetBedTemp: printer.targetBedTemp || 0,
-          job: printer.job ? {
-            name: printer.job.file || printer.job.name,
-            progress: printer.job.percentage || printer.progress || 0,
-            timeLeft: printer.job.time,
-            layer: printer.job.layer
-          } : undefined,
-          lastSeen: new Date().toISOString()
-        };
-      });
-      setPrinters(transformed);
-    }
-  };
 
+      // Fetch printers immediately
+      const fetchPrinters = async () => {
+        const api = getSimplyPrint();
+        if (api) {
+          const printerList = await api.getPrinters();
+          console.log('Raw printer data:', printerList);
+
+          // The proxy already returns data in the correct format
+          const transformed = printerList.map((printer: any) => {
+            return {
+              id: printer.id?.toString(),
+              name: printer.name || 'Unknown Printer',
+              status: printer.status || 'offline',
+              temp: printer.temp || 0,
+              targetTemp: printer.targetTemp || 0,
+              bedTemp: printer.bedTemp || 0,
+              targetBedTemp: printer.targetBedTemp || 0,
+              job: printer.job ? {
+                name: printer.job.file || printer.job.name,
+                progress: printer.job.percentage || printer.progress || 0,
+                timeLeft: printer.job.time,
+                layer: printer.job.layer
+              } : undefined,
+              lastSeen: new Date().toISOString()
+            };
+          });
+          setPrinters(transformed);
+        }
+      };
+
+      fetchPrinters();
+    }
+  }, [initSubscriptions, setPrinters]);
+  
   const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => ({
     month,
     value: data.value || 0,
@@ -92,7 +86,7 @@ function App() {
         return (
           <div className="space-y-6">
             {agent && <AgentPanel agent={agent} />}
-            <DashboardStats 
+            <DashboardStats
               pendingTasks={tasks.pending.length}
               inProgressTasks={tasks.inProgress.length}
               completedTasks={tasks.completed.length}
@@ -104,28 +98,28 @@ function App() {
             <TaskBoard tasks={tasks} />
           </div>
         );
-      
+
       case 'printers':
         return <PrinterStatus printers={printers} />;
-      
+
       case 'revenue':
         return <RevenueChart data={revenueData} goal={450} />;
-      
+
       case 'projects':
         return <ProjectsList projects={projects} />;
-      
+
       case 'tasks':
         return <TaskBoard tasks={tasks} />;
-      
+
       case 'calendar':
         return <CalendarView events={[]} />;
-      
+
       case 'files':
         return <FileManager />;
-      
+
       case 'settings':
         return <SettingsPage />;
-      
+
       default:
         return <div>Section not found</div>;
     }
@@ -134,7 +128,7 @@ function App() {
   return (
     <div className="flex min-h-screen bg-background text-white">
       <Navigation activeSection={activeSection} onSectionChange={setActiveSection} />
-      
+
       <div className="flex-1 lg:ml-0">
         <header className="sticky top-0 z-10 border-b border-surface-hover bg-surface/80 px-6 py-4 backdrop-blur">
           <div className="flex items-center justify-between">
@@ -147,7 +141,7 @@ function App() {
                 <p className="text-sm text-gray-400">V6</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-4">
               <ThemeToggleSimple />
               <NotificationBell count={unreadCount} notifications={notifications} />
