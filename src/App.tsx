@@ -132,8 +132,8 @@ function App() {
     <div className="flex min-h-screen bg-background text-white">
       <Navigation activeSection={activeSection} onSectionChange={setActiveSection} />
 
-      <div className="flex-1 lg:ml-0">
-        <header className="sticky top-0 z-10 border-b border-surface-hover bg-surface/80 px-6 py-4 backdrop-blur">
+      <div className="flex-1 pt-14 lg:ml-0 lg:pt-0">
+        <header className="sticky top-14 z-10 border-b border-surface-hover bg-surface/80 px-4 py-3 backdrop-blur lg:top-0 lg:px-6 lg:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
@@ -158,7 +158,7 @@ function App() {
           </div>
         </header>
 
-        <main className="p-6 pb-24 lg:pb-6">
+        <main className="p-4 pb-28 lg:p-6 lg:pb-6">
           <div className="mx-auto max-w-7xl">
             {renderSection()}
           </div>

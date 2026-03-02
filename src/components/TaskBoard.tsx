@@ -283,7 +283,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                 rows={2}
                 className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <select
                   value={newTask.priority}
                   onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as Task['priority'] })}
@@ -300,7 +300,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                   className="rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <select
                   value={newTask.projectId}
                   onChange={(e) => setNewTask({ ...newTask, projectId: e.target.value })}
@@ -359,6 +359,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
         </button>
       </div>
 
+      {/* Task Columns */}
       {/* Task Columns */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {columns.map((column) => (
