@@ -1,5 +1,10 @@
 import { useState, useMemo } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Calendar, BarChart3, Table, Download, Target } from 'lucide-react';
+import { 
+  TrendingUp, TrendingDown, DollarSign, ShoppingCart, Calendar, 
+  BarChart3, Table, Plus, X, ChevronLeft, ChevronRight, Target 
+} from 'lucide-react';
+import { useAppStore } from '../stores/appStore';
+import { setData } from '../lib/firebase';
 
 interface RevenueData {
   month: string;
@@ -26,32 +31,29 @@ function StatCard({
   color: 'success' | 'primary' | 'warning' | 'danger';
 }) {
   const colorClasses = {
-    success: 'from-success/20 to-success/5 text-success border-success/30',
-    primary: 'from-primary/20 to-primary/5 text-primary border-primary/30',
-    warning: 'from-warning/20 to-warning/5 text-warning border-warning/30',
-    danger: 'from-danger/20 to-danger/5 text-danger border-danger/30',
+    success: 'bg-success/10 text-success border-success/20',
+    primary: 'bg-primary/10 text-primary border-primary/20',
+    warning: 'bg-warning/10 text-warning border-warning/20',
+    danger: 'bg-danger/10 text-danger border-danger/20',
   };
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 ${colorClasses[color]}`}>
-      <div className="relative z-10">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-            <Icon className="h-5 w-5"></Icon>
-          </div>
-          {trend !== undefined && (
-            <div className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
-              trend >= 0 ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
-            }`}>
-              {trend >= 0 ? <TrendingUp className="h-3 w-3"></TrendingUp> : <TrendingDown className="h-3 w-3"></TrendingDown>}
-              {Math.abs(trend)}%
-            </div>
-          )}
+    <div className={`rounded-xl border border-surface-hover bg-surface p-4 ${colorClasses[color]}`}>
+      <div className="flex items-start justify-between">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-white/10`}>
+          <Icon className="h-5 w-5" />
         </div>
-        <p className="text-sm opacity-80">{title}</p>
-        <p className="text-2xl font-bold">{value}</p>
+        {trend !== undefined && (
+          <div className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+            trend >= 0 ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
+          }`}>
+            {trend >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {Math.abs(trend)}%
+          </div>
+        )}
       </div>
-      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/5"></div>
+      <p className="mt-3 text-sm opacity-80">{title}</p>
+      <p className="text-2xl font-bold">{value}</p>
     </div>
   );
 }
@@ -59,6 +61,13 @@ function StatCard({
 export function RevenueChart({ data, goal }: RevenueChartProps) {
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
   const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m' | 'all'>('6m');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<RevenueData | null>(null);
+  const [newEntry, setNewEntry] = useState({
+    month: new Date().toISOString().slice(0, 7), // YYYY-MM
+    value: '',
+    orders: '',
+  });
 
   const filteredData = useMemo(() => {
     if (timeRange === 'all') return data;
@@ -73,16 +82,12 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
     const max = Math.max(...filteredData.map(d => d.value), 0);
     const avgOrderValue = orders > 0 ? total / orders : 0;
     
-    // Calculate trend (compare last month to previous)
     const lastMonth = filteredData[filteredData.length - 1]?.value || 0;
     const prevMonth = filteredData[filteredData.length - 2]?.value || 0;
     const trend = prevMonth > 0 ? Math.round(((lastMonth - prevMonth) / prevMonth) * 100) : 0;
     
-    // Goal progress
-    const goalProgress = goal > 0 ? Math.min(Math.round((avg / goal) * 100), 100) : 0;
-    
-    return { total, orders, avg, max, avgOrderValue, trend, goalProgress };
-  }, [filteredData, goal]);
+    return { total, orders, avg, max, avgOrderValue, trend };
+  }, [filteredData]);
 
   const maxValue = Math.max(...filteredData.map(d => d.value), goal * 1.1);
 
@@ -94,10 +99,149 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
     }).format(value);
   };
 
+  const handleAddEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEntry.value || !newEntry.orders) return;
+
+    const entry = {
+      month: newEntry.month,
+      value: parseFloat(newEntry.value),
+      orders: parseInt(newEntry.orders),
+    };
+
+    // Save to Firebase
+    await setData(`v6/data/revenue/${entry.month}`, entry);
+
+    setNewEntry({ month: new Date().toISOString().slice(0, 7), value: '', orders: '' });
+    setShowAddModal(false);
+  };
+
+  const handleEditEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEntry) return;
+
+    await setData(`v6/data/revenue/${editingEntry.month}`, editingEntry);
+    setEditingEntry(null);
+  };
+
+  const handleDeleteEntry = async (month: string) => {
+    if (confirm('Delete this revenue entry?')) {
+      await setData(`v6/data/revenue/${month}`, null);
+    }
+  };
+
+  const openEditModal = (entry: RevenueData) => {
+    setEditingEntry({ ...entry });
+  };
+
+  // Generate month options for dropdown
+  const getMonthOptions = () => {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = d.toISOString().slice(0, 7);
+      const label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      options.push({ value, label });
+    }
+    return options;
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
+      {/* Add/Edit Modal */}
+      {(showAddModal || editingEntry) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-surface-hover bg-surface p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-semibold">
+                {editingEntry ? 'Edit Entry' : 'Add Revenue Entry'}
+              </h3>
+              <button 
+                onClick={() => { setShowAddModal(false); setEditingEntry(null); }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={editingEntry ? handleEditEntry : handleAddEntry} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Month</label>
+                {editingEntry ? (
+                  <input
+                    type="text"
+                    value={editingEntry.month}
+                    disabled
+                    className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-gray-500"
+                  />
+                ) : (
+                  <select
+                    value={newEntry.month}
+                    onChange={(e) => setNewEntry({ ...newEntry, month: e.target.value })}
+                    className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  >
+                    {getMonthOptions().map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Revenue ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editingEntry ? editingEntry.value : newEntry.value}
+                  onChange={(e) => editingEntry 
+                    ? setEditingEntry({ ...editingEntry, value: parseFloat(e.target.value) || 0 })
+                    : setNewEntry({ ...newEntry, value: e.target.value })
+                  }
+                  placeholder="0.00"
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Number of Orders</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editingEntry ? editingEntry.orders : newEntry.orders}
+                  onChange={(e) => editingEntry
+                    ? setEditingEntry({ ...editingEntry, orders: parseInt(e.target.value) || 0 })
+                    : setNewEntry({ ...newEntry, orders: e.target.value })
+                  }
+                  placeholder="0"
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddModal(false); setEditingEntry(null); }}
+                  className="flex-1 rounded-xl border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover"
+                >
+                  {editingEntry ? 'Save Changes' : 'Add Entry'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <StatCard
           title="Total Revenue"
           value={formatCurrency(stats.total)}
@@ -126,26 +270,33 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
       </div>
 
       {/* Main Chart Card */}
-      <div className="rounded-2xl border border-surface-hover bg-surface p-6">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-xl border border-surface-hover bg-surface p-4 lg:p-6">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <BarChart3 className="h-5 w-5 text-primary"></BarChart3>
+              <BarChart3 className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h2 className="text-lg font-semibold">Revenue Overview</h2>
-              <p className="text-sm text-gray-400">Track your sales performance</p>
+              <p className="text-sm text-gray-400">Goal: {formatCurrency(goal)}/month</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Time Range */}
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+            >
+              <Plus className="h-4 w-4" />
+              Add Entry
+            </button>
+
             <div className="flex rounded-lg border border-surface-hover">
               {(['3m', '6m', '12m', 'all'] as const).map((range) => (
                 <button
                   key={range}
                   onClick={() => setTimeRange(range)}
-                  className={`px-3 py-1.5 text-sm font-medium ${
+                  className={`px-3 py-2 text-sm font-medium ${
                     timeRange === range
                       ? 'bg-primary text-white'
                       : 'hover:bg-surface-hover'
@@ -156,33 +307,21 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
               ))}
             </div>
 
-            {/* View Toggle */}
             <div className="flex rounded-lg border border-surface-hover">
               <button
                 onClick={() => setViewMode('chart')}
-                className={`px-3 py-1.5 ${viewMode === 'chart' ? 'bg-primary text-white' : 'hover:bg-surface-hover'} rounded-l-lg`}
+                className={`px-3 py-2 ${viewMode === 'chart' ? 'bg-primary text-white' : 'hover:bg-surface-hover'} rounded-l-lg`}
               >
-                <BarChart3 className="h-4 w-4"></BarChart3>
+                <BarChart3 className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`px-3 py-1.5 ${viewMode === 'table' ? 'bg-primary text-white' : 'hover:bg-surface-hover'} rounded-r-lg`}
+                className={`px-3 py-2 ${viewMode === 'table' ? 'bg-primary text-white' : 'hover:bg-surface-hover'} rounded-r-lg`}
               >
-                <Table className="h-4 w-4"></Table>
+                <Table className="h-4 w-4" />
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Goal Line */}
-        <div className="relative mb-6">
-          <div className="absolute right-0 top-0 z-10 -translate-y-2 text-xs font-medium text-primary">
-            Goal: {formatCurrency(goal)}
-          </div>
-          <div
-            className="absolute left-0 right-0 top-0 border-t-2 border-dashed border-primary/50"
-            style={{ top: `${((maxValue - goal) / maxValue) * 100}%` }}
-          />
         </div>
 
         {viewMode === 'chart' ? (
@@ -190,7 +329,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
             {filteredData.length > 0 ? (
               <>
                 {/* Chart */}
-                <div className="flex items-end gap-3">
+                <div className="flex items-end gap-2">
                   {filteredData.map((item, index) => {
                     const height = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
                     const isGoalMet = item.value >= goal;
@@ -204,46 +343,34 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                           </div>
                           
                           <div
-                            className={`w-full rounded-t-xl transition-all duration-500 ${
+                            className={`w-full rounded-t-lg transition-all duration-500 ${
                               isGoalMet ? 'bg-success' : 'bg-primary'
                             }`}
                             style={{
                               height: `${Math.max(height, 4)}%`,
                               minHeight: '4px',
-                              animationDelay: `${index * 50}ms`,
                             }}
                           />
                         </div>
                         
-                        <div className="mt-3 text-xs font-medium text-gray-500">
+                        <div className="mt-2 text-xs text-gray-500">
                           {new Date(item.month + '-01').toLocaleDateString(undefined, { month: 'short' })}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-
-                {/* Legend */}
-                <div className="mt-6 flex items-center justify-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-success"></div>
-                    <span className="text-sm text-gray-400">Goal Met</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-primary"></div>
-                    <span className="text-sm text-gray-400">Below Goal</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-0.5 w-4 border-t-2 border-dashed border-primary"></div>
-                    <span className="text-sm text-gray-400">Target</span>
-                  </div>
-                </div>
               </>
             ) : (
-              <div className="py-16 text-center text-gray-500">
-                <div className="mb-4 text-6xl">📊</div>
-                <h3 className="mb-2 text-xl font-semibold">No revenue data</h3>
-                <p>Add revenue data to see your sales performance</p>
+              <div className="py-12 text-center text-gray-500">
+                <div className="mb-4 text-5xl">📊</div>
+                <h3 className="mb-2 text-lg font-semibold">No revenue data</h3>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary-hover"
+                >
+                  Add First Entry
+                </button>
               </div>
             )}
           </>
@@ -255,20 +382,19 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                   <th className="pb-3 text-sm font-medium text-gray-400">Month</th>
                   <th className="pb-3 text-right text-sm font-medium text-gray-400">Revenue</th>
                   <th className="pb-3 text-right text-sm font-medium text-gray-400">Orders</th>
-                  <th className="pb-3 text-right text-sm font-medium text-gray-400">Avg/Order</th>
                   <th className="pb-3 text-center text-sm font-medium text-gray-400">Status</th>
+                  <th className="pb-3 text-right text-sm font-medium text-gray-400">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {[...filteredData].reverse().map((item) => {
                   const isGoalMet = item.value >= goal;
-                  const avgOrder = item.orders > 0 ? item.value / item.orders : 0;
 
                   return (
                     <tr key={item.month} className="border-b border-surface-hover/50">
                       <td className="py-3 font-medium">
                         {new Date(item.month + '-01').toLocaleDateString(undefined, {
-                          month: 'long',
+                          month: 'short',
                           year: 'numeric',
                         })}
                       </td>
@@ -276,17 +402,32 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                         {formatCurrency(item.value)}
                       </td>
                       <td className="py-3 text-right">{item.orders}</td>
-                      <td className="py-3 text-right text-gray-400">{formatCurrency(avgOrder)}</td>
                       <td className="py-3 text-center">
                         <span
-                          className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          className={`rounded-full px-2 py-1 text-xs font-medium ${
                             isGoalMet
                               ? 'bg-success/10 text-success'
                               : 'bg-warning/10 text-warning'
                           }`}
                         >
-                          {isGoalMet ? '✓ Goal Met' : 'Below Goal'}
+                          {isGoalMet ? '✓ Goal' : 'Below'}
                         </span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEditModal(item)}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEntry(item.month)}
+                            className="text-sm text-danger hover:underline"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
