@@ -51,7 +51,7 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
     },
   };
 
-  const config = statusConfig[printer.status];
+  const config = statusConfig[printer.status] || statusConfig.offline;
 
   const formatTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
