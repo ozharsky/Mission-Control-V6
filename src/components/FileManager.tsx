@@ -105,11 +105,19 @@ function FileCard({
     >
       <div className="mb-3 aspect-square rounded-lg bg-surface overflow-hidden">
         {isImage && file.thumbnailUrl ? (
-          <img 
-            src={file.thumbnailUrl} 
-            alt={file.name}
-            className="h-full w-full object-cover"
-          />
+          <a 
+            href={file.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block h-full w-full"
+          >
+            <img 
+              src={file.thumbnailUrl} 
+              alt={file.name}
+              className="h-full w-full object-cover"
+              crossOrigin="anonymous"
+            />
+          </a>
         ) : (
           <div className="flex h-full items-center justify-center"
           >

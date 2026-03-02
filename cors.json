@@ -1,0 +1,26 @@
+// Firebase Storage CORS Configuration
+// Run this with: gsutil cors set cors.json gs://mission-control-sync.appspot.com
+// Or use Firebase CLI: firebase storage:bucket:set-cors cors.json
+
+const corsConfig = {
+  "cors": [
+    {
+      "origin": ["*"],
+      "method": ["GET", "HEAD"],
+      "maxAgeSeconds": 3600,
+      "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"]
+    }
+  ]
+};
+
+// Alternative: Use Firebase Console
+// 1. Go to Firebase Console → Storage → Rules
+// 2. Update CORS settings
+
+console.log(JSON.stringify(corsConfig, null, 2));
+
+// Instructions:
+// 1. Install gsutil: https://cloud.google.com/storage/docs/gsutil_install
+// 2. Authenticate: gcloud auth login
+// 3. Set CORS: gsutil cors set cors.json gs://mission-control-sync.appspot.com
+// 4. Verify: gsutil cors get gs://mission-control-sync.appspot.com
