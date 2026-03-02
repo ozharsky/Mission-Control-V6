@@ -109,7 +109,7 @@ function App() {
         return <ProjectsList projects={projects} />;
 
       case 'tasks':
-        return <TaskBoard tasks={tasks} />;
+        return <TaskBoard tasks={tasks} projects={projects.map(p => ({ id: p.id, name: p.name }))} />;
 
       case 'calendar':
         return <CalendarView events={[]} />;
