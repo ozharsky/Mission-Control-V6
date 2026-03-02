@@ -71,7 +71,7 @@ function App() {
         return <CalendarView events={[]} />;
       
       case 'files':
-        return <FileManager files={[]} />;
+        return <FileManager />;
       
       case 'settings':
         return <SettingsPage />;

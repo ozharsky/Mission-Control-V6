@@ -1,30 +1,18 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Upload, File, Image, FileText, Archive, MoreVertical, 
   Search, Filter, Grid, List, Download, Trash2, Eye,
-  X, Check, Folder
+  X, Check, Folder, Link, Loader2
 } from 'lucide-react';
-
-interface FileItem {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  url: string;
-  uploadedAt: string;
-  category?: string;
-  projectId?: string;
-  thumbnailUrl?: string;
-}
+import { getFileStorage, FileItem } from '../lib/fileStorage';
+import { useAppStore } from '../stores/appStore';
+import { setData, subscribeToData } from '../lib/firebase';
 
 interface FileManagerProps {
-  files: FileItem[];
-  onUpload?: (files: FileList) => void;
-  onDelete?: (id: string) => void;
-  onDownload?: (file: FileItem) => void;
+  projectId?: string;
 }
 
-const CATEGORIES = ['all', 'Etsy', 'Photography', 'Strategy', 'Research', 'Marketing', 'Operations', 'Design'];
+const CATEGORIES = ['Etsy', 'Photography', 'Strategy', 'Research', 'Marketing', 'Operations', 'Design'];
 
 const FILE_ICONS: Record<string, any> = {
   image: Image,
@@ -48,13 +36,19 @@ function formatSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function FileCard({ file, viewMode, onDelete, onDownload }: { 
+function FileCard({ 
+  file, 
+  viewMode, 
+  onDelete, 
+  onDownload,
+  projectName
+}: { 
   file: FileItem; 
   viewMode: 'grid' | 'list';
-  onDelete?: (id: string) => void;
+  onDelete?: (file: FileItem) => void;
   onDownload?: (file: FileItem) => void;
+  projectName?: string;
 }) {
-  const [showActions, setShowActions] = useState(false);
   const Icon = getFileIcon(file.type);
   const isImage = file.type.startsWith('image/');
 
@@ -67,9 +61,17 @@ function FileCard({ file, viewMode, onDelete, onDownload }: {
         
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{file.name}</p>
-          <p className="text-sm text-gray-500">
-            {formatSize(file.size)} • {new Date(file.uploadedAt).toLocaleDateString()}
-          </p>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>{formatSize(file.size)}</span>
+            <span>•</span>
+            <span>{new Date(file.uploadedAt).toLocaleDateString()}</span>
+            {file.projectId && projectName && (
+              <>
+                <span>•</span>
+                <span className="text-primary">{projectName}</span>
+              </>
+            )}
+          </div>
         </div>
 
         {file.category && (
@@ -87,7 +89,7 @@ function FileCard({ file, viewMode, onDelete, onDownload }: {
             <Download className="h-4 w-4"></Download>
           </button>
           <button 
-            onClick={() => onDelete?.(file.id)}
+            onClick={() => onDelete?.(file)}
             className="rounded-lg p-2 text-danger hover:bg-danger/10"
             title="Delete"
           >
@@ -101,7 +103,6 @@ function FileCard({ file, viewMode, onDelete, onDownload }: {
   return (
     <div className="group relative rounded-xl border border-surface-hover bg-background p-4 transition-all hover:border-primary hover:shadow-lg"
     >
-      {/* Thumbnail or Icon */}
       <div className="mb-3 aspect-square rounded-lg bg-surface overflow-hidden">
         {isImage && file.thumbnailUrl ? (
           <img 
@@ -117,7 +118,6 @@ function FileCard({ file, viewMode, onDelete, onDownload }: {
         )}
       </div>
 
-      {/* Info */}
       <div className="min-w-0"
       >
         <p className="truncate font-medium">{file.name}</p>
@@ -133,9 +133,16 @@ function FileCard({ file, viewMode, onDelete, onDownload }: {
             {file.category}
           </span>
         )}
+        
+        {file.projectId && projectName && (
+          <div className="mt-2 flex items-center gap-1 text-xs text-primary"
+          >
+            <Link className="h-3 w-3"></Link>
+            {projectName}
+          </div>
+        )}
       </div>
 
-      {/* Hover Actions */}
       <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
       >
         <button 
@@ -146,7 +153,7 @@ function FileCard({ file, viewMode, onDelete, onDownload }: {
           <Download className="h-4 w-4"></Download>
         </button>
         <button 
-          onClick={() => onDelete?.(file.id)}
+          onClick={() => onDelete?.(file)}
           className="rounded-lg bg-surface p-2 text-danger shadow-lg hover:bg-danger/10"
           title="Delete"
         >
@@ -157,17 +164,35 @@ function FileCard({ file, viewMode, onDelete, onDownload }: {
   );
 }
 
-export function FileManager({ files, onUpload, onDelete, onDownload }: FileManagerProps) {
+export function FileManager({ projectId }: FileManagerProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [files, setFiles] = useState<FileItem[]>([]);
+  const [linkToProject, setLinkToProject] = useState(projectId || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileStorage = getFileStorage();
+  const { projects } = useAppStore();
+
+  // Load files from Firebase
+  useEffect(() => {
+    const unsubscribe = subscribeToData('v6/files', (data) => {
+      if (data) {
+        const fileList = Object.values(data) as FileItem[];
+        setFiles(fileList);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   const filteredFiles = files.filter((file) => {
     const matchesCategory = selectedCategory === 'all' || file.category === selectedCategory;
     const matchesSearch = file.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    const matchesProject = !projectId || file.projectId === projectId;
+    return matchesCategory && matchesSearch && matchesProject;
   });
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -179,44 +204,96 @@ export function FileManager({ files, onUpload, onDelete, onDownload }: FileManag
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files.length > 0) {
-      onUpload?.(e.dataTransfer.files);
+      await uploadFiles(Array.from(e.dataTransfer.files));
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      onUpload?.(e.target.files);
+      await uploadFiles(Array.from(e.target.files));
     }
+  };
+
+  const uploadFiles = async (fileList: File[]) => {
+    if (!fileStorage.isAvailable()) {
+      alert('Firebase Storage not configured. Please set up Firebase in Settings.');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    const uploadedFiles: FileItem[] = [];
+    
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      try {
+        const uploadedFile = await fileStorage.uploadFile({
+          file,
+          category: selectedCategory !== 'all' ? selectedCategory : 'Uncategorized',
+          projectId: linkToProject || undefined,
+        });
+        
+        if (uploadedFile) {
+          // Save to Firebase Realtime Database
+          await setData(`v6/files/${uploadedFile.id}`, uploadedFile);
+          uploadedFiles.push(uploadedFile);
+        }
+        
+        setUploadProgress(((i + 1) / fileList.length) * 100);
+      } catch (error) {
+        console.error('Upload failed:', error);
+        alert(`Failed to upload ${file.name}`);
+      }
+    }
+    
+    setIsUploading(false);
+    setUploadProgress(0);
+  };
+
+  const handleDelete = async (file: FileItem) => {
+    if (!confirm(`Delete ${file.name}?`)) return;
+    
+    try {
+      await fileStorage.deleteFile(file.storagePath);
+      await setData(`v6/files/${file.id}`, null);
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Failed to delete file');
+    }
+  };
+
+  const handleDownload = (file: FileItem) => {
+    window.open(file.url, '_blank');
+  };
+
+  const getProjectName = (projectId?: string) => {
+    if (!projectId) return undefined;
+    const project = projects.find(p => p.id === projectId);
+    return project?.name;
   };
 
   return (
-    <div className="space-y-6"
-    >
+    <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-2xl border border-surface-hover bg-surface p-6"
-      >
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="flex items-center gap-3"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"
-            >
+      <div className="rounded-2xl border border-surface-hover bg-surface p-6">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
               <Folder className="h-6 w-6 text-primary"></Folder>
             </div>
             <div>
-              <h2 className="text-2xl font-bold">Files</h2>
-              <p className="text-sm text-gray-400">{filteredFiles.length} files • {formatSize(files.reduce((acc, f) => acc + f.size, 0))}</p>
+              <h2 className="text-2xl font-bold">{projectId ? 'Project Files' : 'Files'}</h2>
+              <p className="text-sm text-gray-400">{filteredFiles.length} files • {formatSize(filteredFiles.reduce((acc, f) => acc + f.size, 0))}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2"
-          >
-            <div className="flex rounded-lg border border-surface-hover"
-            >
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-surface-hover">
               <button
                 onClick={() => setViewMode('grid')}
                 className={`px-3 py-2 ${viewMode === 'grid' ? 'bg-primary text-white' : 'hover:bg-surface-hover'} rounded-l-lg`}
@@ -233,10 +310,15 @@ export function FileManager({ files, onUpload, onDelete, onDownload }: FileManag
 
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover"
+              disabled={isUploading}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-50"
             >
-              <Upload className="h-4 w-4"></Upload>
-              Upload
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin"></Loader2>
+              ) : (
+                <Upload className="h-4 w-4"></Upload>
+              )}
+              {isUploading ? `${Math.round(uploadProgress)}%` : 'Upload'}
             </button>
 
             <input
@@ -249,11 +331,9 @@ export function FileManager({ files, onUpload, onDelete, onDownload }: FileManag
           </div>
         </div>
 
-        {/* Search & Filter */}
-        <div className="flex flex-col gap-3 sm:flex-row"
-        >
-          <div className="relative flex-1"
-          >
+        {/* Search, Filter & Project Link */}
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"></Search>
             <input
               type="text"
@@ -264,22 +344,29 @@ export function FileManager({ files, onUpload, onDelete, onDownload }: FileManag
             />
           </div>
 
-          <div className="flex flex-wrap gap-2"
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="rounded-xl border border-surface-hover bg-background px-4 py-2.5 text-white focus:border-primary focus:outline-none"
           >
+            <option value="all">All Categories</option>
             {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
-                  selectedCategory === cat
-                    ? 'bg-primary text-white'
-                    : 'bg-surface-hover text-gray-400 hover:text-white'
-                }`}
-              >
-                {cat}
-              </button>
+              <option key={cat} value={cat}>{cat}</option>
             ))}
-          </div>
+          </select>
+
+          {!projectId && (
+            <select
+              value={linkToProject}
+              onChange={(e) => setLinkToProject(e.target.value)}
+              className="rounded-xl border border-surface-hover bg-background px-4 py-2.5 text-white focus:border-primary focus:outline-none"
+            >
+              <option value="">Link to Project (Optional)</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>{project.name}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -294,8 +381,7 @@ export function FileManager({ files, onUpload, onDelete, onDownload }: FileManag
             : 'border-surface-hover hover:border-surface'
         }`}
       >
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-surface"
-        >
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-surface">
           <Upload className="h-8 w-8 text-gray-400"></Upload>
         </div>
         <p className="mt-4 text-lg font-medium">Drop files here to upload</p>
@@ -303,22 +389,21 @@ export function FileManager({ files, onUpload, onDelete, onDownload }: FileManag
       </div>
 
       {/* Files Grid/List */}
-      <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4' : 'space-y-2'}
-      >
+      <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4' : 'space-y-2'}>
         {filteredFiles.map((file) => (
           <FileCard 
             key={file.id} 
             file={file} 
             viewMode={viewMode}
-            onDelete={onDelete}
-            onDownload={onDownload}
+            onDelete={handleDelete}
+            onDownload={handleDownload}
+            projectName={getProjectName(file.projectId)}
           />
         ))}
       </div>
 
       {filteredFiles.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-surface-hover py-16 text-center"
-        >
+        <div className="rounded-2xl border border-dashed border-surface-hover py-16 text-center">
           <div className="mb-4 text-6xl">📁</div>
           <h3 className="mb-2 text-xl font-semibold">No files found</h3>
           <p className="text-gray-500">{searchQuery ? 'Try a different search' : 'Upload your first file'}</p>

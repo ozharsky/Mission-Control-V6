@@ -44,7 +44,7 @@ if (firebase) {
   db = firebase.db;
 }
 
-export { db };
+export { db, app };
 
 // Helper functions
 export const subscribeToData = (path: string, callback: (data: any) => void) => {
