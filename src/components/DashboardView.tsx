@@ -273,7 +273,8 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
 
   // Calculate all stats
   const stats = useMemo(() => {
-    const totalTasks = tasks.pending.length + tasks.inProgress.length + tasks.completed.length;
+    const activeTasks = tasks.pending.length + tasks.inProgress.length;
+    const totalTasks = activeTasks + tasks.completed.length;
     const taskCompletion = totalTasks > 0 ? Math.round((tasks.completed.length / totalTasks) * 100) : 0;
     const urgentTasks = tasks.pending.filter(t => t.priority === 'high').length;
     const overdueTasks = tasks.pending.filter(t => t.dueDate && new Date(t.dueDate) < new Date()).length;
@@ -294,11 +295,11 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     const newJobs = jobs.filter(j => j.status === 'new').length;
 
     return {
-      tasks: { total: totalTasks, completion: taskCompletion, urgent: urgentTasks, overdue: overdueTasks },
+      tasks: { active: activeTasks, total: totalTasks, completion: taskCompletion, urgent: urgentTasks, overdue: overdueTasks },
       projects: { active: activeProjects, completed: completedProjects },
       revenue: { total: totalRevenue, orders: totalOrders },
       printers: { total: printers.length, online: onlinePrinters, printing: printingPrinters },
-      inventory: { lowStock, value: inventoryValue },
+      inventory: { lowStock, value: inventoryValue, total: inventory.length },
       jobs: { new: newJobs, total: jobs.length }
     };
   }, [tasks, projects, revenue, printers, inventory, jobs]);
@@ -387,8 +388,8 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
             )}
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold">{stats.tasks.total}</div>
-            <div className="text-sm text-gray-400">Tasks</div>
+            <div className="text-2xl font-bold">{stats.tasks.active}</div>
+            <div className="text-sm text-gray-400">Active Tasks</div>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-hover">
             <div 
@@ -396,7 +397,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
               style={{ width: `${stats.tasks.completion}%` }}
             />
           </div>
-          <div className="mt-1 text-xs text-gray-500">{stats.tasks.completion}% done</div>
+          <div className="mt-1 text-xs text-gray-500">{stats.tasks.completion}% done ({stats.tasks.total} total)</div>
         </button>
 
         {/* Projects */}
@@ -451,7 +452,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
             <div className="text-2xl font-bold">${(stats.inventory.value / 1000).toFixed(1)}k</div>
             <div className="text-sm text-gray-400">Inventory Value</div>
           </div>
-          <div className="mt-2 text-xs text-gray-500">{inventory.length} items</div>
+          <div className="mt-2 text-xs text-gray-500">{stats.inventory.total} items</div>
         </button>
       </div>
 
