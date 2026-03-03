@@ -340,7 +340,7 @@ export function InventoryView({ items }: InventoryViewProps) {
               onClick={() => setShowForm(true)}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
             >
-              <Plus className="h-4 w-4" /
+              <Plus className="h-4 w-4" />
               Add Item
             </button>
           </div>
