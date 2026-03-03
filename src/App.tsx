@@ -5,7 +5,7 @@ import { initSimplyPrint, getSimplyPrint } from './lib/simplyprint';
 import { Navigation } from './components/Navigation';
 import { TaskBoard } from './components/TaskBoard';
 import { NotificationBell } from './components/NotificationBell';
-import { DashboardStats } from './components/DashboardStats';
+import { DashboardView } from './components/DashboardView';
 import { PrinterStatus } from './components/PrinterStatus';
 import { RevenueChart } from './components/RevenueChart';
 import { RevenueGoals } from './components/RevenueGoals';
@@ -158,55 +158,7 @@ function App() {
             </div>
           </div>
         ) : (
-          <div className="space-y-4 lg:space-y-6">
-            <DashboardStats 
-              pendingTasks={tasks.pending.length}
-              inProgressTasks={tasks.inProgress.length}
-              completedTasks={tasks.completed.length}
-            />
-            
-            {/* Mobile: Stack vertically, Desktop: Side by side */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-              <PrinterStatus printers={printers} />
-              <RevenueChart data={revenueData} goal={450} />
-            </div>
-            
-            {/* Quick Tasks Preview */}
-            <div className="rounded-xl border border-surface-hover bg-surface p-4 lg:p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold">Recent Tasks</h3>
-                <button 
-                  onClick={() => setActiveSection('tasks')}
-                  className="text-sm text-primary hover:underline"
-                >
-                  View All
-                </button>
-              </div>
-              
-              <div className="space-y-2">
-                {tasks.pending.slice(0, 3).map(task => (
-                  <div 
-                    key={task.id}
-                    className="flex items-center gap-3 rounded-lg bg-background p-3"
-                  >
-                    <div className={`h-2 w-2 rounded-full ${
-                      task.priority === 'high' ? 'bg-danger' :
-                      task.priority === 'medium' ? 'bg-warning' : 'bg-gray-500'
-                    }`} />
-                    <span className="flex-1 text-sm truncate">{task.title}</span>
-                    {task.assignee && (
-                      <span className="text-xs text-gray-500">{task.assignee}</span>
-                    )}
-                  </div>
-                ))}
-                {tasks.pending.length === 0 && (
-                  <div className="py-4 text-center text-sm text-gray-500">
-                    No pending tasks
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <DashboardView onNavigate={setActiveSection} />
         );
 
       case 'printers':
