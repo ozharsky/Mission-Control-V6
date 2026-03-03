@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { subscribeToData, updateData, setData, pushData } from '../lib/firebase';
 import type { Task, Project, ProjectTask, Notification, AgentState, Job, InventoryItem, InventoryTransaction, Report, ReportSchedule } from '../types';
 import { cleanForFirebase } from '../types';
+import { useToastStore } from '../components/Toast';
 
 interface AppState {
   agent: AgentState | null;
@@ -73,8 +74,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addTask: async (task) => {
-    const cleanTask = cleanForFirebase(task);
-    await pushData('v6/tasks/pending', cleanTask);
+    try {
+      const cleanTask = cleanForFirebase(task);
+      await pushData('v6/tasks/pending', cleanTask);
+      useToastStore.getState().addToast({
+        type: 'success',
+        title: 'Task added',
+        message: `"${task.title}" has been added to your tasks`,
+        duration: 3000,
+      });
+    } catch (error) {
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Failed to add task',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        duration: 5000,
+      });
+      throw error;
+    }
   },
 
   updateTask: async (id, updates) => {
@@ -125,14 +142,43 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteTask: async (id, status) => {
-    const path = status === 'pending' ? `v6/tasks/pending/${id}` :
-                 status === 'in-progress' ? `v6/tasks/inProgress/${id}` :
-                 `v6/tasks/completed/${id}`;
-    await setData(path, null);
+    try {
+      const path = status === 'pending' ? `v6/tasks/pending/${id}` :
+                   status === 'in-progress' ? `v6/tasks/inProgress/${id}` :
+                   `v6/tasks/completed/${id}`;
+      await setData(path, null);
+      useToastStore.getState().addToast({
+        type: 'success',
+        title: 'Task deleted',
+        duration: 3000,
+      });
+    } catch (error) {
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Failed to delete task',
+        duration: 5000,
+      });
+      throw error;
+    }
   },
 
   addProject: async (project) => {
-    await pushData('v6/data/projects', project);
+    try {
+      await pushData('v6/data/projects', project);
+      useToastStore.getState().addToast({
+        type: 'success',
+        title: 'Project created',
+        message: `"${project.name}" has been created`,
+        duration: 3000,
+      });
+    } catch (error) {
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Failed to create project',
+        duration: 5000,
+      });
+      throw error;
+    }
   },
 
   updateProject: async (id, updates) => {
@@ -197,49 +243,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         const notifications = Object.values(data) as Notification[];
         set({
           notifications,
-          unreadCount: notifications.filter(n => !n.read).length
+          unreadCount: notifications.filter(n => !n.read).length,
         });
       }
     });
 
-    subscribeToData('v6/data/projects', (data) => {
-      if (data) set({ projects: Object.values(data) });
-    });
-
-    subscribeToData('data/printers', (data) => {
-      // Skip Firebase printer data if SimplyPrint API is configured
-      const simplyPrintKey = localStorage.getItem('simplyprint_api_key');
-      if (simplyPrintKey) {
-        return; // Use live SimplyPrint data instead
-      }
-
-      // Also skip if we recently got live data (within last 5 seconds)
-      const { _lastPrinterUpdate } = get();
-      if (_lastPrinterUpdate && Date.now() - _lastPrinterUpdate < 5000) {
-        return;
-      }
-
+    subscribeToData('v6/data/printers', (data) => {
       if (data) {
-        // Transform printer data to match component expectations
-        const printersList = Object.values(data).map((printer: any) => {
-          // Extract temps from SimplyPrint API format
-          const temps = printer.temps || printer.temperature || {};
-          const current = temps.current || {};
-          const target = temps.target || {};
-
-          // Handle tool array or single value
-          const toolTemp = Array.isArray(current.tool) ? current.tool[0] : current.tool;
-          const targetToolTemp = Array.isArray(target.tool) ? target.tool[0] : target.tool;
-
-          return {
-            ...printer,
-            temp: toolTemp ?? printer.temp ?? 0,
-            targetTemp: targetToolTemp ?? printer.targetTemp ?? 0,
-            bedTemp: current.bed ?? printer.bedTemp ?? 0,
-            targetBedTemp: target.bed ?? printer.targetBedTemp ?? 0,
-          };
-        });
-        set({ printers: printersList });
+        const printers = Object.values(data);
+        set({ printers, _lastPrinterUpdate: Date.now() });
       }
     });
 
@@ -247,33 +259,83 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (data) set({ revenue: data });
     });
 
-    subscribeToData('data/priorities', (data) => {
+    subscribeToData('v6/data/priorities', (data) => {
       if (data) set({ priorities: Object.values(data) });
     });
 
+    subscribeToData('v6/data/projects', (data) => {
+      if (data) {
+        const projects = Object.entries(data).map(([id, project]: [string, any]) => ({
+          id,
+          ...project,
+          tasks: project.tasks || [],
+        }));
+        set({ projects });
+      }
+    });
+
     subscribeToData('v6/jobs', (data) => {
-      if (data) set({ jobs: Object.values(data) });
+      if (data) {
+        const jobs = Object.entries(data).map(([id, job]: [string, any]) => ({
+          id,
+          ...job,
+        }));
+        set({ jobs });
+      }
     });
 
     subscribeToData('v6/inventory', (data) => {
-      if (data) set({ inventory: Object.values(data) });
+      if (data) {
+        const inventory = Object.entries(data).map(([id, item]: [string, any]) => ({
+          id,
+          ...item,
+        }));
+        set({ inventory });
+      }
     });
 
     subscribeToData('v6/reports', (data) => {
-      if (data) set({ reports: Object.values(data) });
+      if (data) {
+        const reports = Object.entries(data).map(([id, report]: [string, any]) => ({
+          id,
+          ...report,
+        }));
+        set({ reports });
+      }
     });
 
     subscribeToData('v6/reportSchedules', (data) => {
-      if (data) set({ reportSchedules: Object.values(data) });
+      if (data) {
+        const reportSchedules = Object.entries(data).map(([id, schedule]: [string, any]) => ({
+          id,
+          ...schedule,
+        }));
+        set({ reportSchedules });
+      }
     });
   },
 
   addJob: async (job) => {
-    const jobWithMeta = {
-      ...job,
-      addedAt: new Date().toISOString(),
-    };
-    await pushData('v6/jobs', jobWithMeta);
+    try {
+      const jobWithMeta = {
+        ...job,
+        addedAt: new Date().toISOString(),
+      };
+      await pushData('v6/jobs', jobWithMeta);
+      useToastStore.getState().addToast({
+        type: 'success',
+        title: 'Job added',
+        message: `"${job.title}" has been added to your jobs`,
+        duration: 3000,
+      });
+    } catch (error) {
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Failed to add job',
+        duration: 5000,
+      });
+      throw error;
+    }
   },
 
   updateJob: async (id, updates) => {
@@ -281,17 +343,46 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteJob: async (id) => {
-    await setData(`v6/jobs/${id}`, null);
+    try {
+      await setData(`v6/jobs/${id}`, null);
+      useToastStore.getState().addToast({
+        type: 'success',
+        title: 'Job deleted',
+        duration: 3000,
+      });
+    } catch (error) {
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Failed to delete job',
+        duration: 5000,
+      });
+      throw error;
+    }
   },
 
   addInventoryItem: async (item) => {
-    const itemWithMeta = {
-      ...item,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      totalSold: 0,
-    };
-    await pushData('v6/inventory', itemWithMeta);
+    try {
+      const itemWithMeta = {
+        ...item,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        totalSold: 0,
+      };
+      await pushData('v6/inventory', itemWithMeta);
+      useToastStore.getState().addToast({
+        type: 'success',
+        title: 'Item added',
+        message: `"${item.name}" added to inventory`,
+        duration: 3000,
+      });
+    } catch (error) {
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Failed to add item',
+        duration: 5000,
+      });
+      throw error;
+    }
   },
 
   updateInventoryItem: async (id, updates) => {
@@ -302,7 +393,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteInventoryItem: async (id) => {
-    await setData(`v6/inventory/${id}`, null);
+    try {
+      await setData(`v6/inventory/${id}`, null);
+      useToastStore.getState().addToast({
+        type: 'success',
+        title: 'Item deleted',
+        duration: 3000,
+      });
+    } catch (error) {
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Failed to delete item',
+        duration: 5000,
+      });
+      throw error;
+    }
   },
 
   addInventoryTransaction: async (transaction) => {

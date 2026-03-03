@@ -4,7 +4,6 @@ import {
   ArrowRight, ArrowLeft, Trash2, Edit2, X, User, Bot, Filter
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
-import { useToast } from '../components/Toast';
 import { LoadingButton } from '../components/Loading';
 import type { Task } from '../types';
 
@@ -101,84 +100,83 @@ function TaskCard({
               {canMoveBackward && (
                 <button 
                   onClick={() => { onMove('backward'); setShowActions(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-hover"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:bg-surface-hover hover:text-white"
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  Move Back
+                  <ArrowLeft className="h-4 w-4" /> Move Back
                 </button>
               )}
               {canMoveForward && (
                 <button 
                   onClick={() => { onMove('forward'); setShowActions(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-hover"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:bg-surface-hover hover:text-white"
                 >
-                  <ArrowRight className="h-4 w-4" />
-                  Move Forward
+                  <ArrowRight className="h-4 w-4" /> Move Forward
                 </button>
               )}
               <button 
                 onClick={() => { onEdit(); setShowActions(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-hover"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:bg-surface-hover hover:text-white"
               >
-                <Edit2 className="h-4 w-4" />
-                Edit
+                <Edit2 className="h-4 w-4" /> Edit
               </button>
               <button 
                 onClick={() => { onDelete(); setShowActions(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-danger hover:bg-danger/10"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger/10"
               >
-                <Trash2 className="h-4 w-4" />
-                Delete
+                <Trash2 className="h-4 w-4" /> Delete
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {task.description && (
-        <p className="mb-3 text-xs text-gray-500 line-clamp-2">{task.description}</p>
-      )}
-
-      {/* Project & Assignee */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {projectName && (
-          <div className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
-            <Folder className="h-3 w-3" />
-            {projectName}
-          </div>
-        )}
+      {/* Meta info */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded-full border px-2 py-0.5 text-xs ${priorityColors[task.priority]}`}>
+          {task.priority}
+        </span>
+        
         {task.assignee && (
-          <div className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs ${ASSIGNEE_COLORS[task.assignee]}`}>
+          <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${ASSIGNEE_COLORS[task.assignee] || 'bg-gray-800 text-gray-400 border-gray-700'}`}>
             {task.assignee === 'Oleg' ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
             {task.assignee}
-          </div>
+          </span>
+        )}
+        
+        {projectName && (
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <Folder className="h-3 w-3" />
+            {projectName}
+          </span>
         )}
       </div>
 
+      {/* Due date */}
+      {(task.dueDate || isOverdue) && (
+        <div className={`mt-2 flex items-center gap-1 text-xs ${dueText?.color || 'text-gray-500'}`}>
+          <Calendar className="h-3 w-3" />
+          <span>{dueText?.text || new Date(task.dueDate!).toLocaleDateString()}</span>
+        </div>
+      )}
+
+      {/* Tags */}
       {task.tags && task.tags.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-1">
-          {task.tags.map((tag) => (
-            <span key={tag} className="rounded-full bg-surface-hover px-2 py-0.5 text-xs text-gray-400">
-              #{tag}
+        <div className="mt-2 flex flex-wrap gap-1">
+          {task.tags.map((tag, i) => (
+            <span key={i} className="rounded bg-surface-hover px-2 py-0.5 text-xs text-gray-400">
+              {tag}
             </span>
           ))}
         </div>
       )}
 
-      {/* Footer */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {dueText && (
-            <span className={`text-xs flex items-center gap-1 ${dueText.color}`}>
-              <Calendar className="h-3 w-3" />
-              {dueText.text}
-            </span>
-          )}
-        </div>
-        <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${priorityColors[task.priority]}`}>
-          {task.priority}
-        </span>
-      </div>
+      {/* Click outside to close actions */}
+      {showActions && (
+        <div 
+          className="fixed inset-0 z-0" 
+          onClick={() => setShowActions(false)}
+        />
+      )}
     </div>
   );
 }
@@ -187,6 +185,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
   const { addTask, moveTask, deleteTask, updateTask } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'urgent' | 'due-soon' | 'overdue'>('all');
   const [newTask, setNewTask] = useState({
@@ -203,39 +202,47 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
     e.preventDefault();
     if (!newTask.title.trim()) return;
 
-    await addTask({
-      title: newTask.title,
-      description: newTask.description,
-      priority: newTask.priority,
-      status: 'pending',
-      createdBy: 'user',
-      createdAt: new Date().toISOString(),
-      dueDate: newTask.dueDate || undefined,
-      projectId: newTask.projectId || undefined,
-      assignee: newTask.assignee || undefined,
-      tags: newTask.tags.split(',').map(t => t.trim()).filter(Boolean),
-    });
-
-    setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', projectId: '', assignee: '', tags: '' });
-    setShowForm(false);
+    setIsSubmitting(true);
+    try {
+      await addTask({
+        title: newTask.title,
+        description: newTask.description,
+        priority: newTask.priority,
+        status: 'pending',
+        createdBy: 'user',
+        createdAt: new Date().toISOString(),
+        dueDate: newTask.dueDate || undefined,
+        projectId: newTask.projectId || undefined,
+        assignee: newTask.assignee || undefined,
+        tags: newTask.tags.split(',').map(t => t.trim()).filter(Boolean),
+      });
+      setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', projectId: '', assignee: '', tags: '' });
+      setShowForm(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTask || !editingTask.id) return;
 
-    await updateTask(editingTask.id, {
-      title: newTask.title,
-      description: newTask.description,
-      priority: newTask.priority,
-      dueDate: newTask.dueDate || undefined,
-      projectId: newTask.projectId || undefined,
-      assignee: newTask.assignee || undefined,
-      tags: newTask.tags.split(',').map(t => t.trim()).filter(Boolean),
-    });
-
-    setEditingTask(null);
-    setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', projectId: '', assignee: '', tags: '' });
+    setIsSubmitting(true);
+    try {
+      await updateTask(editingTask.id, {
+        title: newTask.title,
+        description: newTask.description,
+        priority: newTask.priority,
+        dueDate: newTask.dueDate || undefined,
+        projectId: newTask.projectId || undefined,
+        assignee: newTask.assignee || undefined,
+        tags: newTask.tags.split(',').map(t => t.trim()).filter(Boolean),
+      });
+      setEditingTask(null);
+      setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', projectId: '', assignee: '', tags: '' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleMoveTask = (task: Task, direction: 'forward' | 'backward') => {
@@ -398,25 +405,27 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
         
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white hover:bg-primary-hover"
+          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover"
         >
           <Plus className="h-5 w-5" />
           Add Task
         </button>
       </div>
+
       {/* Add/Edit Task Modal */}
-      {(showForm || editingTask) && (
+      {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-surface-hover bg-surface p-6">
+          <div className="w-full max-w-lg rounded-2xl border border-surface-hover bg-surface p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xl font-semibold">{editingTask ? 'Edit Task' : 'New Task'}</h3>
+              <h3 className="text-lg font-bold">{editingTask ? 'Edit Task' : 'Add New Task'}</h3>
               <button 
                 onClick={() => { setShowForm(false); setEditingTask(null); }}
-                className="text-gray-400 hover:text-white"
+                className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
+            
             <form onSubmit={editingTask ? handleEditTask : handleAddTask} className="space-y-4">
               <input
                 type="text"
@@ -424,16 +433,16 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                 placeholder="Task title"
                 className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
-                autoFocus
+                required
               />
               <textarea
                 value={newTask.description}
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                 placeholder="Description (optional)"
-                rows={2}
+                rows={3}
                 className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
               />
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3">
                 <select
                   value={newTask.priority}
                   onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as Task['priority'] })}
@@ -443,6 +452,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                   <option value="medium">Medium Priority</option>
                   <option value="high">High Priority</option>
                 </select>
+                
                 <input
                   type="date"
                   value={newTask.dueDate}
@@ -450,7 +460,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                   className="rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
                 />
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3">
                 <select
                   value={newTask.projectId}
                   onChange={(e) => setNewTask({ ...newTask, projectId: e.target.value })}
@@ -461,6 +471,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
+                
                 <select
                   value={newTask.assignee}
                   onChange={(e) => setNewTask({ ...newTask, assignee: e.target.value as Task['assignee'] })}
@@ -486,12 +497,14 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
-                  className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover"
+                  isLoading={isSubmitting}
+                  loadingText={editingTask ? 'Saving...' : 'Adding...'}
+                  className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-50"
                 >
                   {editingTask ? 'Save Changes' : 'Add Task'}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>
