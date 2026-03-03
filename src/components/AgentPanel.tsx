@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Bot, User, MessageSquare, CheckCircle, Clock, AlertCircle, 
   Activity, Cpu, Database, RefreshCw, Settings, Terminal,
-  ChevronRight, Send
+  ChevronRight, Send, Plus, Circle
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
-import { setData } from '../lib/firebase';
+import { setData, subscribeToData } from '../lib/firebase';
 
 interface AgentMessage {
   id: string;
@@ -54,32 +54,64 @@ export function AgentPanel() {
     version: '1.0.0'
   });
   const [activeTab, setActiveTab] = useState<'chat' | 'tasks' | 'metrics' | 'logs'>('chat');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load messages from Firebase on mount
   useEffect(() => {
     // Subscribe to agent messages
-    // This would connect to your Firebase realtime messages
+    const unsubscribe = subscribeToData('v6/agent/messages', (data) => {
+      if (data) {
+        const msgArray = Object.values(data) as AgentMessage[];
+        setMessages(msgArray.sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        ));
+      }
+    });
+
+    // Subscribe to agent tasks
+    const unsubscribeTasks = subscribeToData('v6/agent/tasks', (data) => {
+      if (data) {
+        const taskArray = Object.values(data) as AgentTask[];
+        setAgentTasks(taskArray);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeTasks();
+    };
   }, []);
+
+  // Auto-scroll to bottom of messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
 
+    const messageId = Date.now().toString();
     const userMsg: AgentMessage = {
-      id: Date.now().toString(),
+      id: messageId,
       role: 'user',
       content: inputMessage,
       timestamp: new Date().toISOString(),
+      type: 'question',
     };
 
-    setMessages(prev => [...prev, userMsg]);
-    setInputMessage('');
-
-    // Send to Firebase for agent to pick up
-    await setData('v6/agent/requests', {
+    // Save message to Firebase
+    await setData(`v6/agent/messages/${messageId}`, userMsg);
+    
+    // Create a request for the agent to pick up
+    await setData('v6/agent/requests/latest', {
       message: inputMessage,
       timestamp: Date.now(),
-      status: 'pending'
+      status: 'pending',
+      messageId: messageId,
+      source: 'mission-control-v6'
     });
+
+    setInputMessage('');
   };
 
   const createAgentTask = async (title: string, priority: AgentTask['priority'] = 'medium') => {
@@ -219,28 +251,31 @@ export function AgentPanel() {
                   <p className="text-sm">Ask me to analyze data, create tasks, or help with decisions</p>
                 </div>
               ) : (
-                messages.map(msg => (
-                  <div
-                    key={msg.id}
-                    className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-                  >
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                      msg.role === 'user' ? 'bg-blue-500/20' : 'bg-primary/20'
-                    }`}>
-                      {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                <>
+                  {messages.map(msg => (
+                    <div
+                      key={msg.id}
+                      className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+                    >
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        msg.role === 'user' ? 'bg-blue-500/20' : 'bg-primary/20'
+                      }`}>
+                        {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                      </div>
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                        msg.role === 'user' 
+                          ? 'bg-primary text-white' 
+                          : 'bg-surface-hover'
+                      }`}>
+                        <p>{msg.content}</p>
+                        <span className="text-xs opacity-50">
+                          {new Date(msg.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
                     </div>
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                      msg.role === 'user' 
-                        ? 'bg-primary text-white' 
-                        : 'bg-surface-hover'
-                    }`}>
-                      <p>{msg.content}</p>
-                      <span className="text-xs opacity-50">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                  <div ref={messagesEndRef} />
+                </>
               )}
             </div>
 
