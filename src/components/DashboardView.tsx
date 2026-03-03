@@ -7,6 +7,141 @@ import {
 import { useAppStore } from '../stores/appStore';
 import type { Task, Project, Job, InventoryItem, Printer } from '../types';
 
+// Revenue Mini Chart Component
+function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (s: string) => void }) {
+  const [hoveredBar, setHoveredBar] = useState<number | null>(null);
+  
+  const data = useMemo(() => {
+    if (!revenue) return [];
+    return Object.entries(revenue)
+      .map(([month, r]: [string, any]) => ({ 
+        month, 
+        value: r.value || 0,
+        orders: r.orders || 0
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .slice(-6);
+  }, [revenue]);
+  
+  const max = Math.max(...data.map(d => d.value), 1);
+  const total = data.reduce((sum, d) => sum + d.value, 0);
+  const avg = data.length > 0 ? total / data.length : 0;
+  
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const current = data.find(d => d.month === currentMonth);
+  
+  // Calculate trend
+  const trend = data.length >= 2 ? 
+    ((data[data.length - 1].value - data[data.length - 2].value) / data[data.length - 2].value) * 100 : 0;
+  
+  if (data.length === 0) {
+    return (
+      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-success" />
+            <span className="font-semibold">Revenue Trend</span>
+          </div>
+        </div>
+        <div className="rounded-lg bg-background py-8 text-center">
+          <DollarSign className="mx-auto mb-2 h-8 w-8 text-gray-600" />
+          <p className="text-sm text-gray-500">No revenue data yet</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-success" />
+          <span className="font-semibold">Revenue Trend</span>
+          {trend !== 0 && (
+            <span className={`text-xs ${trend >= 0 ? 'text-success' : 'text-danger'}`}>
+              {trend >= 0 ? '↑' : '↓'} {Math.abs(trend).toFixed(0)}%
+            </span>
+          )}
+        </div>
+        <button 
+          onClick={() => onNavigate('revenue')}
+          className="text-sm text-primary hover:underline"
+        >
+          View All
+        </button>
+      </div>
+      
+      {/* Chart */}
+      <div className="relative h-40 mb-4">
+        {/* Grid lines */}
+        <div className="absolute inset-0 flex flex-col justify-between">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="border-t border-surface-hover/50" />
+          ))}
+        </div>
+        
+        {/* Bars */}
+        <div className="absolute inset-0 flex items-end gap-2 px-2">
+          {data.map((d, i) => (
+            <div 
+              key={i}
+              className="flex-1 flex flex-col items-center"
+              onMouseEnter={() => setHoveredBar(i)}
+              onMouseLeave={() => setHoveredBar(null)}
+            >
+              {/* Tooltip */}
+              {hoveredBar === i && (
+                <div className="absolute bottom-full mb-2 rounded-lg bg-surface-hover px-3 py-2 text-xs shadow-lg z-10">
+                  <div className="font-semibold">{d.month}</div>
+                  <div className="text-success">${d.value.toLocaleString()}</div>
+                  <div className="text-gray-500">{d.orders} orders</div>
+                </div>
+              )}
+              
+              {/* Bar */}
+              <div 
+                className={`w-full rounded-t transition-all duration-300 ${
+                  d.month === currentMonth ? 'bg-success' : 'bg-success/30 hover:bg-success/50'
+                }`}
+                style={{ 
+                  height: `${Math.max((d.value / max) * 100, 5)}%`,
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* X-axis labels */}
+      <div className="flex justify-between px-2 mb-4">
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 text-center">
+            <span className={`text-xs ${d.month === currentMonth ? 'text-success font-medium' : 'text-gray-500'}`}>
+              {d.month.slice(5)}
+            </span>
+          </div>
+        ))}
+      </div>
+      
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-surface-hover">
+        <div className="text-center">
+          <div className="text-xs text-gray-500">This Month</div>
+          <div className="font-semibold text-success">${(current?.value || 0).toLocaleString()}</div>
+        </div>
+        <div className="text-center border-x border-surface-hover">
+          <div className="text-xs text-gray-500">Average</div>
+          <div className="font-semibold">${Math.round(avg).toLocaleString()}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-xs text-gray-500">Total (6mo)</div>
+          <div className="font-semibold">${total.toLocaleString()}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // AI Insight Generator
 function generateAIInsights({
   tasks,
@@ -412,74 +547,8 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
           )}
         </div>
 
-        {/* Revenue Chart Preview */}
-        <div className="rounded-xl border border-surface-hover bg-surface p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-success" />
-              <span className="font-semibold">Revenue Trend</span>
-            </div>
-            <button 
-              onClick={() => onNavigate('revenue')}
-              className="text-sm text-primary hover:underline"
-            >
-              View All
-            </button>
-          </div>
-
-          {revenue && Object.keys(revenue).length > 0 ? (
-            <div className="space-y-3">
-              <div className="flex items-end gap-1 h-32 px-2">
-                {(() => {
-                  const data = Object.entries(revenue)
-                    .map(([month, r]: [string, any]) => ({ month, value: r.value || 0 }))
-                    .sort((a, b) => a.month.localeCompare(b.month))
-                    .slice(-6);
-                  
-                  const max = Math.max(...data.map(d => d.value), 1);
-                  
-                  return data.map((d, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <div 
-                        className="w-full bg-success/20 rounded-t transition-all hover:bg-success/30"
-                        style={{ height: `${(d.value / max) * 100}%`, minHeight: '4px' }}
-                      />
-                      <span className="text-xs text-gray-500">{d.month.slice(5)}</span>
-                    </div>
-                  ));
-                })()}
-              </div>
-              
-              <div className="flex justify-between text-sm">
-                <div>
-                  <div className="text-gray-500">This Month</div>
-                  <div className="font-semibold">
-                    ${(() => {
-                      const currentMonth = new Date().toISOString().slice(0, 7);
-                      const current = revenue[currentMonth];
-                      return current ? (current.value || 0).toLocaleString() : '0';
-                    })()}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-gray-500">Avg/Month</div>
-                  <div className="font-semibold">
-                    ${(() => {
-                      const data = Object.values(revenue) as Array<{ value: number }>;
-                      const avg = data.reduce((sum, r) => sum + (r.value || 0), 0) / data.length;
-                      return Math.round(avg).toLocaleString();
-                    })()}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg bg-background py-8 text-center">
-              <DollarSign className="mx-auto mb-2 h-8 w-8 text-gray-600" />
-              <p className="text-sm text-gray-500">No revenue data yet</p>
-            </div>
-          )}
-        </div>
+        {/* Revenue Chart */}
+        <RevenueMiniChart revenue={revenue} onNavigate={onNavigate} />
       </div>
 
       {/* Recent Tasks */}
