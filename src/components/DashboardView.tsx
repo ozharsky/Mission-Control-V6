@@ -1,146 +1,137 @@
 import { useEffect, useState, useMemo } from 'react';
 import { 
   CheckCircle2, Clock, Circle, TrendingUp, ArrowRight, AlertCircle,
-  Briefcase, Package, DollarSign, Printer, Calendar, Zap,
-  MoreHorizontal, ChevronRight
+  Briefcase, Package, DollarSign, Printer, Zap, Flame, Thermometer,
+  ChevronRight, Sparkles, Target, Calendar, AlertTriangle
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
-import type { Task, Project, Job, InventoryItem } from '../types';
+import type { Task, Project, Job, InventoryItem, Printer } from '../types';
 
-interface StatCardProps {
-  label: string;
-  value: number | string;
-  icon: React.ReactNode;
-  color: 'primary' | 'success' | 'warning' | 'danger' | 'info';
-  subtext?: string;
-  trend?: number;
-  href?: string;
-  onClick?: () => void;
-}
+// AI Insight Generator
+function generateAIInsights({
+  tasks,
+  projects,
+  revenue,
+  printers,
+  inventory,
+  jobs
+}: {
+  tasks: { pending: Task[]; inProgress: Task[]; completed: Task[] };
+  projects: Project[];
+  revenue: any;
+  printers: Printer[];
+  inventory: InventoryItem[];
+  jobs: Job[];
+}) {
+  const insights: Array<{ type: 'info' | 'warning' | 'success' | 'urgent'; message: string; action?: string }> = [];
 
-function StatCard({ label, value, icon, color, subtext, trend, href, onClick }: StatCardProps) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [displayValue, setDisplayValue] = useState(0);
-  const numericValue = typeof value === 'number' ? value : 0;
+  // Task insights
+  const urgentTasks = tasks.pending.filter(t => t.priority === 'high');
+  const overdueTasks = tasks.pending.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+  
+  if (overdueTasks.length > 0) {
+    insights.push({
+      type: 'urgent',
+      message: `You have ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''} that need${overdueTasks.length === 1 ? 's' : ''} attention.`,
+      action: 'Review Tasks'
+    });
+  } else if (urgentTasks.length > 0) {
+    insights.push({
+      type: 'warning',
+      message: `${urgentTasks.length} high-priority task${urgentTasks.length > 1 ? 's' : ''} waiting to be started.`,
+      action: 'View Tasks'
+    });
+  }
 
-  const colorClasses = {
-    primary: 'bg-primary/10 text-primary border-primary/20',
-    success: 'bg-success/10 text-success border-success/20',
-    warning: 'bg-warning/10 text-warning border-warning/20',
-    danger: 'bg-danger/10 text-danger border-danger/20',
-    info: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  };
+  // Project insights
+  const activeProjects = projects.filter(p => p.status !== 'done');
+  const stalledProjects = activeProjects.filter(p => {
+    if (!p.tasks || p.tasks.length === 0) return false;
+    const completed = p.tasks.filter(t => t.completed).length;
+    return completed === 0 && p.tasks.length > 0;
+  });
+  
+  if (stalledProjects.length > 0) {
+    insights.push({
+      type: 'info',
+      message: `${stalledProjects.length} project${stalledProjects.length > 1 ? 's' : ''} haven't started yet.`,
+      action: 'Check Projects'
+    });
+  }
 
-  useEffect(() => {
-    setIsVisible(true);
-    if (typeof value === 'number') {
-      const duration = 600;
-      const steps = 30;
-      const increment = numericValue / steps;
-      let current = 0;
-      
-      const timer = setInterval(() => {
-        current += increment;
-        if (current >= numericValue) {
-          setDisplayValue(numericValue);
-          clearInterval(timer);
-        } else {
-          setDisplayValue(Math.floor(current));
-        }
-      }, duration / steps);
-
-      return () => clearInterval(timer);
+  // Revenue insights
+  if (revenue) {
+    const revenueData = Object.values(revenue) as Array<{ value: number; orders: number; month: string }>;
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentRevenue = revenueData.find(r => r.month === currentMonth);
+    const lastMonthData = revenueData.filter(r => r.month < currentMonth).pop();
+    
+    if (currentRevenue && lastMonthData) {
+      const change = ((currentRevenue.value - lastMonthData.value) / lastMonthData.value) * 100;
+      if (change > 20) {
+        insights.push({
+          type: 'success',
+          message: `Revenue is up ${change.toFixed(0)}% from last month! Great job.`,
+        });
+      } else if (change < -20) {
+        insights.push({
+          type: 'warning',
+          message: `Revenue is down ${Math.abs(change).toFixed(0)}% from last month.`,
+          action: 'View Revenue'
+        });
+      }
     }
-  }, [value, numericValue]);
-
-  const content = (
-    <div
-      className={`relative overflow-hidden rounded-xl border border-surface-hover bg-surface p-4 transition-all duration-300 hover:border-primary/50 hover:shadow-lg sm:p-5 ${
-        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-      } ${href || onClick ? 'cursor-pointer' : ''}`}
-    >
-      <div className="flex items-start justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${colorClasses[color]}`}>
-          {icon}
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          {trend !== undefined && (
-            <span className={`flex items-center gap-0.5 text-xs font-medium ${trend >= 0 ? 'text-success' : 'text-danger'}`}>
-              <TrendingUp className={`h-3 w-3 ${trend < 0 ? 'rotate-180' : ''}`} />
-              {Math.abs(trend)}%
-            </span>
-          )}
-          {(href || onClick) && <ChevronRight className="h-4 w-4 text-gray-500" />}
-        </div>
-      </div>
-      
-      <div className="mt-3">
-        <div className="text-2xl font-bold sm:text-3xl">
-          {typeof value === 'number' ? displayValue : value}
-        </div>
-        <div className="text-sm text-gray-400">{label}</div>
-        {subtext && <div className="mt-1 text-xs text-gray-500">{subtext}</div>}
-      </div>
-    </div>
-  );
-
-  if (href) {
-    return <a href={href}>{content}</a>;
   }
-  if (onClick) {
-    return <div onClick={onClick}>{content}</div>;
+
+  // Printer insights
+  const printingPrinters = printers.filter(p => p.status === 'printing');
+  const offlinePrinters = printers.filter(p => p.status === 'offline');
+  
+  if (printingPrinters.length > 0) {
+    insights.push({
+      type: 'info',
+      message: `${printingPrinters.length} printer${printingPrinters.length > 1 ? 's are' : ' is'} currently printing.`,
+      action: 'View Printers'
+    });
   }
-  return content;
-}
+  
+  if (offlinePrinters.length > 0) {
+    insights.push({
+      type: 'warning',
+      message: `${offlinePrinters.length} printer${offlinePrinters.length > 1 ? 's are' : ' is'} offline.`,
+      action: 'Check Printers'
+    });
+  }
 
-interface QuickActionProps {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  color?: 'primary' | 'success' | 'warning';
-}
+  // Inventory insights
+  const lowStock = inventory.filter(i => i.quantity <= i.minStock);
+  if (lowStock.length > 0) {
+    insights.push({
+      type: lowStock.length > 3 ? 'urgent' : 'warning',
+      message: `${lowStock.length} item${lowStock.length > 1 ? 's are' : ' is'} running low on stock.`,
+      action: 'View Inventory'
+    });
+  }
 
-function QuickAction({ icon, label, onClick, color = 'primary' }: QuickActionProps) {
-  const colorClasses = {
-    primary: 'hover:bg-primary/10 hover:border-primary/30',
-    success: 'hover:bg-success/10 hover:border-success/30',
-    warning: 'hover:bg-warning/10 hover:border-warning/30',
-  };
+  // Job insights
+  const newJobs = jobs.filter(j => j.status === 'new');
+  if (newJobs.length > 0) {
+    insights.push({
+      type: 'info',
+      message: `${newJobs.length} new job opportunity${newJobs.length > 1 ? 'ies' : 'y'} to review.`,
+      action: 'View Jobs'
+    });
+  }
 
-  return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center gap-2 rounded-xl border border-surface-hover bg-surface p-4 transition-all ${colorClasses[color]}`}
-    >
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-hover">
-        {icon}
-      </div>
-      <span className="text-xs font-medium text-gray-400">{label}</span>
-    </button>
-  );
-}
+  // Default insight if nothing else
+  if (insights.length === 0) {
+    insights.push({
+      type: 'success',
+      message: 'All systems operational. You\'re on top of everything!',
+    });
+  }
 
-interface ActivityItemProps {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  time: string;
-  color: string;
-}
-
-function ActivityItem({ icon, title, subtitle, time, color }: ActivityItemProps) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg bg-background p-3">
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${color}`}>
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{title}</div>
-        <div className="truncate text-xs text-gray-500">{subtitle}</div>
-      </div>
-      <div className="shrink-0 text-xs text-gray-500">{time}</div>
-    </div>
-  );
+  return insights.slice(0, 3); // Max 3 insights
 }
 
 interface DashboardViewProps {
@@ -150,299 +141,401 @@ interface DashboardViewProps {
 export function DashboardView({ onNavigate }: DashboardViewProps) {
   const { tasks, projects, jobs, inventory, printers, revenue } = useAppStore();
 
-  // Calculate stats
-  const taskStats = useMemo(() => {
-    const total = tasks.pending.length + tasks.inProgress.length + tasks.completed.length;
-    const completionRate = total > 0 ? Math.round((tasks.completed.length / total) * 100) : 0;
+  // Calculate all stats
+  const stats = useMemo(() => {
+    const totalTasks = tasks.pending.length + tasks.inProgress.length + tasks.completed.length;
+    const taskCompletion = totalTasks > 0 ? Math.round((tasks.completed.length / totalTasks) * 100) : 0;
     const urgentTasks = tasks.pending.filter(t => t.priority === 'high').length;
-    const dueSoon = [...tasks.pending, ...tasks.inProgress].filter(t => {
-      if (!t.dueDate) return false;
-      const due = new Date(t.dueDate);
-      const today = new Date();
-      const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return diff <= 3 && diff >= 0;
-    }).length;
-    
-    return { total, completionRate, urgentTasks, dueSoon };
-  }, [tasks]);
+    const overdueTasks = tasks.pending.filter(t => t.dueDate && new Date(t.dueDate) < new Date()).length;
 
-  const projectStats = useMemo(() => {
-    const active = projects.filter(p => p.status !== 'done').length;
-    const completed = projects.filter(p => p.status === 'done').length;
-    const overdue = projects.filter(p => {
-      if (!p.dueDate || p.status === 'done') return false;
-      return new Date(p.dueDate) < new Date();
-    }).length;
-    return { active, completed, overdue, total: projects.length };
-  }, [projects]);
+    const activeProjects = projects.filter(p => p.status !== 'done').length;
+    const completedProjects = projects.filter(p => p.status === 'done').length;
 
-  const jobStats = useMemo(() => {
-    const newJobs = jobs.filter(j => j.status === 'new').length;
-    const applied = jobs.filter(j => j.status === 'applied').length;
-    return { total: jobs.length, new: newJobs, applied };
-  }, [jobs]);
+    const revenueData = revenue ? Object.values(revenue) as Array<{ value: number; orders: number }> : [];
+    const totalRevenue = revenueData.reduce((sum, r) => sum + (r.value || 0), 0);
+    const totalOrders = revenueData.reduce((sum, r) => sum + (r.orders || 0), 0);
 
-  const inventoryStats = useMemo(() => {
+    const onlinePrinters = printers.filter(p => p.status === 'operational' || p.status === 'printing').length;
+    const printingPrinters = printers.filter(p => p.status === 'printing').length;
+
     const lowStock = inventory.filter(i => i.quantity <= i.minStock).length;
-    const totalValue = inventory.reduce((sum, i) => sum + (i.quantity * i.unitCost), 0);
-    return { lowStock, totalValue, total: inventory.length };
-  }, [inventory]);
+    const inventoryValue = inventory.reduce((sum, i) => sum + (i.quantity * i.unitCost), 0);
 
-  const revenueStats = useMemo(() => {
-    if (!revenue) return { total: 0, orders: 0, avgOrder: 0 };
-    const data = Object.values(revenue) as Array<{ value: number; orders: number }>;
-    const total = data.reduce((sum, r) => sum + (r.value || 0), 0);
-    const orders = data.reduce((sum, r) => sum + (r.orders || 0), 0);
-    return { total, orders, avgOrder: orders > 0 ? Math.round(total / orders) : 0 };
-  }, [revenue]);
+    const newJobs = jobs.filter(j => j.status === 'new').length;
 
-  const printerStats = useMemo(() => {
-    const online = printers.filter(p => p.status === 'operational' || p.status === 'printing').length;
-    const printing = printers.filter(p => p.status === 'printing').length;
-    return { total: printers.length, online, printing };
-  }, [printers]);
+    return {
+      tasks: { total: totalTasks, completion: taskCompletion, urgent: urgentTasks, overdue: overdueTasks },
+      projects: { active: activeProjects, completed: completedProjects },
+      revenue: { total: totalRevenue, orders: totalOrders },
+      printers: { total: printers.length, online: onlinePrinters, printing: printingPrinters },
+      inventory: { lowStock, value: inventoryValue },
+      jobs: { new: newJobs, total: jobs.length }
+    };
+  }, [tasks, projects, revenue, printers, inventory, jobs]);
 
-  // Get recent activity
+  // Generate AI insights
+  const insights = useMemo(() => 
+    generateAIInsights({ tasks, projects, revenue, printers, inventory, jobs }),
+    [tasks, projects, revenue, printers, inventory, jobs]
+  );
+
+  // Get recent items
   const recentTasks = [...tasks.pending, ...tasks.inProgress]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 3);
-
-  const urgentTasks = tasks.pending
-    .filter(t => t.priority === 'high' || (t.dueDate && new Date(t.dueDate) <= new Date(Date.now() + 24 * 60 * 60 * 1000)))
-    .slice(0, 3);
+    .slice(0, 5);
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      {/* Welcome Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold sm:text-2xl">Dashboard</h1>
-          <p className="text-sm text-gray-400">Overview of your business operations</p>
-        </div>
-        <div className="text-right">
-          <div className="text-sm text-gray-400">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-sm text-gray-400">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
         </div>
       </div>
 
-      {/* Quick Actions - Horizontal scroll on mobile */}
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-        <QuickAction 
-          icon={<Zap className="h-5 w-5 text-primary" />} 
-          label="Add Task" 
-          onClick={() => onNavigate('tasks')}
-        />
-        <QuickAction 
-          icon={<Briefcase className="h-5 w-5 text-success" />} 
-          label="Add Job" 
-          onClick={() => onNavigate('jobs')}
-          color="success"
-        />
-        <QuickAction 
-          icon={<Package className="h-5 w-5 text-warning" />} 
-          label="Add Item" 
-          onClick={() => onNavigate('inventory')}
-          color="warning"
-        />
-        <QuickAction 
-          icon={<DollarSign className="h-5 w-5 text-primary" />} 
-          label="Add Revenue" 
-          onClick={() => onNavigate('revenue')}
-        />
+      {/* AI Insights */}
+      <div className="rounded-xl border border-surface-hover bg-gradient-to-r from-primary/5 via-surface to-surface p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <span className="font-semibold">AI Insights</span>
+        </div>
+        <div className="space-y-2">
+          {insights.map((insight, i) => (
+            <div 
+              key={i}
+              className={`flex items-center gap-3 rounded-lg p-3 ${
+                insight.type === 'urgent' ? 'bg-danger/10 border border-danger/20' :
+                insight.type === 'warning' ? 'bg-warning/10 border border-warning/20' :
+                insight.type === 'success' ? 'bg-success/10 border border-success/20' :
+                'bg-surface-hover'
+              }`}
+            >
+              {insight.type === 'urgent' && <AlertCircle className="h-5 w-5 shrink-0 text-danger" />}
+              {insight.type === 'warning' && <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />}
+              {insight.type === 'success' && <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />}
+              {insight.type === 'info' && <Sparkles className="h-5 w-5 shrink-0 text-primary" />}
+              
+              <div className="flex-1">
+                <p className="text-sm">{insight.message}</p>
+              </div>
+              
+              {insight.action && (
+                <button
+                  onClick={() => {
+                    const section = insight.action?.toLowerCase().includes('task') ? 'tasks' :
+                                   insight.action?.toLowerCase().includes('project') ? 'projects' :
+                                   insight.action?.toLowerCase().includes('revenue') ? 'revenue' :
+                                   insight.action?.toLowerCase().includes('printer') ? 'printers' :
+                                   insight.action?.toLowerCase().includes('inventory') ? 'inventory' :
+                                   insight.action?.toLowerCase().includes('job') ? 'jobs' : 'dashboard';
+                    onNavigate(section);
+                  }}
+                  className="shrink-0 text-xs font-medium text-primary hover:underline"
+                >
+                  {insight.action}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        <StatCard
-          label="Tasks"
-          value={taskStats.total}
-          icon={<CheckCircle2 className="h-5 w-5" />}
-          color="primary"
-          subtext={`${taskStats.urgentTasks} urgent`}
+        {/* Tasks */}
+        <button
           onClick={() => onNavigate('tasks')}
-        />
-        <StatCard
-          label="Projects"
-          value={projectStats.active}
-          icon={<Briefcase className="h-5 w-5" />}
-          color="info"
-          subtext={`${projectStats.completed} completed`}
-          onClick={() => onNavigate('projects')}
-        />
-        <StatCard
-          label="Revenue"
-          value={`$${revenueStats.total.toLocaleString()}`}
-          icon={<DollarSign className="h-5 w-5" />}
-          color="success"
-          subtext={`${revenueStats.orders} orders`}
-          onClick={() => onNavigate('revenue')}
-        />
-        <StatCard
-          label="Printers"
-          value={printerStats.online}
-          icon={<Printer className="h-5 w-5" />}
-          color={printerStats.printing > 0 ? 'warning' : 'success'}
-          subtext={`${printerStats.printing} printing`}
-          onClick={() => onNavigate('printers')}
-        />
-      </div>
+          className="rounded-xl border border-surface-hover bg-surface p-4 text-left transition-all hover:border-primary/50 hover:shadow-lg"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Target className="h-5 w-5 text-primary" />
+            </div>
+            {stats.tasks.overdue > 0 && (
+              <span className="rounded-full bg-danger/10 px-2 py-0.5 text-xs text-danger">{stats.tasks.overdue} overdue</span>
+            )}
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold">{stats.tasks.total}</div>
+            <div className="text-sm text-gray-400">Tasks</div>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-hover">
+            <div 
+              className="h-full bg-primary transition-all"
+              style={{ width: `${stats.tasks.completion}%` }}
+            />
+          </div>
+          <div className="mt-1 text-xs text-gray-500">{stats.tasks.completion}% done</div>
+        </button>
 
-      {/* Secondary Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
-        <StatCard
-          label="Jobs"
-          value={jobStats.total}
-          icon={<Briefcase className="h-4 w-4" />}
-          color="info"
-          subtext={`${jobStats.new} new`}
-          onClick={() => onNavigate('jobs')}
-        />
-        <StatCard
-          label="Inventory"
-          value={inventoryStats.total}
-          icon={<Package className="h-4 w-4" />}
-          color={inventoryStats.lowStock > 0 ? 'warning' : 'primary'}
-          subtext={inventoryStats.lowStock > 0 ? `${inventoryStats.lowStock} low stock` : 'All good'}
+        {/* Projects */}
+        <button
+          onClick={() => onNavigate('projects')}
+          className="rounded-xl border border-surface-hover bg-surface p-4 text-left transition-all hover:border-primary/50 hover:shadow-lg"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
+              <Briefcase className="h-5 w-5 text-blue-400" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold">{stats.projects.active}</div>
+            <div className="text-sm text-gray-400">Active Projects</div>
+          </div>
+          <div className="mt-2 text-xs text-gray-500">{stats.projects.completed} completed</div>
+        </button>
+
+        {/* Revenue */}
+        <button
+          onClick={() => onNavigate('revenue')}
+          className="rounded-xl border border-surface-hover bg-surface p-4 text-left transition-all hover:border-primary/50 hover:shadow-lg"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10"
+>
+              <DollarSign className="h-5 w-5 text-success" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold">${stats.revenue.total.toLocaleString()}</div>
+            <div className="text-sm text-gray-400">Total Revenue</div>
+          </div>
+          <div className="mt-2 text-xs text-gray-500">{stats.revenue.orders} orders</div>
+        </button>
+
+        {/* Inventory */}
+        <button
           onClick={() => onNavigate('inventory')}
-        />
-        <StatCard
-          label="Task Progress"
-          value={`${taskStats.completionRate}%`}
-          icon={<TrendingUp className="h-4 w-4" />}
-          color="success"
-          subtext="Completion rate"
-        />
-        <StatCard
-          label="Due Soon"
-          value={taskStats.dueSoon}
-          icon={<Clock className="h-4 w-4" />}
-          color={taskStats.dueSoon > 0 ? 'warning' : 'primary'}
-          subtext="Next 3 days"
-          onClick={() => onNavigate('tasks')}
-        />
+          className="rounded-xl border border-surface-hover bg-surface p-4 text-left transition-all hover:border-primary/50 hover:shadow-lg"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10">
+              <Package className="h-5 w-5 text-warning" />
+            </div>
+            {stats.inventory.lowStock > 0 && (
+              <span className="rounded-full bg-danger/10 px-2 py-0.5 text-xs text-danger">{stats.inventory.lowStock} low</span>
+            )}
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold">${(stats.inventory.value / 1000).toFixed(1)}k</div>
+            <div className="text-sm text-gray-400">Inventory Value</div>
+          </div>
+          <div className="mt-2 text-xs text-gray-500">{inventory.length} items</div>
+        </button>
       </div>
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-        {/* Urgent Tasks */}
-        <div className="rounded-xl border border-surface-hover bg-surface p-4 lg:p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-danger" />
-              <h3 className="font-semibold">Urgent & Due Soon</h3>
-            </div>
-            <button 
-              onClick={() => onNavigate('tasks')}
-              className="flex items-center gap-1 text-sm text-primary hover:underline"
-            >
-              View All <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-          
-          <div className="space-y-2">
-            {urgentTasks.length > 0 ? (
-              urgentTasks.map(task => (
-                <ActivityItem
-                  key={task.id}
-                  icon={<Circle className="h-4 w-4" />}
-                  title={task.title}
-                  subtitle={task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date'}
-                  time={task.priority === 'high' ? 'High' : 'Due soon'}
-                  color={task.priority === 'high' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}
-                />
-              ))
-            ) : (
-              <div className="rounded-lg bg-background py-8 text-center">
-                <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-success/50" />
-                <p className="text-sm text-gray-500">No urgent tasks</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="rounded-xl border border-surface-hover bg-surface p-4 lg:p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Recent Tasks</h3>
-            </div>
-            <button 
-              onClick={() => onNavigate('tasks')}
-              className="flex items-center gap-1 text-sm text-primary hover:underline"
-            >
-              View All <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-          
-          <div className="space-y-2">
-            {recentTasks.length > 0 ? (
-              recentTasks.map(task => (
-                <ActivityItem
-                  key={task.id}
-                  icon={<Clock className="h-4 w-4" />}
-                  title={task.title}
-                  subtitle={task.projectId ? 'Linked to project' : 'Personal task'}
-                  time={new Date(task.createdAt).toLocaleDateString()}
-                  color="bg-primary/10 text-primary"
-                />
-              ))
-            ) : (
-              <div className="rounded-lg bg-background py-8 text-center">
-                <Circle className="mx-auto mb-2 h-8 w-8 text-gray-600" />
-                <p className="text-sm text-gray-500">No recent tasks</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Printer Status Preview */}
-      {printers.length > 0 && (
-        <div className="rounded-xl border border-surface-hover bg-surface p-4 lg:p-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Printers */}
+        <div className="rounded-xl border border-surface-hover bg-surface p-4">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Printer className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Printer Status</h3>
+              <span className="font-semibold">Printers</span>
+              <span className="rounded-full bg-surface-hover px-2 py-0.5 text-xs text-gray-400">
+                {stats.printers.online}/{stats.printers.total} online
+              </span>
             </div>
             <button 
               onClick={() => onNavigate('printers')}
-              className="flex items-center gap-1 text-sm text-primary hover:underline"
+              className="text-sm text-primary hover:underline"
             >
-              View All <ArrowRight className="h-4 w-4" />
+              View All
             </button>
           </div>
-          
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {printers.slice(0, 4).map(printer => (
-              <div 
-                key={printer.id}
-                className="rounded-lg bg-background p-3"
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full ${
-                    printer.status === 'printing' ? 'bg-primary animate-pulse' :
-                    printer.status === 'operational' ? 'bg-success' : 'bg-gray-500'
-                  }`} />
-                  <span className="truncate text-sm font-medium">{printer.name}</span>
-                </div>
-                {printer.job && (
-                  <div className="mt-2">
-                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
-                      <div 
-                        className="h-full bg-primary transition-all"
-                        style={{ width: `${printer.job.progress || 0}%` }}
-                      />
-                    </div>
-                    <div className="mt-1 text-xs text-gray-500">
-                      {printer.job.progress || 0}% • {printer.job.name || 'Printing'}
-                    </div>
+
+          {printers.length > 0 ? (
+            <div className="space-y-3">
+              {printers.slice(0, 3).map(printer => (
+                <div 
+                  key={printer.id}
+                  className="flex items-center gap-3 rounded-lg bg-background p-3"
+                >
+                  <div className={`h-10 w-10 shrink-0 rounded-lg flex items-center justify-center ${
+                    printer.status === 'printing' ? 'bg-primary/10' :
+                    printer.status === 'operational' ? 'bg-success/10' : 'bg-gray-800'
+                  }`}>
+                    <Printer className={`h-5 w-5 ${
+                      printer.status === 'printing' ? 'text-primary' :
+                      printer.status === 'operational' ? 'text-success' : 'text-gray-500'
+                    }`} />
                   </div>
+                  
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-medium">{printer.name}</span>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                        printer.status === 'printing' ? 'bg-primary/10 text-primary' :
+                        printer.status === 'operational' ? 'bg-success/10 text-success' :
+                        'bg-gray-800 text-gray-500'
+                      }`}>
+                        {printer.status === 'printing' ? 'Printing' :
+                         printer.status === 'operational' ? 'Ready' : 'Offline'}
+                      </span>
+                    </div>
+                    
+                    {printer.job ? (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span className="truncate">{printer.job.name || 'Printing'}</span>
+                          <span>{printer.job.progress || 0}%</span>
+                        </div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-hover">
+                          <div 
+                            className="h-full bg-primary transition-all"
+                            style={{ width: `${printer.job.progress || 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Thermometer className="h-3 w-3" />
+                          {printer.temp || 0}°C
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Flame className="h-3 w-3" />
+                          {printer.bedTemp || 0}°C
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg bg-background py-8 text-center">
+              <Printer className="mx-auto mb-2 h-8 w-8 text-gray-600" />
+              <p className="text-sm text-gray-500">No printers connected</p>
+            </div>
+          )}
+        </div>
+
+        {/* Revenue Chart Preview */}
+        <div className="rounded-xl border border-surface-hover bg-surface p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-success" />
+              <span className="font-semibold">Revenue Trend</span>
+            </div>
+            <button 
+              onClick={() => onNavigate('revenue')}
+              className="text-sm text-primary hover:underline"
+            >
+              View All
+            </button>
+          </div>
+
+          {revenue && Object.keys(revenue).length > 0 ? (
+            <div className="space-y-3">
+              <div className="flex items-end gap-1 h-32 px-2">
+                {(() => {
+                  const data = Object.entries(revenue)
+                    .map(([month, r]: [string, any]) => ({ month, value: r.value || 0 }))
+                    .sort((a, b) => a.month.localeCompare(b.month))
+                    .slice(-6);
+                  
+                  const max = Math.max(...data.map(d => d.value), 1);
+                  
+                  return data.map((d, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div 
+                        className="w-full bg-success/20 rounded-t transition-all hover:bg-success/30"
+                        style={{ height: `${(d.value / max) * 100}%`, minHeight: '4px' }}
+                      />
+                      <span className="text-xs text-gray-500">{d.month.slice(5)}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+              
+              <div className="flex justify-between text-sm">
+                <div>
+                  <div className="text-gray-500">This Month</div>
+                  <div className="font-semibold">
+                    ${(() => {
+                      const currentMonth = new Date().toISOString().slice(0, 7);
+                      const current = revenue[currentMonth];
+                      return current ? (current.value || 0).toLocaleString() : '0';
+                    })()}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-gray-500">Avg/Month</div>
+                  <div className="font-semibold">
+                    ${(() => {
+                      const data = Object.values(revenue) as Array<{ value: number }>;
+                      const avg = data.reduce((sum, r) => sum + (r.value || 0), 0) / data.length;
+                      return Math.round(avg).toLocaleString();
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-background py-8 text-center">
+              <DollarSign className="mx-auto mb-2 h-8 w-8 text-gray-600" />
+              <p className="text-sm text-gray-500">No revenue data yet</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Tasks */}
+      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-primary" />
+            <span className="font-semibold">Recent Tasks</span>
+          </div>
+          <button 
+            onClick={() => onNavigate('tasks')}
+            className="flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            View All <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {recentTasks.length > 0 ? (
+            recentTasks.map(task => (
+              <div 
+                key={task.id}
+                className="flex items-center gap-3 rounded-lg bg-background p-3"
+              >
+                <div className={`h-2 w-2 shrink-0 rounded-full ${
+                  task.priority === 'high' ? 'bg-danger' :
+                  task.priority === 'medium' ? 'bg-warning' : 'bg-gray-500'
+                }`} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{task.title}</div>
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <span className="capitalize">{task.status}</span>
+                    {task.dueDate && (
+                      <>
+                        <span>•</span>
+                        <span>Due {new Date(task.dueDate).toLocaleDateString()}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                {task.assignee && (
+                  <span className="shrink-0 rounded-full bg-surface-hover px-2 py-0.5 text-xs text-gray-400">
+                    {task.assignee}
+                  </span>
                 )}
               </div>
-            ))}
-          </div>
+            ))
+          ) : (
+            <div className="rounded-lg bg-background py-8 text-center">
+              <Circle className="mx-auto mb-2 h-8 w-8 text-gray-600" />
+              <p className="text-sm text-gray-500">No tasks yet</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
