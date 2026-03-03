@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Menu, X, LayoutDashboard, Printer, CircleDollarSign,
   FolderKanban, CheckSquare, Briefcase, Package, BarChart3,
-  Calendar, Paperclip, Settings, Rocket
+  Calendar, Paperclip, Settings, Rocket, Bot
 } from 'lucide-react';
 
 interface NavItem {
@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { id: 'revenue', label: 'Revenue', icon: CircleDollarSign },
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+  { id: 'agents', label: 'Agent Tasks', icon: Bot },
   { id: 'jobs', label: 'Jobs', icon: Briefcase },
   { id: 'inventory', label: 'Inventory', icon: Package },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
@@ -31,7 +32,7 @@ const navItems: NavItem[] = [
 ];
 
 // Primary items for bottom nav (most used)
-const primaryNavItems = ['dashboard', 'tasks', 'projects', 'inventory', 'settings'];
+const primaryNavItems = ['dashboard', 'tasks', 'agents', 'projects', 'settings'];
 
 export function Navigation({ activeSection, onSectionChange }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

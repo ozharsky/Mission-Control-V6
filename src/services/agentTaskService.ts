@@ -1,0 +1,341 @@
+/**
+ * Agent Task Service
+ * Mission Control V6 - Firebase Operations
+ */
+
+import { Database } from 'firebase/database';
+import {
+  AgentTask,
+  AgentWorkflow,
+  TaskFilters,
+  ActivityEntry,
+  AgentStats,
+  DashboardStats,
+  AgentId,
+  TaskStatus
+} from '../types/agentTask';
+import { AGENTS, WORKFLOW_TEMPLATES } from '../constants/agents';
+
+export class AgentTaskService {
+  private db: Database;
+  private basePath = 'missionControl';
+
+  constructor(firebaseDb: Database) {
+    this.db = firebaseDb;
+  }
+
+  // ==================== AGENT TASKS ====================
+
+  async createAgentTask(taskData: Partial<AgentTask>): Promise<AgentTask> {
+    const task: AgentTask = {
+      id: this.generateTaskId(),
+      type: taskData.type || 'custom',
+      assignee: taskData.assignee || 'surveyor',
+      requestedBy: taskData.requestedBy || 'system',
+      status: 'pending',
+      state: {
+        current: 'created',
+        history: []
+      },
+      title: taskData.title || 'Untitled Task',
+      description: taskData.description || '',
+      input: taskData.input || null,
+      output: null,
+      parentTaskId: taskData.parentTaskId,
+      workflowId: taskData.workflowId,
+      previousAgentTaskId: taskData.previousAgentTaskId,
+      nextAgentTaskId: null,
+      discordThreadId: taskData.discordThreadId,
+      discordChannelId: taskData.discordChannelId,
+      discordMessageIds: [],
+      createdAt: Date.now(),
+      startedAt: null,
+      completedAt: null,
+      estimatedDuration: taskData.estimatedDuration,
+      activityLog: [{
+        timestamp: Date.now(),
+        agent: 'system',
+        action: 'created',
+        message: `Task created by ${taskData.requestedBy || 'system'}`
+      }],
+      tags: taskData.tags || [],
+      priority: taskData.priority || 'medium',
+      projectId: taskData.projectId
+    };
+
+    await this.db.ref(`${this.basePath}/agentTasks/${task.id}`).set(task);
+    return task;
+  }
+
+  async getAgentTask(taskId: string): Promise<AgentTask | null> {
+    const snapshot = await this.db.ref(`${this.basePath}/agentTasks/${taskId}`).once('value');
+    return snapshot.val();
+  }
+
+  async updateAgentTask(taskId: string, updates: Partial<AgentTask>): Promise<void> {
+    await this.db.ref(`${this.basePath}/agentTasks/${taskId}`).update(updates);
+  }
+
+  async deleteAgentTask(taskId: string): Promise<void> {
+    await this.db.ref(`${this.basePath}/agentTasks/${taskId}`).remove();
+  }
+
+  async listAgentTasks(filters: TaskFilters = {}): Promise<AgentTask[]> {
+    const snapshot = await this.db.ref(`${this.basePath}/agentTasks`).once('value');
+    const tasks: AgentTask[] = [];
+
+    snapshot.forEach((child) => {
+      const task = child.val() as AgentTask;
+
+      // Apply filters
+      if (filters.status && task.status !== filters.status) return;
+      if (filters.assignee && task.assignee !== filters.assignee) return;
+      if (filters.workflowId && task.workflowId !== filters.workflowId) return;
+      if (filters.priority && task.priority !== filters.priority) return;
+      if (filters.projectId && task.projectId !== filters.projectId) return;
+      if (filters.tags && !filters.tags.every(tag => task.tags?.includes(tag))) return;
+
+      tasks.push(task);
+    });
+
+    return tasks.sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  async addActivityEntry(
+    taskId: string,
+    agent: string,
+    action: ActivityEntry['action'],
+    message: string,
+    data?: any
+  ): Promise<void> {
+    const entry: ActivityEntry = {
+      timestamp: Date.now(),
+      agent,
+      action,
+      message,
+      data
+    };
+
+    const task = await this.getAgentTask(taskId);
+    if (!task) throw new Error('Task not found');
+
+    const activityLog = [...(task.activityLog || []), entry];
+    await this.updateAgentTask(taskId, { activityLog });
+  }
+
+  async transitionTaskState(
+    taskId: string,
+    newState: string,
+    triggeredBy: string
+  ): Promise<AgentTask> {
+    const task = await this.getAgentTask(taskId);
+    if (!task) throw new Error('Task not found');
+
+    const oldState = task.state.current;
+    const state = {
+      current: newState,
+      history: [
+        ...task.state.history,
+        { from: oldState, to: newState, timestamp: Date.now(), triggeredBy }
+      ]
+    };
+
+    const updates: Partial<AgentTask> = { state };
+
+    if (newState === 'started') {
+      updates.status = 'active' as TaskStatus;
+      updates.startedAt = Date.now();
+    } else if (newState === 'completed') {
+      updates.status = 'complete' as TaskStatus;
+      updates.completedAt = Date.now();
+    }
+
+    await this.updateAgentTask(taskId, updates);
+
+    await this.addActivityEntry(
+      taskId,
+      triggeredBy,
+      'state_change',
+      `State changed from ${oldState} to ${newState}`,
+      { from: oldState, to: newState }
+    );
+
+    return { ...task, ...updates };
+  }
+
+  // ==================== WORKFLOWS ====================
+
+  async createWorkflow(
+    templateId: string,
+    input: any,
+    createdBy: string
+  ): Promise<{ workflow: AgentWorkflow; tasks: AgentTask[] }> {
+    const template = WORKFLOW_TEMPLATES[templateId];
+    if (!template) throw new Error(`Unknown template: ${templateId}`);
+
+    const workflow: AgentWorkflow = {
+      id: this.generateWorkflowId(),
+      name: template.name,
+      template: templateId,
+      status: 'active',
+      tasks: [],
+      currentTaskId: null,
+      createdAt: Date.now(),
+      createdBy,
+      input,
+      output: null
+    };
+
+    // Create tasks for each step
+    const tasks: AgentTask[] = [];
+    let previousTaskId: string | null = null;
+
+    for (let i = 0; i < template.steps.length; i++) {
+      const step = template.steps[i];
+      const task = await this.createAgentTask({
+        type: step.type,
+        assignee: step.agent,
+        title: step.label,
+        description: `Step ${i + 1} of ${template.name}`,
+        requestedBy: createdBy,
+        workflowId: workflow.id,
+        input: i === 0 ? input : null,
+        previousAgentTaskId: previousTaskId || undefined
+      });
+
+      if (previousTaskId) {
+        // Update previous task's next pointer
+        await this.updateAgentTask(previousTaskId, { nextAgentTaskId: task.id });
+      }
+
+      tasks.push(task);
+      previousTaskId = task.id;
+    }
+
+    workflow.tasks = tasks.map(t => t.id);
+    workflow.currentTaskId = tasks[0]?.id || null;
+
+    // Save workflow
+    await this.db.ref(`${this.basePath}/agentWorkflows/${workflow.id}`).set(workflow);
+
+    // Activate first task
+    if (tasks[0]) {
+      await this.transitionTaskState(tasks[0].id, 'started', 'system');
+    }
+
+    return { workflow, tasks };
+  }
+
+  async getWorkflow(workflowId: string): Promise<AgentWorkflow | null> {
+    const snapshot = await this.db.ref(`${this.basePath}/agentWorkflows/${workflowId}`).once('value');
+    return snapshot.val();
+  }
+
+  async updateWorkflow(workflowId: string, updates: Partial<AgentWorkflow>): Promise<void> {
+    await this.db.ref(`${this.basePath}/agentWorkflows/${workflowId}`).update(updates);
+  }
+
+  async completeWorkflowTask(taskId: string, output: any): Promise<AgentTask> {
+    const task = await this.getAgentTask(taskId);
+    if (!task) throw new Error('Task not found');
+
+    // Complete current task
+    await this.transitionTaskState(taskId, 'completed', task.assignee);
+    await this.updateAgentTask(taskId, { output });
+
+    const workflow = await this.getWorkflow(task.workflowId || '');
+    if (!workflow) return { ...task, output };
+
+    // Check if there's a next task
+    if (task.nextAgentTaskId) {
+      // Activate next task
+      await this.transitionTaskState(task.nextAgentTaskId, 'started', 'system');
+      await this.updateAgentTask(task.nextAgentTaskId, { input: output });
+      await this.updateWorkflow(workflow.id, { currentTaskId: task.nextAgentTaskId });
+
+      // Notify next agent
+      const nextTask = await this.getAgentTask(task.nextAgentTaskId);
+      if (nextTask) {
+        await this.notifyAgent(nextTask.assignee, nextTask);
+      }
+    } else {
+      // Workflow complete
+      await this.updateWorkflow(workflow.id, { status: 'complete', output });
+    }
+
+    return { ...task, output };
+  }
+
+  // ==================== DISCORD INTEGRATION ====================
+
+  async notifyAgent(agentId: AgentId, task: AgentTask): Promise<void> {
+    console.log(`[NOTIFY] ${agentId}: New task ${task.id} - ${task.title}`);
+    // TODO: Implement Discord webhook notification
+  }
+
+  async linkDiscordThread(taskId: string, threadId: string, channelId: string): Promise<void> {
+    await this.updateAgentTask(taskId, {
+      discordThreadId: threadId,
+      discordChannelId: channelId
+    });
+  }
+
+  // ==================== STATS ====================
+
+  async getAgentStats(agentId: AgentId, days = 7): Promise<AgentStats> {
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    const tasks = await this.listAgentTasks({ assignee: agentId });
+
+    const recentTasks = tasks.filter(t => t.createdAt >= cutoff);
+    const completedTasks = recentTasks.filter(t => t.status === 'complete');
+
+    const totalDuration = completedTasks.reduce((sum, t) => {
+      if (t.startedAt && t.completedAt) {
+        return sum + (t.completedAt - t.startedAt);
+      }
+      return sum;
+    }, 0);
+
+    return {
+      agent: agentId,
+      totalTasks: recentTasks.length,
+      completedTasks: completedTasks.length,
+      pendingTasks: recentTasks.filter(t => t.status === 'pending').length,
+      activeTasks: recentTasks.filter(t => t.status === 'active').length,
+      averageDuration: completedTasks.length > 0 ? totalDuration / completedTasks.length / 60000 : 0,
+      lastActive: recentTasks.length > 0 ? Math.max(...recentTasks.map(t => t.updatedAt || t.createdAt)) : null
+    };
+  }
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    const tasks = await this.listAgentTasks();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTimestamp = today.getTime();
+
+    const byAgent = Object.values(AGENTS).reduce((acc, agent) => {
+      acc[agent] = tasks.filter(t => t.assignee === agent).length;
+      return acc;
+    }, {} as Record<AgentId, number>);
+
+    return {
+      totalTasks: tasks.length,
+      activeTasks: tasks.filter(t => t.status === 'active').length,
+      pendingTasks: tasks.filter(t => t.status === 'pending').length,
+      completedToday: tasks.filter(t => t.status === 'complete' && (t.completedAt || 0) >= todayTimestamp).length,
+      byAgent,
+      byType: {} // TODO: Group by type
+    };
+  }
+
+  // ==================== HELPERS ====================
+
+  private generateTaskId(): string {
+    return `agent-task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private generateWorkflowId(): string {
+    return `workflow-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+}

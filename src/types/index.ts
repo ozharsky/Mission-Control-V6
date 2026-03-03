@@ -4,6 +4,7 @@
 export * from './jobs';
 export * from './inventory';
 export * from './reports';
+export * from './agentTask';
 
 export interface Task {
   id: string;

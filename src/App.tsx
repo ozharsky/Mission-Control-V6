@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from './stores/appStore';
 import { initTheme } from './stores/themeStore';
 import { initSimplyPrint, getSimplyPrint } from './lib/simplyprint';
+import { db } from './lib/firebase';
 import { Navigation } from './components/Navigation';
 import { TaskBoard } from './components/TaskBoard';
 import { NotificationBell } from './components/NotificationBell';
@@ -17,6 +18,7 @@ import { ThemeToggleSimple } from './components/ThemeToggle';
 import { JobsView } from './components/JobsView';
 import { InventoryView } from './components/InventoryView';
 import { ReportsView } from './components/ReportsView';
+import { AgentTaskList } from './components/agents/AgentTaskList';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
 import { SkeletonCard, SkeletonList } from './components/Loading';
@@ -179,6 +181,9 @@ function App() {
 
       case 'tasks':
         return <TaskBoard tasks={tasks} projects={projects.map(p => ({ id: p.id, name: p.name }))} />;
+
+      case 'agents':
+        return db ? <AgentTaskList firebaseDb={db} onTaskSelect={(id) => console.log('Selected:', id)} /> : <div>Firebase not configured</div>;
 
       case 'jobs':
         return <JobsView jobs={jobs} />;
