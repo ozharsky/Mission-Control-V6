@@ -12,16 +12,49 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   
   const data = useMemo(() => {
-    if (!revenue) return [];
-    return Object.entries(revenue)
+    if (!revenue) {
+      console.log('RevenueMiniChart: No revenue data');
+      return [];
+    }
+    
+    console.log('RevenueMiniChart: Raw revenue data:', revenue);
+    
+    const entries = Object.entries(revenue)
       .map(([month, r]: [string, any]) => ({ 
         month, 
-        value: r.value || 0,
-        orders: r.orders || 0
+        value: r?.value || 0,
+        orders: r?.orders || 0
       }))
       .sort((a, b) => a.month.localeCompare(b.month))
       .slice(-6);
+    
+    console.log('RevenueMiniChart: Processed data:', entries);
+    return entries;
   }, [revenue]);
+  
+  if (data.length === 0) {
+    return (
+      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-success" />
+            <span className="font-semibold">Revenue Trend</span>
+          </div>
+          <button 
+            onClick={() => onNavigate('revenue')}
+            className="text-sm text-primary hover:underline"
+          >
+            View All
+          </button>
+        </div>
+        <div className="rounded-lg bg-background py-12 text-center">
+          <DollarSign className="mx-auto mb-3 h-12 w-12 text-gray-600" />
+          <p className="text-sm text-gray-500 mb-1">No revenue data yet</p>
+          <p className="text-xs text-gray-600">Add revenue in the Revenue section</p>
+        </div>
+      </div>
+    );
+  }
   
   const max = Math.max(...data.map(d => d.value), 1);
   const total = data.reduce((sum, d) => sum + d.value, 0);
@@ -33,23 +66,6 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
   // Calculate trend
   const trend = data.length >= 2 ? 
     ((data[data.length - 1].value - data[data.length - 2].value) / data[data.length - 2].value) * 100 : 0;
-  
-  if (data.length === 0) {
-    return (
-      <div className="rounded-xl border border-surface-hover bg-surface p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-success" />
-            <span className="font-semibold">Revenue Trend</span>
-          </div>
-        </div>
-        <div className="rounded-lg bg-background py-8 text-center">
-          <DollarSign className="mx-auto mb-2 h-8 w-8 text-gray-600" />
-          <p className="text-sm text-gray-500">No revenue data yet</p>
-        </div>
-      </div>
-    );
-  }
   
   return (
     <div className="rounded-xl border border-surface-hover bg-surface p-4">
