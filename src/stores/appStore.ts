@@ -316,11 +316,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     newUnsubscribers.push(
       subscribeToData('v6/tasks', (data) => {
         if (data) {
+          // Preserve Firebase keys as task IDs
+          const processTasks = (taskData: any) => {
+            if (!taskData) return [];
+            return Object.entries(taskData).map(([id, task]: [string, any]) => ({
+              id,
+              ...task,
+            }));
+          };
+          
           set({
             tasks: {
-              pending: data.pending ? Object.values(data.pending) : [],
-              inProgress: data.inProgress ? Object.values(data.inProgress) : [],
-              completed: data.completed ? Object.values(data.completed) : [],
+              pending: processTasks(data.pending),
+              inProgress: processTasks(data.inProgress),
+              completed: processTasks(data.completed),
             }
           });
         }
