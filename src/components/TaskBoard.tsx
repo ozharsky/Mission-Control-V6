@@ -244,6 +244,11 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
   };
 
   const handleDeleteTask = (task: Task) => {
+    if (!task.id) {
+      console.error('Cannot delete task without ID:', task);
+      alert('Error: Task ID is missing. Please refresh the page.');
+      return;
+    }
     if (confirm(`Delete task "${task.title}"?`)) {
       deleteTask(task.id, task.status);
     }
@@ -272,6 +277,11 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
   };
 
   const openEditModal = (task: Task) => {
+    if (!task.id) {
+      console.error('Cannot edit task without ID:', task);
+      alert('Error: Task ID is missing. Please refresh the page.');
+      return;
+    }
     setEditingTask(task);
     setNewTask({
       title: task.title,
