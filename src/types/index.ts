@@ -1,6 +1,8 @@
 // Shared types for Mission Control V6
 // These match the Firebase database structure
 
+export * from './jobs';
+
 export interface Task {
   id: string;
   title: string;

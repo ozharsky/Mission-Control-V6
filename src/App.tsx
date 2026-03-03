@@ -14,6 +14,7 @@ import { CalendarView } from './components/CalendarView';
 import { FileManager } from './components/FileManager';
 import { SettingsPage } from './components/SettingsPage';
 import { ThemeToggleSimple } from './components/ThemeToggle';
+import { JobsView } from './components/JobsView';
 
 function App() {
   const {
@@ -25,6 +26,7 @@ function App() {
     printers,
     revenue,
     projects,
+    jobs,
     setPrinters
   } = useAppStore();
 
@@ -179,6 +181,9 @@ function App() {
 
       case 'tasks':
         return <TaskBoard tasks={tasks} projects={projects.map(p => ({ id: p.id, name: p.name }))} />;
+
+      case 'jobs':
+        return <JobsView jobs={jobs} />;
 
       case 'calendar':
         return <CalendarView events={[]} projects={projects} tasks={tasks} />;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeToData, updateData, setData, pushData } from '../lib/firebase';
-import type { Task, Project, ProjectTask, Notification, AgentState } from '../types';
+import type { Task, Project, ProjectTask, Notification, AgentState, Job } from '../types';
 import { cleanForFirebase } from '../types';
 
 interface AppState {
@@ -16,6 +16,7 @@ interface AppState {
   revenue: any;
   priorities: any[];
   projects: Project[];
+  jobs: Job[];
   _lastPrinterUpdate?: number;
 
   setAgent: (agent: AgentState) => void;
@@ -28,6 +29,9 @@ interface AppState {
   updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
   addProjectTask: (projectId: string, task: Omit<ProjectTask, 'id'>) => Promise<void>;
   toggleProjectTask: (projectId: string, taskId: string) => Promise<void>;
+  addJob: (job: Omit<Job, 'id' | 'addedAt'>) => Promise<void>;
+  updateJob: (id: string, updates: Partial<Job>) => Promise<void>;
+  deleteJob: (id: string) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   initSubscriptions: () => void;
 }
@@ -41,6 +45,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   revenue: null,
   priorities: [],
   projects: [],
+  jobs: [],
   _lastPrinterUpdate: 0,
 
   setAgent: (agent) => {
@@ -230,5 +235,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     subscribeToData('data/priorities', (data) => {
       if (data) set({ priorities: Object.values(data) });
     });
-  }
+
+    subscribeToData('v6/jobs', (data) => {
+      if (data) set({ jobs: Object.values(data) });
+    });
+  },
+
+  addJob: async (job) => {
+    const jobWithMeta = {
+      ...job,
+      addedAt: new Date().toISOString(),
+    };
+    await pushData('v6/jobs', jobWithMeta);
+  },
+
+  updateJob: async (id, updates) => {
+    await updateData(`v6/jobs/${id}`, updates);
+  },
+
+  deleteJob: async (id) => {
+    await setData(`v6/jobs/${id}`, null);
+  },
 }));
