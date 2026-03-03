@@ -9,17 +9,12 @@ import type { Task, Project, Job, InventoryItem, Printer } from '../types';
 
 // Revenue Mini Chart Component
 function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (s: string) => void }) {
-  const [hoveredBar, setHoveredBar] = useState<number | null>(null);
-  
   const data = useMemo(() => {
-    if (!revenue) {
-      console.log('RevenueMiniChart: No revenue data');
+    if (!revenue || Object.keys(revenue).length === 0) {
       return [];
     }
     
-    console.log('RevenueMiniChart: Raw revenue data:', revenue);
-    
-    const entries = Object.entries(revenue)
+    return Object.entries(revenue)
       .map(([month, r]: [string, any]) => ({ 
         month, 
         value: r?.value || 0,
@@ -27,9 +22,6 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
       }))
       .sort((a, b) => a.month.localeCompare(b.month))
       .slice(-6);
-    
-    console.log('RevenueMiniChart: Processed data:', entries);
-    return entries;
   }, [revenue]);
   
   if (data.length === 0) {
@@ -38,7 +30,7 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-success" />
-            <span className="font-semibold">Revenue Trend</span>
+            <span className="font-semibold">Revenue</span>
           </div>
           <button 
             onClick={() => onNavigate('revenue')}
@@ -59,7 +51,6 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
   const max = Math.max(...data.map(d => d.value), 1);
   const total = data.reduce((sum, d) => sum + d.value, 0);
   const avg = data.length > 0 ? total / data.length : 0;
-  
   const currentMonth = new Date().toISOString().slice(0, 7);
   const current = data.find(d => d.month === currentMonth);
   
@@ -69,12 +60,13 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
   
   return (
     <div className="rounded-xl border border-surface-hover bg-surface p-4">
+      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-success" />
-          <span className="font-semibold">Revenue Trend</span>
+          <span className="font-semibold">Revenue</span>
           {trend !== 0 && (
-            <span className={`text-xs ${trend >= 0 ? 'text-success' : 'text-danger'}`}>
+            <span className={`text-xs font-medium ${trend >= 0 ? 'text-success' : 'text-danger'}`}>
               {trend >= 0 ? '↑' : '↓'} {Math.abs(trend).toFixed(0)}%
             </span>
           )}
@@ -87,71 +79,50 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
         </button>
       </div>
       
-      {/* Chart */}
-      <div className="relative h-40 mb-4">
-        {/* Grid lines */}
-        <div className="absolute inset-0 flex flex-col justify-between">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="border-t border-surface-hover/50" />
-          ))}
-        </div>
-        
-        {/* Bars */}
-        <div className="absolute inset-0 flex items-end gap-2 px-2">
-          {data.map((d, i) => (
-            <div 
-              key={i}
-              className="flex-1 flex flex-col items-center"
-              onMouseEnter={() => setHoveredBar(i)}
-              onMouseLeave={() => setHoveredBar(null)}
-            >
-              {/* Tooltip */}
-              {hoveredBar === i && (
-                <div className="absolute bottom-full mb-2 rounded-lg bg-surface-hover px-3 py-2 text-xs shadow-lg z-10">
-                  <div className="font-semibold">{d.month}</div>
-                  <div className="text-success">${d.value.toLocaleString()}</div>
-                  <div className="text-gray-500">{d.orders} orders</div>
+      {/* Simple Bar Chart */}
+      <div className="mb-4">
+        <div className="flex items-end justify-between gap-2 h-32">
+          {data.map((d, i) => {
+            const height = Math.max((d.value / max) * 100, 8);
+            const isCurrent = d.month === currentMonth;
+            
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center">
+                {/* Value label on top */}
+                <div className="text-xs text-gray-400 mb-1">${(d.value / 1000).toFixed(1)}k</div>
+                
+                {/* Bar */}
+                <div
+                  className={`w-full rounded-t transition-all duration-500 ${
+                    isCurrent ? 'bg-success' : 'bg-success/40'
+                  }`}
+                  style={{ height: `${height}%` }}
+                  title={`${d.month}: $${d.value.toLocaleString()} (${d.orders} orders)`}
+                />
+                
+                {/* Month label */}
+                <div className={`text-xs mt-2 ${isCurrent ? 'text-success font-medium' : 'text-gray-500'}`}>
+                  {d.month.slice(5)}
                 </div>
-              )}
-              
-              {/* Bar */}
-              <div 
-                className={`w-full rounded-t transition-all duration-300 ${
-                  d.month === currentMonth ? 'bg-success' : 'bg-success/30 hover:bg-success/50'
-                }`}
-                style={{ 
-                  height: `${Math.max((d.value / max) * 100, 5)}%`,
-                }}
-              />
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </div>
       
-      {/* X-axis labels */}
-      <div className="flex justify-between px-2 mb-4">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 text-center">
-            <span className={`text-xs ${d.month === currentMonth ? 'text-success font-medium' : 'text-gray-500'}`}>
-              {d.month.slice(5)}
-            </span>
-          </div>
-        ))}
-      </div>
-      
-      {/* Stats row */}
+      {/* Stats */}
       <div className="grid grid-cols-3 gap-2 pt-3 border-t border-surface-hover">
         <div className="text-center">
-          <div className="text-xs text-gray-500">This Month</div>
-          <div className="font-semibold text-success">${(current?.value || 0).toLocaleString()}</div>
+          <div className="text-xs text-gray-500 mb-1">This Month</div>
+          <div className="font-bold text-success">${(current?.value || 0).toLocaleString()}</div>
         </div>
         <div className="text-center border-x border-surface-hover">
-          <div className="text-xs text-gray-500">Average</div>
-          <div className="font-semibold">${Math.round(avg).toLocaleString()}</div>
+          <div className="text-xs text-gray-500 mb-1">Average</div>
+          <div className="font-bold">${Math.round(avg).toLocaleString()}</div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-gray-500">Total (6mo)</div>
-          <div className="font-semibold">${total.toLocaleString()}</div>
+          <div className="text-xs text-gray-500 mb-1">Total (6mo)</div>
+          <div className="font-bold">${total.toLocaleString()}</div>
         </div>
       </div>
     </div>
