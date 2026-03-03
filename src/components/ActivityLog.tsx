@@ -4,7 +4,8 @@ import {
   Briefcase, Package, DollarSign, FileText, Download, Upload,
   Filter, X, ChevronRight
 } from 'lucide-react';
-import { useActivityStore, ActivityType } from '../stores/activityStore';
+import { useActivityStore } from '../stores/activityStore';
+import type { ActivityType } from '../stores/activityStore';
 
 const ACTIVITY_ICONS: Record<ActivityType, typeof History> = {
   task_created: Plus,

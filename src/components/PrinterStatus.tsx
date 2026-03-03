@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Zap, Moon, AlertCircle, CheckCircle, Layers, Flame, Clock, MoreHorizontal, Settings, Power, Pause, Play, Square, Circle, Printer, AlertTriangle } from 'lucide-react';
-import { getSimplyPrint, SimplyPrintPrinter } from '../lib/simplyprint';
+import { getSimplyPrint } from '../lib/simplyprint';
+import type { SimplyPrintPrinter } from '../lib/simplyprint';
 
 interface PrinterJob {
   name: string;
