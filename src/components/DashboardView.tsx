@@ -304,8 +304,8 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     [tasks, projects, revenue, printers, inventory, jobs]
   );
 
-  // Get recent items
-  const recentTasks = [...tasks.pending, ...tasks.inProgress]
+  // Get recent items - show all tasks sorted by creation date
+  const recentTasks = [...tasks.pending, ...tasks.inProgress, ...tasks.completed]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 
