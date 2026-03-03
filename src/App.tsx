@@ -19,6 +19,7 @@ import { InventoryView } from './components/InventoryView';
 import { ReportsView } from './components/ReportsView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
+import { SkeletonCard, SkeletonList } from './components/Loading';
 
 function App() {
   const {
@@ -37,10 +38,14 @@ function App() {
   } = useAppStore();
 
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     initSubscriptions();
     initTheme();
+
+    // Simulate initial loading
+    const timer = setTimeout(() => setIsLoading(false), 1000);
 
     // Initialize SimplyPrint on app load if API key exists
     const apiKey = localStorage.getItem('simplyprint_api_key');
@@ -80,6 +85,8 @@ function App() {
 
       fetchPrinters();
     }
+
+    return () => clearTimeout(timer);
   }, [initSubscriptions, setPrinters]);
 
   // Handle both V5 array format and V6 object format
@@ -116,7 +123,41 @@ function App() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
-        return (
+        return isLoading ? (
+          <div className="space-y-4 lg:space-y-6">
+            {/* Skeleton Stats */}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+            
+            {/* Skeleton Content */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+              <div className="h-64 rounded-xl border border-surface-hover bg-surface p-4">
+                <div className="mb-4 h-6 w-32 rounded bg-surface-hover animate-pulse"></div>
+                <div className="space-y-3">
+                  <div className="h-16 rounded-lg bg-surface-hover animate-pulse"></div>
+                  <div className="h-16 rounded-lg bg-surface-hover animate-pulse"></div>
+                  <div className="h-16 rounded-lg bg-surface-hover animate-pulse"></div>
+                </div>
+              </div>
+              <div className="h-64 rounded-xl border border-surface-hover bg-surface p-4">
+                <div className="mb-4 h-6 w-32 rounded bg-surface-hover animate-pulse"></div>
+                <div className="flex items-end justify-between h-40 px-4">
+                  {[...Array(6)].map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="w-8 bg-surface-hover animate-pulse rounded-t"
+                      style={{ height: `${Math.random() * 60 + 20}%` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
           <div className="space-y-4 lg:space-y-6">
             <DashboardStats 
               pendingTasks={tasks.pending.length}
