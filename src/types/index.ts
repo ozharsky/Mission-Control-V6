@@ -26,7 +26,7 @@ export interface Project {
   id: string;
   name: string;
   description: string;
-  status: 'active' | 'completed' | 'on-hold';
+  status: 'backlog' | 'todo' | 'inprogress' | 'done';
   progress: number;
   tasksCompleted: number;
   tasksTotal: number;
@@ -34,7 +34,7 @@ export interface Project {
   tags: string[];
   tasks: ProjectTask[];
   priority?: 'low' | 'medium' | 'high';
-  board?: string;
+  board?: 'etsy' | 'photography' | 'wholesale' | 'general';
   assignee?: string;
   createdAt?: string;
   updatedAt?: string;

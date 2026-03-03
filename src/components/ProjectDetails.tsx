@@ -18,6 +18,8 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
     description: project.description,
     dueDate: project.dueDate || '',
     status: project.status,
+    board: project.board || 'general',
+    priority: project.priority || 'medium',
     tags: project.tags.join(', '),
   });
 
@@ -37,12 +39,14 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     await updateProject(project.id, {
       name: editForm.name,
       description: editForm.description,
       dueDate: editForm.dueDate || undefined,
-      status: editForm.status,
+      status: editForm.status as 'backlog' | 'todo' | 'inprogress' | 'done',
+      board: editForm.board as 'etsy' | 'photography' | 'wholesale' | 'general',
+      priority: editForm.priority as 'low' | 'medium' | 'high',
       tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean),
     });
 
@@ -51,6 +55,11 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'backlog': return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+      case 'todo': return 'bg-warning/10 text-warning border-warning/20';
+      case 'inprogress': return 'bg-primary/10 text-primary border-primary/20';
+      case 'done': return 'bg-success/10 text-success border-success/20';
+      // Legacy statuses
       case 'active': return 'bg-success/10 text-success border-success/20';
       case 'completed': return 'bg-primary/10 text-primary border-primary/20';
       case 'on-hold': return 'bg-warning/10 text-warning border-warning/20';
@@ -58,12 +67,21 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority?: string) => {
     switch (priority) {
-      case 'high': return 'text-danger';
-      case 'medium': return 'text-warning';
-      case 'low': return 'text-gray-400';
-      default: return 'text-gray-400';
+      case 'high': return 'bg-danger/20 text-danger border-danger/30';
+      case 'medium': return 'bg-warning/20 text-warning border-warning/30';
+      case 'low': return 'bg-gray-700 text-gray-400 border-gray-600';
+      default: return 'bg-gray-700 text-gray-400';
+    }
+  };
+
+  const getBoardColor = (board?: string) => {
+    switch (board) {
+      case 'etsy': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'photography': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'wholesale': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+      default: return 'bg-gray-700 text-gray-400 border-gray-600';
     }
   };
 
@@ -74,7 +92,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <button 
+        <button
           onClick={onBack}
           className="flex items-center gap-2 rounded-xl border border-surface-hover px-4 py-2 text-gray-400 hover:bg-surface-hover hover:text-white"
         >
@@ -98,7 +116,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div>
               <label className="mb-1 block text-sm text-gray-400">Project Name</label>
               <input
@@ -109,7 +127,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
                 required
               />
             </div>
-            
+
             <div>
               <label className="mb-1 block text-sm text-gray-400">Description</label>
               <textarea
@@ -119,7 +137,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
                 rows={3}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-1 block text-sm text-gray-400">Due Date</label>
@@ -137,13 +155,42 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
                   onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
                   className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
                 >
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="on-hold">On Hold</option>
+                  <option value="backlog">Backlog</option>
+                  <option value="todo">To Do</option>
+                  <option value="inprogress">In Progress</option>
+                  <option value="done">Done</option>
                 </select>
               </div>
             </div>
-            
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Board</label>
+                <select
+                  value={editForm.board}
+                  onChange={(e) => setEditForm({ ...editForm, board: e.target.value as any })}
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                >
+                  <option value="general">General</option>
+                  <option value="etsy">Etsy Shop</option>
+                  <option value="photography">Photography</option>
+                  <option value="wholesale">Wholesale</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Priority</label>
+                <select
+                  value={editForm.priority}
+                  onChange={(e) => setEditForm({ ...editForm, priority: e.target.value as any })}
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+
             <div>
               <label className="mb-1 block text-sm text-gray-400">Tags (comma separated)</label>
               <input
@@ -154,7 +201,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
                 placeholder="tag1, tag2, tag3"
               />
             </div>
-            
+
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
@@ -176,7 +223,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
           <>
             <div className="mb-4 flex items-start justify-between">
               <div>
-                <h1 className="text-2xl font-bold">{project.name}</h1>            
+                <h1 className="text-2xl font-bold">{project.name}</h1>
                 <p className="mt-1 text-gray-400">{project.description}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -187,9 +234,21 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
                   <Edit2 className="h-4 w-4" />
                   Edit
                 </button>
-                <span className={`rounded-full border px-4 py-1.5 text-sm font-medium ${getStatusColor(project.status)}`}>
-                  {project.status}
-                </span>
+                <div className="flex gap-2">
+                  {project.board && project.board !== 'general' && (
+                    <span className={`rounded-full border px-3 py-1.5 text-sm font-medium ${getBoardColor(project.board)}`}>
+                      {project.board}
+                    </span>
+                  )}
+                  <span className={`rounded-full border px-3 py-1.5 text-sm font-medium ${getStatusColor(project.status)}`}>
+                    {project.status}
+                  </span>
+                  {project.priority && (
+                    <span className={`rounded-full border px-3 py-1.5 text-sm font-medium ${getPriorityColor(project.priority)}`}>
+                      {project.priority}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -200,7 +259,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
                 <span className="font-medium">{project.progress}%</span>
               </div>
               <div className="h-3 overflow-hidden rounded-full bg-surface">
-                <div 
+                <div
                   className="h-full rounded-full bg-primary transition-all"
                   style={{ width: `${project.progress}%` }}
                 />
@@ -275,7 +334,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
       {/* Tasks List */}
       <div className="rounded-2xl border border-surface-hover bg-surface p-6">
         <h2 className="mb-4 text-lg font-semibold">Tasks ({project.tasks.length})</h2>
-        
+
         {project.tasks.length === 0 ? (
           <div className="py-8 text-center text-gray-500">
             No tasks yet. Add one above!
@@ -283,15 +342,15 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
         ) : (
           <div className="space-y-2">
             {project.tasks.map((task) => (
-              <div 
+              <div
                 key={task.id}
                 className="flex items-center gap-3 rounded-xl border border-surface-hover bg-background p-4"
               >
                 <button
                   onClick={() => toggleProjectTask(project.id, task.id)}
                   className={`flex h-5 w-5 items-center justify-center rounded border transition-colors ${
-                    task.completed 
-                      ? 'border-success bg-success text-white' 
+                    task.completed
+                      ? 'border-success bg-success text-white'
                       : 'border-gray-600 hover:border-primary'
                   }`}
                 >
@@ -299,7 +358,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
                 </button>
                 <span className={`flex-1 ${task.completed ? 'text-gray-500 line-through' : ''}`}>
                   {task.title}
-                </span>                
+                </span>
                 <span className={`text-xs ${getPriorityColor(task.priority)}`}>
                   {task.priority}
                 </span>
