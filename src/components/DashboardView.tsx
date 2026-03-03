@@ -1,11 +1,225 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { 
-  CheckCircle2, Clock, Circle, TrendingUp, ArrowRight, AlertCircle,
+  CheckCircle2, Clock, Circle, TrendingUp, AlertCircle,
   Briefcase, Package, DollarSign, Printer, Zap, Flame, Thermometer,
   ChevronRight, Sparkles, Target, Calendar, AlertTriangle
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import type { Task, Project, Job, InventoryItem, Printer } from '../types';
+
+// AI Insights Card Component
+function AIInsightsCard({ 
+  tasks, 
+  projects, 
+  revenue, 
+  printers, 
+  inventory, 
+  jobs,
+  onNavigate 
+}: { 
+  tasks: { pending: Task[]; inProgress: Task[]; completed: Task[] };
+  projects: Project[];
+  revenue: any;
+  printers: Printer[];
+  inventory: InventoryItem[];
+  jobs: Job[];
+  onNavigate: (s: string) => void;
+}) {
+  const insights = useMemo(() => {
+    const items: Array<{
+      id: string;
+      type: 'urgent' | 'warning' | 'success' | 'info';
+      icon: React.ReactNode;
+      title: string;
+      message: string;
+      action?: { label: string; section: string };
+    }> = [];
+
+    // 1. Critical: Overdue tasks
+    const overdueTasks = tasks.pending.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+    if (overdueTasks.length > 0) {
+      items.push({
+        id: 'overdue',
+        type: 'urgent',
+        icon: <AlertCircle className="h-5 w-5" />,
+        title: `${overdueTasks.length} Overdue Task${overdueTasks.length > 1 ? 's' : ''}`,
+        message: overdueTasks.slice(0, 2).map(t => t.title).join(', ') + (overdueTasks.length > 2 ? ` +${overdueTasks.length - 2} more` : ''),
+        action: { label: 'View Tasks', section: 'tasks' }
+      });
+    }
+
+    // 2. Critical: Out of stock items
+    const outOfStock = inventory.filter(i => i.quantity === 0);
+    if (outOfStock.length > 0) {
+      items.push({
+        id: 'outofstock',
+        type: 'urgent',
+        icon: <Package className="h-5 w-5" />,
+        title: 'Out of Stock',
+        message: `${outOfStock.slice(0, 2).map(i => i.name).join(', ')}${outOfStock.length > 2 ? ` +${outOfStock.length - 2} more` : ''}`,
+        action: { label: 'Restock Now', section: 'inventory' }
+      });
+    }
+
+    // 3. Warning: Low stock
+    const lowStock = inventory.filter(i => i.quantity > 0 && i.quantity <= i.minStock);
+    if (lowStock.length > 0 && outOfStock.length === 0) {
+      items.push({
+        id: 'lowstock',
+        type: 'warning',
+        icon: <AlertTriangle className="h-5 w-5" />,
+        title: `${lowStock.length} Items Low on Stock`,
+        message: `Consider restocking soon to avoid running out`,
+        action: { label: 'View Inventory', section: 'inventory' }
+      });
+    }
+
+    // 4. Warning: Due soon tasks
+    const dueSoon = tasks.pending.filter(t => {
+      if (!t.dueDate) return false;
+      const days = Math.ceil((new Date(t.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      return days >= 0 && days <= 2;
+    });
+    if (dueSoon.length > 0 && overdueTasks.length === 0) {
+      items.push({
+        id: 'duesoon',
+        type: 'warning',
+        icon: <Clock className="h-5 w-5" />,
+        title: `${dueSoon.length} Due Soon`,
+        message: `Due in the next 2 days`,
+        action: { label: 'View Tasks', section: 'tasks' }
+      });
+    }
+
+    // 5. Success: Revenue up
+    if (revenue) {
+      const revenueData = Object.values(revenue).filter((r: any) => r && r.month) as Array<{ value: number; month: string }>;
+      if (revenueData.length >= 2) {
+        const sorted = revenueData.sort((a, b) => a.month.localeCompare(b.month));
+        const current = sorted[sorted.length - 1];
+        const last = sorted[sorted.length - 2];
+        const change = ((current.value - last.value) / last.value) * 100;
+        
+        if (change > 15) {
+          items.push({
+            id: 'revenueup',
+            type: 'success',
+            icon: <TrendingUp className="h-5 w-5" />,
+            title: 'Revenue Up!',
+            message: `+${change.toFixed(0)}% from last month ($${current.value.toLocaleString()})`,
+            action: { label: 'View Revenue', section: 'revenue' }
+          });
+        } else if (change < -20) {
+          items.push({
+            id: 'revenuedown',
+            type: 'warning',
+            icon: <TrendingUp className="h-5 w-5 rotate-180" />,
+            title: 'Revenue Down',
+            message: `${change.toFixed(0)}% from last month`,
+            action: { label: 'View Revenue', section: 'revenue' }
+          });
+        }
+      }
+    }
+
+    // 6. Success: Nearly done projects
+    const nearlyDone = projects.filter(p => {
+      if (p.status === 'done') return false;
+      return (p.progress || 0) >= 80;
+    });
+    if (nearlyDone.length > 0) {
+      items.push({
+        id: 'nearlydone',
+        type: 'success',
+        icon: <CheckCircle2 className="h-5 w-5" />,
+        title: `${nearlyDone.length} Project${nearlyDone.length > 1 ? 's' : ''} Almost Done`,
+        message: `${nearlyDone[0].name} is ${nearlyDone[0].progress}% complete`,
+        action: { label: 'View Projects', section: 'projects' }
+      });
+    }
+
+    // 7. Info: Printers printing
+    const printing = printers.filter(p => p.status === 'printing');
+    if (printing.length > 0) {
+      const avgProgress = Math.round(printing.reduce((sum, p) => sum + (p.job?.progress || 0), 0) / printing.length);
+      items.push({
+        id: 'printing',
+        type: 'info',
+        icon: <Printer className="h-5 w-5" />,
+        title: `${printing.length} Printer${printing.length > 1 ? 's' : ''} Active`,
+        message: `Average progress: ${avgProgress}%`,
+        action: { label: 'View Printers', section: 'printers' }
+      });
+    }
+
+    // 8. Info: New jobs
+    const newJobs = jobs.filter(j => j.status === 'new');
+    if (newJobs.length > 0) {
+      items.push({
+        id: 'newjobs',
+        type: 'info',
+        icon: <Briefcase className="h-5 w-5" />,
+        title: `${newJobs.length} New Job Opportunity${newJobs.length > 1 ? 'ies' : ''}`,
+        message: `Review and apply to new opportunities`,
+        action: { label: 'View Jobs', section: 'jobs' }
+      });
+    }
+
+    // Default: All good
+    if (items.length === 0) {
+      items.push({
+        id: 'allgood',
+        type: 'success',
+        icon: <Sparkles className="h-5 w-5" />,
+        title: 'All Systems Go',
+        message: 'Everything is running smoothly. Great job!'
+      });
+    }
+
+    return items.slice(0, 4);
+  }, [tasks, projects, revenue, printers, inventory, jobs]);
+
+  const colors = {
+    urgent: 'bg-danger/10 border-danger/30 text-danger',
+    warning: 'bg-warning/10 border-warning/30 text-warning',
+    success: 'bg-success/10 border-success/30 text-success',
+    info: 'bg-primary/10 border-primary/30 text-primary',
+  };
+
+  return (
+    <div className="rounded-xl border border-surface-hover bg-gradient-to-br from-surface to-surface/50 p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+          <Sparkles className="h-4 w-4 text-primary" />
+        </div>
+        <h3 className="font-semibold">AI Insights</h3>
+      </div>
+
+      <div className="space-y-2">
+        {insights.map((insight) => (
+          <div
+            key={insight.id}
+            className={`flex items-start gap-3 rounded-lg border p-3 transition-all hover:shadow-md ${colors[insight.type]}`}
+          >
+            <div className="mt-0.5 shrink-0">{insight.icon}</div>
+            <div className="min-w-0 flex-1">
+              <div className="font-medium text-sm">{insight.title}</div>
+              <div className="text-xs opacity-80 mt-0.5">{insight.message}</div>
+            </div>
+            {insight.action && (
+              <button
+                onClick={() => onNavigate(insight.action!.section)}
+                className="shrink-0 text-xs font-medium underline opacity-70 hover:opacity-100"
+              >
+                {insight.action.label}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // Revenue Mini Chart Component
 function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (s: string) => void }) {
@@ -15,7 +229,7 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
     }
     
     return Object.entries(revenue)
-      .filter(([month, r]: [string, any]) => month && r && typeof r === 'object') // Filter out invalid entries
+      .filter(([month, r]: [string, any]) => month && r && typeof r === 'object')
       .map(([month, r]: [string, any]) => ({ 
         month, 
         value: r?.value || 0,
@@ -54,13 +268,11 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
   const currentMonth = new Date().toISOString().slice(0, 7);
   const current = data.find(d => d.month === currentMonth);
   
-  // Calculate trend
   const trend = data.length >= 2 ? 
     ((data[data.length - 1].value - data[data.length - 2].value) / data[data.length - 2].value) * 100 : 0;
   
   return (
     <div className="rounded-xl border border-surface-hover bg-surface p-4">
-      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-success" />
@@ -79,26 +291,20 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
         </button>
       </div>
       
-      {/* Simple Bar Chart - Scrollable for many months */}
       <div className="mb-4 overflow-x-auto pb-2">
         <div className="flex items-end gap-2 min-w-max px-2" style={{ height: '140px' }}>
           {data.map((d, i) => {
             const heightPercent = Math.max((d.value / max) * 100, 8);
             const isCurrent = d.month === currentMonth;
-            
-            // Format value label - show in k for thousands
             const formattedValue = d.value >= 1000 
               ? `$${(d.value / 1000).toFixed(1)}k`
               : `$${Math.round(d.value)}`;
             
             return (
               <div key={i} className="flex flex-col items-center justify-end" style={{ width: '45px', height: '100%' }}>
-                {/* Value label - rotated for space */}
                 <div className="text-[10px] text-gray-400 mb-1 whitespace-nowrap transform -rotate-45 origin-bottom-left translate-x-2">
                   {formattedValue}
                 </div>
-                
-                {/* Bar container */}
                 <div className="w-full flex items-end justify-center" style={{ height: '90px' }}>
                   <div
                     className={`w-full max-w-[28px] rounded-t-md transition-all duration-500 ${
@@ -108,8 +314,6 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
                     title={`${d.month}: $${d.value.toLocaleString()} (${d.orders} orders)`}
                   />
                 </div>
-                
-                {/* Month label */}
                 <div className={`text-xs mt-2 font-medium ${isCurrent ? 'text-success' : 'text-gray-500'}`}>
                   {d.month.slice(5)}
                 </div>
@@ -119,7 +323,6 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
         </div>
       </div>
       
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-2 pt-3 border-t border-surface-hover">
         <div className="text-center">
           <div className="text-xs text-gray-500 mb-1">This Month</div>
@@ -138,226 +341,6 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
   );
 }
 
-// AI Insight Generator
-function generateAIInsights({
-  tasks,
-  projects,
-  revenue,
-  printers,
-  inventory,
-  jobs
-}: {
-  tasks: { pending: Task[]; inProgress: Task[]; completed: Task[] };
-  projects: Project[];
-  revenue: any;
-  printers: Printer[];
-  inventory: InventoryItem[];
-  jobs: Job[];
-}) {
-  const insights: Array<{ type: 'info' | 'warning' | 'success' | 'urgent'; message: string; action?: string }> = [];
-
-  // Task insights - detailed analysis
-  const urgentTasks = tasks.pending.filter(t => t.priority === 'high');
-  const overdueTasks = tasks.pending.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
-  const dueSoonTasks = tasks.pending.filter(t => {
-    if (!t.dueDate) return false;
-    const due = new Date(t.dueDate);
-    const today = new Date();
-    const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return diff >= 0 && diff <= 3;
-  });
-  
-  if (overdueTasks.length > 0) {
-    const taskNames = overdueTasks.slice(0, 2).map(t => t.title).join(', ');
-    const more = overdueTasks.length > 2 ? ` and ${overdueTasks.length - 2} more` : '';
-    insights.push({
-      type: 'urgent',
-      message: `⚠️ ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''}: ${taskNames}${more}. These need immediate attention.`,
-      action: 'Review Tasks'
-    });
-  } else if (dueSoonTasks.length > 0) {
-    insights.push({
-      type: 'warning',
-      message: `⏰ ${dueSoonTasks.length} task${dueSoonTasks.length > 1 ? 's' : ''} due in the next 3 days. Stay on track!`,
-      action: 'View Tasks'
-    });
-  } else if (urgentTasks.length > 0) {
-    insights.push({
-      type: 'warning',
-      message: `🔥 ${urgentTasks.length} high-priority task${urgentTasks.length > 1 ? 's' : ''} waiting. Consider tackling these next.`,
-      action: 'View Tasks'
-    });
-  }
-
-  // Project insights - progress analysis
-  const activeProjects = projects.filter(p => p.status !== 'done');
-  const stalledProjects = activeProjects.filter(p => {
-    if (!p.tasks || p.tasks.length === 0) return p.status === 'backlog';
-    const completed = p.tasks.filter(t => t.completed).length;
-    return completed === 0;
-  });
-  const nearlyDoneProjects = activeProjects.filter(p => {
-    if (!p.tasks || p.tasks.length === 0) return false;
-    const progress = p.progress || 0;
-    return progress >= 75 && progress < 100;
-  });
-  
-  if (nearlyDoneProjects.length > 0) {
-    const projectNames = nearlyDoneProjects.slice(0, 2).map(p => p.name).join(', ');
-    insights.push({
-      type: 'success',
-      message: `🎯 ${nearlyDoneProjects.length} project${nearlyDoneProjects.length > 1 ? 's' : ''} (${projectNames}) ${nearlyDoneProjects.length > 1 ? 'are' : 'is'} 75%+ complete. Push to finish!`,
-      action: 'Check Projects'
-    });
-  } else if (stalledProjects.length > 0) {
-    insights.push({
-      type: 'info',
-      message: `📁 ${stalledProjects.length} project${stalledProjects.length > 1 ? 's' : ''} haven't started yet. Time to make progress?`,
-      action: 'Check Projects'
-    });
-  }
-
-  // Revenue insights - trend analysis
-  if (revenue) {
-    const revenueData = Object.values(revenue) as Array<{ value: number; orders: number; month: string }>;
-    // Filter out entries with undefined month before sorting
-    const validRevenueData = revenueData.filter(r => r && r.month);
-    const sortedData = validRevenueData.sort((a, b) => a.month.localeCompare(b.month));
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const currentRevenue = sortedData.find(r => r.month === currentMonth);
-    const lastMonthData = sortedData.filter(r => r.month < currentMonth).pop();
-    const avgRevenue = sortedData.length > 0 ? sortedData.reduce((sum, r) => sum + r.value, 0) / sortedData.length : 0;
-    
-    if (currentRevenue && lastMonthData) {
-      const change = ((currentRevenue.value - lastMonthData.value) / lastMonthData.value) * 100;
-      const avgChange = ((currentRevenue.value - avgRevenue) / avgRevenue) * 100;
-      
-      if (change > 30) {
-        insights.push({
-          type: 'success',
-          message: `🚀 Revenue up ${change.toFixed(0)}% vs last month! ${avgChange > 0 ? `Also ${avgChange.toFixed(0)}% above your average.` : ''}`,
-        });
-      } else if (change > 10) {
-        insights.push({
-          type: 'success',
-          message: `📈 Revenue up ${change.toFixed(0)}% from last month. Steady growth!`,
-        });
-      } else if (change < -30) {
-        insights.push({
-          type: 'urgent',
-          message: `📉 Revenue down ${Math.abs(change).toFixed(0)}% from last month. ${currentRevenue.orders === 0 ? 'No orders yet this month!' : 'Consider marketing push.'}`,
-          action: 'View Revenue'
-        });
-      } else if (change < -10) {
-        insights.push({
-          type: 'warning',
-          message: `📊 Revenue down ${Math.abs(change).toFixed(0)}% from last month.`,
-          action: 'View Revenue'
-        });
-      }
-    }
-  }
-
-  // Printer insights - operational status
-  const printingPrinters = printers.filter(p => p.status === 'printing');
-  const offlinePrinters = printers.filter(p => p.status === 'offline');
-  const errorPrinters = printers.filter(p => p.status === 'error');
-  
-  if (errorPrinters.length > 0) {
-    insights.push({
-      type: 'urgent',
-      message: `🚨 ${errorPrinters.length} printer${errorPrinters.length > 1 ? 's have' : ' has'} errors and need attention.`,
-      action: 'View Printers'
-    });
-  } else if (offlinePrinters.length > 0 && offlinePrinters.length === printers.length) {
-    insights.push({
-      type: 'urgent',
-      message: `⚠️ All ${printers.length} printers are offline! Check your network connection.`,
-      action: 'Check Printers'
-    });
-  } else if (printingPrinters.length > 0) {
-    const totalProgress = printingPrinters.reduce((sum, p) => sum + (p.job?.progress || 0), 0);
-    const avgProgress = Math.round(totalProgress / printingPrinters.length);
-    insights.push({
-      type: 'info',
-      message: `🖨️ ${printingPrinters.length} printer${printingPrinters.length > 1 ? 's are' : ' is'} printing (${avgProgress}% avg progress).`,
-      action: 'View Printers'
-    });
-  } else if (offlinePrinters.length > 0) {
-    insights.push({
-      type: 'warning',
-      message: `${offlinePrinters.length} printer${offlinePrinters.length > 1 ? 's are' : ' is'} offline.`,
-      action: 'Check Printers'
-    });
-  }
-
-  // Inventory insights - stock levels with specific items
-  const lowStock = inventory.filter(i => i.quantity <= i.minStock);
-  const criticalStock = inventory.filter(i => i.quantity === 0);
-  
-  if (criticalStock.length > 0) {
-    const itemNames = criticalStock.slice(0, 2).map(i => i.name).join(', ');
-    const more = criticalStock.length > 2 ? ` and ${criticalStock.length - 2} more` : '';
-    insights.push({
-      type: 'urgent',
-      message: `🚨 OUT OF STOCK: ${itemNames}${more}. Restock immediately!`,
-      action: 'View Inventory'
-    });
-  } else if (lowStock.length > 0) {
-    const itemNames = lowStock.slice(0, 2).map(i => i.name).join(', ');
-    const more = lowStock.length > 2 ? ` and ${lowStock.length - 2} more` : '';
-    insights.push({
-      type: lowStock.length > 3 ? 'urgent' : 'warning',
-      message: `⚠️ Low stock: ${itemNames}${more}. Consider restocking soon.`,
-      action: 'View Inventory'
-    });
-  }
-
-  // Job insights - opportunities
-  const newJobs = jobs.filter(j => j.status === 'new');
-  const highValueJobs = newJobs.filter(j => {
-    const salary = j.salary?.toLowerCase() || '';
-    return salary.includes('k') && parseInt(salary) >= 5;
-  });
-  
-  if (highValueJobs.length > 0) {
-    insights.push({
-      type: 'success',
-      message: `💰 ${highValueJobs.length} high-value job opportunity${highValueJobs.length > 1 ? 'ies' : 'y'} to review!`,
-      action: 'View Jobs'
-    });
-  } else if (newJobs.length > 0) {
-    insights.push({
-      type: 'info',
-      message: `📋 ${newJobs.length} new job opportunity${newJobs.length > 1 ? 'ies' : 'y'} to review.`,
-      action: 'View Jobs'
-    });
-  }
-
-  // Productivity insight
-  const totalCompleted = tasks.completed.length;
-  const completionRate = totalCompleted > 0 
-    ? Math.round((tasks.completed.length / (tasks.pending.length + tasks.inProgress.length + tasks.completed.length)) * 100)
-    : 0;
-  
-  if (completionRate > 70 && insights.length < 3) {
-    insights.push({
-      type: 'success',
-      message: `🎉 Amazing! You've completed ${completionRate}% of your tasks. Keep the momentum going!`,
-    });
-  }
-
-  // Default insight if nothing else
-  if (insights.length === 0) {
-    insights.push({
-      type: 'success',
-      message: '✅ All systems operational. You\'re on top of everything! Consider adding new tasks or projects.',
-    });
-  }
-
-  return insights.slice(0, 3); // Max 3 insights
-}
-
 interface DashboardViewProps {
   onNavigate: (section: string) => void;
 }
@@ -365,7 +348,6 @@ interface DashboardViewProps {
 export function DashboardView({ onNavigate }: DashboardViewProps) {
   const { tasks, projects, jobs, inventory, printers, revenue } = useAppStore();
 
-  // Calculate all stats
   const stats = useMemo(() => {
     const activeTasks = tasks.pending.length + tasks.inProgress.length;
     const totalTasks = activeTasks + tasks.completed.length;
@@ -398,17 +380,6 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     };
   }, [tasks, projects, revenue, printers, inventory, jobs]);
 
-  // Generate AI insights
-  const insights = useMemo(() => 
-    generateAIInsights({ tasks, projects, revenue, printers, inventory, jobs }),
-    [tasks, projects, revenue, printers, inventory, jobs]
-  );
-
-  // Get recent items - show all tasks sorted by creation date
-  const recentTasks = [...tasks.pending, ...tasks.inProgress, ...tasks.completed]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5);
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -420,51 +391,15 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* AI Insights */}
-      <div className="rounded-xl border border-surface-hover bg-gradient-to-r from-primary/5 via-surface to-surface p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <span className="font-semibold">AI Insights</span>
-        </div>
-        <div className="space-y-2">
-          {insights.map((insight, i) => (
-            <div 
-              key={i}
-              className={`flex items-center gap-3 rounded-lg p-3 ${
-                insight.type === 'urgent' ? 'bg-danger/10 border border-danger/20' :
-                insight.type === 'warning' ? 'bg-warning/10 border border-warning/20' :
-                insight.type === 'success' ? 'bg-success/10 border border-success/20' :
-                'bg-surface-hover'
-              }`}
-            >
-              {insight.type === 'urgent' && <AlertCircle className="h-5 w-5 shrink-0 text-danger" />}
-              {insight.type === 'warning' && <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />}
-              {insight.type === 'success' && <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />}
-              {insight.type === 'info' && <Sparkles className="h-5 w-5 shrink-0 text-primary" />}
-              
-              <div className="flex-1">
-                <p className="text-sm">{insight.message}</p>
-              </div>
-              
-              {insight.action && (
-                <button
-                  onClick={() => {
-                    const section = insight.action?.toLowerCase().includes('task') ? 'tasks' :
-                                   insight.action?.toLowerCase().includes('project') ? 'projects' :
-                                   insight.action?.toLowerCase().includes('revenue') ? 'revenue' :
-                                   insight.action?.toLowerCase().includes('printer') ? 'printers' :
-                                   insight.action?.toLowerCase().includes('inventory') ? 'inventory' :
-                                   insight.action?.toLowerCase().includes('job') ? 'jobs' : 'dashboard';
-                    onNavigate(section);
-                  }}
-                  className="shrink-0 text-xs font-medium text-primary hover:underline"
-                >
-                  {insight.action}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      <AIInsightsCard 
+        tasks={tasks} 
+        projects={projects} 
+        revenue={revenue} 
+        printers={printers} 
+        inventory={inventory} 
+        jobs={jobs}
+        onNavigate={onNavigate}
+      />
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
@@ -517,8 +452,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
           className="rounded-xl border border-surface-hover bg-surface p-4 text-left transition-all hover:border-primary/50 hover:shadow-lg"
         >
           <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10"
->
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
               <DollarSign className="h-5 w-5 text-success" />
             </div>
           </div>
@@ -586,7 +520,6 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                       printer.status === 'operational' ? 'text-success' : 'text-gray-500'
                     }`} />
                   </div>
-                  
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-medium">{printer.name}</span>
@@ -599,7 +532,6 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                          printer.status === 'operational' ? 'Ready' : 'Offline'}
                       </span>
                     </div>
-                    
                     {printer.job ? (
                       <div className="mt-2">
                         <div className="flex items-center justify-between text-xs text-gray-500">
@@ -657,8 +589,10 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         </div>
 
         <div className="space-y-2">
-          {recentTasks.length > 0 ? (
-            recentTasks.map(task => (
+          {[...tasks.pending, ...tasks.inProgress, ...tasks.completed]
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5)
+            .map(task => (
               <div 
                 key={task.id}
                 className="flex items-center gap-3 rounded-lg bg-background p-3"
@@ -679,15 +613,14 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                     )}
                   </div>
                 </div>
-                
                 {task.assignee && (
                   <span className="shrink-0 rounded-full bg-surface-hover px-2 py-0.5 text-xs text-gray-400">
                     {task.assignee}
                   </span>
                 )}
               </div>
-            ))
-          ) : (
+            ))}
+          {[...tasks.pending, ...tasks.inProgress, ...tasks.completed].length === 0 && (
             <div className="rounded-lg bg-background py-8 text-center">
               <Circle className="mx-auto mb-2 h-8 w-8 text-gray-600" />
               <p className="text-sm text-gray-500">No tasks yet</p>
