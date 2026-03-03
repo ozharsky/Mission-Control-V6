@@ -75,22 +75,34 @@ function App() {
     }
   }, [initSubscriptions, setPrinters]);
 
-  const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => {
-    // Firebase data has numeric keys (0-12) representing months from 2025
-    // 0 = Jan 2025, 11 = Dec 2025, 12 = Jan 2026
-    let formattedMonth = month;
-    if (/^\d{1,2}$/.test(month)) {
-      const monthNum = parseInt(month);
-      const year = 2025 + Math.floor(monthNum / 12);
-      const monthInYear = (monthNum % 12) + 1;
-      formattedMonth = `${year}-${String(monthInYear).padStart(2, '0')}`;
+  // Handle both V5 array format and V6 object format
+  // V5: [{month: "2025-01", value: 100, orders: 5}, ...]
+  // V6: {"2025-01": {value: 100, orders: 5}, ...}
+  const revenueData = useMemo(() => {
+    if (!revenue) return [];
+    
+    // If it's an array (V5 format), use it directly
+    if (Array.isArray(revenue)) {
+      return revenue.sort((a, b) => a.month.localeCompare(b.month));
     }
-    return {
-      month: formattedMonth,
-      value: data.value || 0,
-      orders: data.orders || 0
-    };
-  }).sort((a, b) => a.month.localeCompare(b.month)) : [];
+    
+    // If it's an object with numeric keys, convert to YYYY-MM format
+    return Object.entries(revenue).map(([month, data]: [string, any]) => {
+      let formattedMonth = month;
+      // Check if key is numeric (0, 1, 2...)
+      if (/^\d+$/.test(month)) {
+        const monthNum = parseInt(month);
+        const year = 2025 + Math.floor(monthNum / 12);
+        const monthInYear = (monthNum % 12) + 1;
+        formattedMonth = `${year}-${String(monthInYear).padStart(2, '0')}`;
+      }
+      return {
+        month: formattedMonth,
+        value: data.value || 0,
+        orders: data.orders || 0
+      };
+    }).sort((a, b) => a.month.localeCompare(b.month));
+  }, [revenue]);
 
   const renderSection = () => {
     switch (activeSection) {
