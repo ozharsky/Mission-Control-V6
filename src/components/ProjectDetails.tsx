@@ -20,7 +20,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
     status: project.status,
     board: project.board || 'general',
     priority: project.priority || 'medium',
-    tags: project.tags.join(', '),
+    tags: (project.tags || []).join(', '),
   });
 
   const handleAddTask = async (e: React.FormEvent) => {
