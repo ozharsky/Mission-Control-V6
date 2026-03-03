@@ -2,6 +2,7 @@
 // These match the Firebase database structure
 
 export * from './jobs';
+export * from './inventory';
 
 export interface Task {
   id: string;

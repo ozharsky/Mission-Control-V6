@@ -19,13 +19,14 @@ const navItems: NavItem[] = [
   { id: 'projects', label: 'Projects', icon: '📁' },
   { id: 'tasks', label: 'Tasks', icon: '✅' },
   { id: 'jobs', label: 'Jobs', icon: '💼' },
+  { id: 'inventory', label: 'Inventory', icon: '📦' },
   { id: 'calendar', label: 'Calendar', icon: '📅' },
   { id: 'files', label: 'Files', icon: '📎' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
 // Primary items for bottom nav (most used)
-const primaryNavItems = ['dashboard', 'tasks', 'projects', 'jobs', 'settings'];
+const primaryNavItems = ['dashboard', 'tasks', 'projects', 'inventory', 'settings'];
 
 export function Navigation({ activeSection, onSectionChange }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

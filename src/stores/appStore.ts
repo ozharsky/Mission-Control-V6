@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeToData, updateData, setData, pushData } from '../lib/firebase';
-import type { Task, Project, ProjectTask, Notification, AgentState, Job } from '../types';
+import type { Task, Project, ProjectTask, Notification, AgentState, Job, InventoryItem, InventoryTransaction } from '../types';
 import { cleanForFirebase } from '../types';
 
 interface AppState {
@@ -17,6 +17,7 @@ interface AppState {
   priorities: any[];
   projects: Project[];
   jobs: Job[];
+  inventory: InventoryItem[];
   _lastPrinterUpdate?: number;
 
   setAgent: (agent: AgentState) => void;
@@ -32,6 +33,10 @@ interface AppState {
   addJob: (job: Omit<Job, 'id' | 'addedAt'>) => Promise<void>;
   updateJob: (id: string, updates: Partial<Job>) => Promise<void>;
   deleteJob: (id: string) => Promise<void>;
+  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt' | 'totalSold'>) => Promise<void>;
+  updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
+  addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   initSubscriptions: () => void;
 }
@@ -46,6 +51,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   priorities: [],
   projects: [],
   jobs: [],
+  inventory: [],
   _lastPrinterUpdate: 0,
 
   setAgent: (agent) => {
@@ -239,6 +245,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     subscribeToData('v6/jobs', (data) => {
       if (data) set({ jobs: Object.values(data) });
     });
+
+    subscribeToData('v6/inventory', (data) => {
+      if (data) set({ inventory: Object.values(data) });
+    });
   },
 
   addJob: async (job) => {
@@ -255,5 +265,30 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteJob: async (id) => {
     await setData(`v6/jobs/${id}`, null);
+  },
+
+  addInventoryItem: async (item) => {
+    const itemWithMeta = {
+      ...item,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      totalSold: 0,
+    };
+    await pushData('v6/inventory', itemWithMeta);
+  },
+
+  updateInventoryItem: async (id, updates) => {
+    await updateData(`v6/inventory/${id}`, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+  },
+
+  deleteInventoryItem: async (id) => {
+    await setData(`v6/inventory/${id}`, null);
+  },
+
+  addInventoryTransaction: async (transaction) => {
+    await pushData('v6/inventory/transactions', transaction);
   },
 }));
