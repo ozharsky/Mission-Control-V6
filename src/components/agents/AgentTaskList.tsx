@@ -8,6 +8,7 @@ import { Database } from 'firebase/database';
 import { AgentTaskService } from '../../services/agentTaskService';
 import { AgentTask, TaskFilters, AgentId } from '../../types/agentTask';
 import { AGENT_EMOJIS, AGENT_NAMES, TASK_STATUS } from '../../constants/agents';
+import { NewWorkflowModal } from './NewWorkflowModal';
 
 interface AgentTaskListProps {
   firebaseDb: Database;
@@ -36,6 +37,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<TaskFilters>({});
   const [stats, setStats] = useState({ total: 0, active: 0, pending: 0 });
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const service = new AgentTaskService(firebaseDb);
 
@@ -93,7 +95,10 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
     <div className="agent-task-panel p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">🤖 Agent Tasks</h2>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
           + New Workflow
         </button>
       </div>
@@ -149,7 +154,10 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
         {tasks.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <p>No agent tasks yet</p>
-            <button className="mt-2 text-blue-600 underline">
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="mt-2 text-blue-600 underline"
+            >
               Start a Workflow
             </button>
           </div>
@@ -188,6 +196,13 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
           ))
         )}
       </div>
+
+      <NewWorkflowModal
+        firebaseDb={firebaseDb}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onWorkflowCreated={loadTasks}
+      />
     </div>
   );
 };
