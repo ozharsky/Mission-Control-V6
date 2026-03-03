@@ -291,15 +291,15 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                     </div>
 
                     {/* Tags */}
-                    {project.tags.length > 0 && (
+                    {(project.tags || []).length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {project.tags.slice(0, 2).map(tag => (
+                        {(project.tags || []).slice(0, 2).map(tag => (
                           <span key={tag} className="rounded bg-surface-hover px-1.5 py-0.5 text-xs text-gray-400">
                             #{tag}
                           </span>
                         ))}
-                        {project.tags.length > 2 && (
-                          <span className="text-xs text-gray-500">+{project.tags.length - 2}</span>
+                        {(project.tags || []).length > 2 && (
+                          <span className="text-xs text-gray-500">+{(project.tags || []).length - 2}</span>
                         )}
                       </div>
                     )}
