@@ -744,6 +744,145 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         <RevenueMiniChart revenue={revenue} onNavigate={onNavigate} />
       </div>
 
+      {/* Two Column Layout - Additional Charts */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Task Completion Chart */}
+        <div className="rounded-xl border border-surface-hover bg-surface p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+              <span className="font-semibold">Task Completion</span>
+            </div>
+            <button 
+              onClick={() => onNavigate('tasks')}
+              className="text-sm text-primary hover:underline"
+            >
+              View All
+            </button>
+          </div>
+          
+          {(() => {
+            const total = tasks.pending.length + tasks.inProgress.length + tasks.completed.length;
+            if (total === 0) {
+              return (
+                <div className="rounded-lg bg-background py-8 text-center">
+                  <Circle className="mx-auto mb-2 h-8 w-8 text-gray-600" />
+                  <p className="text-sm text-gray-500">No tasks yet</p>
+                </div>
+              );
+            }
+            
+            const data = [
+              { label: 'Completed', value: tasks.completed.length, color: 'bg-success', textColor: 'text-success' },
+              { label: 'In Progress', value: tasks.inProgress.length, color: 'bg-primary', textColor: 'text-primary' },
+              { label: 'Pending', value: tasks.pending.length, color: 'bg-warning', textColor: 'text-warning' },
+            ];
+            
+            return (
+              <div className="space-y-3">
+                {data.map((item) => (
+                  <div key={item.label} className="flex items-center gap-3">
+                    <div className={`h-3 w-3 rounded-full ${item.color}`} />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>{item.label}</span>
+                        <span className={item.textColor}>{item.value}</span>
+                      </div>
+                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-hover">
+                        <div 
+                          className={`h-full ${item.color}`}
+                          style={{ width: `${(item.value / total) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-500 w-10 text-right">
+                      {((item.value / total) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                ))}
+                <div className="pt-2 border-t border-surface-hover">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Completion Rate</span>
+                    <span className="font-medium text-success">
+                      {((tasks.completed.length / total) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Inventory Status Chart */}
+        <div className="rounded-xl border border-surface-hover bg-surface p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-warning" />
+              <span className="font-semibold">Inventory Status</span>
+            </div>
+            <button 
+              onClick={() => onNavigate('inventory')}
+              className="text-sm text-primary hover:underline"
+            >
+              View All
+            </button>
+          </div>
+          
+          {(() => {
+            if (inventory.length === 0) {
+              return (
+                <div className="rounded-lg bg-background py-8 text-center">
+                  <Package className="mx-auto mb-2 h-8 w-8 text-gray-600" />
+                  <p className="text-sm text-gray-500">No inventory items</p>
+                </div>
+              );
+            }
+            
+            const outOfStock = inventory.filter(i => i.quantity === 0).length;
+            const lowStock = inventory.filter(i => i.quantity > 0 && i.quantity <= i.minStock).length;
+            const inStock = inventory.filter(i => i.quantity > i.minStock).length;
+            const total = inventory.length;
+            
+            const data = [
+              { label: 'In Stock', value: inStock, color: 'bg-success', textColor: 'text-success' },
+              { label: 'Low Stock', value: lowStock, color: 'bg-warning', textColor: 'text-warning' },
+              { label: 'Out of Stock', value: outOfStock, color: 'bg-danger', textColor: 'text-danger' },
+            ];
+            
+            return (
+              <div className="space-y-3">
+                {data.map((item) => (
+                  <div key={item.label} className="flex items-center gap-3">
+                    <div className={`h-3 w-3 rounded-full ${item.color}`} />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>{item.label}</span>
+                        <span className={item.textColor}>{item.value}</span>
+                      </div>
+                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-hover">
+                        <div 
+                          className={`h-full ${item.color}`}
+                          style={{ width: `${(item.value / total) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-500 w-10 text-right">
+                      {((item.value / total) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                ))}
+                <div className="pt-2 border-t border-surface-hover">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Total Items</span>
+                    <span className="font-medium">{total}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
       {/* Recent Tasks */}
       <div className="rounded-xl border border-surface-hover bg-surface p-4">
         <div className="mb-4 flex items-center justify-between">
