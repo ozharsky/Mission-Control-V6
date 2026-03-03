@@ -592,6 +592,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Get current state from get() provided by Zustand
     const state = get();
     
+    // Calculate date range for filtering
+    const now = new Date();
+    const startDate = config.dateRange?.start ? new Date(config.dateRange.start) : new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endDate = config.dateRange?.end ? new Date(config.dateRange.end) : now;
+    
     // Calculate summary stats with null safety
     const summary = {
       revenue: {
@@ -616,19 +621,180 @@ export const useAppStore = create<AppState>((set, get) => ({
       },
     };
 
+    // Generate detailed sections
+    const sections = config.sections.map((section: string) => {
+      const baseSection = {
+        id: section,
+        title: section.charAt(0).toUpperCase() + section.slice(1),
+        type: section,
+        data: {},
+        insights: [] as string[],
+      };
+
+      switch (section) {
+        case 'revenue':
+          const revenueData = state.revenue ? Object.entries(state.revenue)
+            .filter(([month]: [string, any]) => {
+              const date = new Date(month + '-01');
+              return date >= startDate && date <= endDate;
+            })
+            .map(([month, r]: [string, any]) => ({
+              month,
+              value: r?.value || 0,
+              orders: r?.orders || 0,
+            }))
+            .sort((a, b) => a.month.localeCompare(b.month)) : [];
+          
+          const totalRevenue = revenueData.reduce((sum, r) => sum + r.value, 0);
+          const totalOrders = revenueData.reduce((sum, r) => sum + r.orders, 0);
+          const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+          
+          baseSection.data = {
+            monthlyData: revenueData,
+            totalRevenue,
+            totalOrders,
+            avgOrderValue,
+          };
+          baseSection.insights = [
+            totalRevenue > 0 ? `Total revenue: $${totalRevenue.toLocaleString()}` : 'No revenue data for this period',
+            totalOrders > 0 ? `${totalOrders} orders with $${avgOrderValue.toFixed(2)} average order value` : 'No orders recorded',
+            revenueData.length > 1 ? `Trending across ${revenueData.length} months` : 'Need more data for trend analysis',
+          ];
+          break;
+
+        case 'tasks':
+          const allTasks = [
+            ...(state.tasks?.pending || []),
+            ...(state.tasks?.inProgress || []),
+            ...(state.tasks?.completed || []),
+          ].filter(t => {
+            if (!t.createdAt) return true;
+            const date = new Date(t.createdAt);
+            return date >= startDate && date <= endDate;
+          });
+          
+          const completedTasks = allTasks.filter(t => t.status === 'completed');
+          const highPriorityTasks = allTasks.filter(t => t.priority === 'high');
+          const overdueTasks = allTasks.filter(t => {
+            if (!t.dueDate || t.status === 'completed') return false;
+            return new Date(t.dueDate) < now;
+          });
+          
+          baseSection.data = {
+            total: allTasks.length,
+            completed: completedTasks.length,
+            pending: allTasks.filter(t => t.status === 'pending').length,
+            inProgress: allTasks.filter(t => t.status === 'in-progress').length,
+            highPriority: highPriorityTasks.length,
+            overdue: overdueTasks.length,
+            completionRate: allTasks.length > 0 ? (completedTasks.length / allTasks.length) * 100 : 0,
+            recentTasks: allTasks.slice(0, 10),
+          };
+          baseSection.insights = [
+            `${completedTasks.length} of ${allTasks.length} tasks completed (${baseSection.data.completionRate.toFixed(0)}%)`,
+            overdueTasks.length > 0 ? `${overdueTasks.length} overdue tasks need attention` : 'No overdue tasks',
+            highPriorityTasks.length > 0 ? `${highPriorityTasks.length} high priority tasks` : 'No high priority tasks',
+          ];
+          break;
+
+        case 'projects':
+          const activeProjects = state.projects?.filter(p => p?.status !== 'done') || [];
+          const completedProjects = state.projects?.filter(p => p?.status === 'done') || [];
+          const highProgressProjects = activeProjects.filter(p => (p.progress || 0) >= 75);
+          
+          baseSection.data = {
+            total: state.projects?.length || 0,
+            active: activeProjects.length,
+            completed: completedProjects.length,
+            highProgress: highProgressProjects.length,
+            byBoard: {
+              etsy: state.projects?.filter(p => p.board === 'etsy').length || 0,
+              photography: state.projects?.filter(p => p.board === 'photography').length || 0,
+              wholesale: state.projects?.filter(p => p.board === 'wholesale').length || 0,
+              general: state.projects?.filter(p => p.board === 'general' || !p.board).length || 0,
+            },
+            recentProjects: state.projects?.slice(0, 5) || [],
+          };
+          baseSection.insights = [
+            `${activeProjects.length} active projects, ${completedProjects.length} completed`,
+            highProgressProjects.length > 0 ? `${highProgressProjects.length} projects near completion (75%+)` : 'No projects near completion',
+            activeProjects.length > 0 ? `Average progress: ${(activeProjects.reduce((sum, p) => sum + (p.progress || 0), 0) / activeProjects.length).toFixed(0)}%` : 'No active projects',
+          ];
+          break;
+
+        case 'inventory':
+          const inventoryItems = state.inventory || [];
+          const outOfStock = inventoryItems.filter(i => i.quantity === 0);
+          const lowStock = inventoryItems.filter(i => i.quantity > 0 && i.quantity <= i.minStock);
+          const inStock = inventoryItems.filter(i => i.quantity > i.minStock);
+          
+          const byCategory = {
+            product: inventoryItems.filter(i => i.category === 'product').length,
+            material: inventoryItems.filter(i => i.category === 'material').length,
+            tool: inventoryItems.filter(i => i.category === 'tool').length,
+            supply: inventoryItems.filter(i => i.category === 'supply').length,
+          };
+          
+          baseSection.data = {
+            total: inventoryItems.length,
+            inStock: inStock.length,
+            lowStock: lowStock.length,
+            outOfStock: outOfStock.length,
+            byCategory,
+            totalValue: inventoryItems.reduce((sum, i) => sum + (i.quantity * i.unitCost), 0),
+            lowStockItems: lowStock.slice(0, 5),
+          };
+          baseSection.insights = [
+            `${inStock.length} items well stocked, ${lowStock.length} low, ${outOfStock.length} out of stock`,
+            `Total inventory value: $${baseSection.data.totalValue.toLocaleString()}`,
+            lowStock.length > 0 ? `${lowStock.length} items need restocking` : 'All items adequately stocked',
+          ];
+          break;
+
+        case 'jobs':
+          const jobs = state.jobs || [];
+          const newJobs = jobs.filter(j => j.status === 'new');
+          const appliedJobs = jobs.filter(j => j.status === 'applied');
+          const highValueJobs = jobs.filter(j => {
+            const salary = j.salary?.toLowerCase() || '';
+            const match = salary.match(/(\d+)/);
+            return match && parseInt(match[1]) >= 5;
+          });
+          
+          baseSection.data = {
+            total: jobs.length,
+            new: newJobs.length,
+            applied: appliedJobs.length,
+            highValue: highValueJobs.length,
+            byType: {
+              freelance: jobs.filter(j => j.type === 'freelance').length,
+              partTime: jobs.filter(j => j.type === 'part-time').length,
+              fullTime: jobs.filter(j => j.type === 'full-time').length,
+            },
+            recentJobs: jobs.slice(0, 5),
+          };
+          baseSection.insights = [
+            `${newJobs.length} new opportunities to review`,
+            `${appliedJobs.length} applications pending`,
+            highValueJobs.length > 0 ? `${highValueJobs.length} high-value opportunities ($5k+)` : 'No high-value opportunities',
+          ];
+          break;
+
+        default:
+          baseSection.data = {};
+          baseSection.insights = ['No data available for this section'];
+      }
+
+      return baseSection;
+    });
+
     const report = {
       ...config,
       status: 'completed',
       createdAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),
       summary,
-      sections: config.sections.map((section: string) => ({
-        id: section,
-        title: section.charAt(0).toUpperCase() + section.slice(1),
-        type: section,
-        data: {},
-        insights: [],
-      })),
+      sections,
     };
 
     await pushData('v6/reports', report);

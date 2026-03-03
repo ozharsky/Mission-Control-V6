@@ -356,6 +356,168 @@ export function ReportsView({ reports }: ReportsViewProps) {
           </div>
         </div>
       )}
+
+      {/* Report Detail Modal */}
+      {selectedReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-surface-hover bg-surface p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold">{selectedReport.title}</h3>
+                <p className="text-sm text-gray-400">
+                  {formatDate(selectedReport.dateRange?.start)} - {formatDate(selectedReport.dateRange?.end)}
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedReport(null)}
+                className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Summary */}
+            {selectedReport.summary && (
+              <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="rounded-lg bg-surface-hover p-3">
+                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                    <DollarSign className="h-3 w-3" /> Revenue
+                  </div>
+                  <div className="text-lg font-semibold">{formatCurrency(selectedReport.summary.revenue?.total || 0)}</div>
+                </div>
+                <div className="rounded-lg bg-surface-hover p-3">
+                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                    <CheckCircle className="h-3 w-3" /> Tasks Done
+                  </div>
+                  <div className="text-lg font-semibold">{selectedReport.summary.tasks?.completed || 0}</div>
+                </div>
+                <div className="rounded-lg bg-surface-hover p-3">
+                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                    <Briefcase className="h-3 w-3" /> Projects
+                  </div>
+                  <div className="text-lg font-semibold">{selectedReport.summary.projects?.completed || 0}</div>
+                </div>
+                <div className="rounded-lg bg-surface-hover p-3">
+                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                    <Package className="h-3 w-3" /> Low Stock
+                  </div>
+                  <div className="text-lg font-semibold">{selectedReport.summary.inventory?.lowStock || 0}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Sections */}
+            <div className="space-y-6">
+              {selectedReport.sections?.map((section: any) => (
+                <div key={section.id} className="rounded-xl border border-surface-hover bg-background p-4">
+                  <h4 className="mb-3 font-semibold capitalize">{section.title}</h4>
+                  
+                  {/* Insights */}
+                  {section.insights?.length > 0 && (
+                    <div className="mb-4 space-y-1">
+                      {section.insights.map((insight: string, idx: number) => (
+                        <div key={idx} className="flex items-start gap-2 text-sm text-gray-400">
+                          <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                          {insight}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Section-specific data display */}
+                  {section.type === 'revenue' && section.data?.monthlyData?.length > 0 && (
+                    <div className="mt-4">
+                      <div className="text-sm text-gray-500 mb-2">Monthly Revenue</div>
+                      <div className="space-y-2">
+                        {section.data.monthlyData.slice(-6).map((item: any) => (
+                          <div key={item.month} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-400">{item.month}</span>
+                            <span className="font-medium">${item.value?.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {section.type === 'tasks' && (
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-lg bg-surface-hover p-2">
+                        <div className="text-lg font-semibold text-success">{section.data?.completed || 0}</div>
+                        <div className="text-xs text-gray-500">Completed</div>
+                      </div>
+                      <div className="rounded-lg bg-surface-hover p-2">
+                        <div className="text-lg font-semibold text-primary">{section.data?.inProgress || 0}</div>
+                        <div className="text-xs text-gray-500">In Progress</div>
+                      </div>
+                      <div className="rounded-lg bg-surface-hover p-2">
+                        <div className="text-lg font-semibold text-warning">{section.data?.pending || 0}</div>
+                        <div className="text-xs text-gray-500">Pending</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {section.type === 'inventory' && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-gray-400">Total Value</span>
+                        <span className="font-medium">${section.data?.totalValue?.toLocaleString()}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="rounded bg-success/10 p-2 text-success">
+                          {section.data?.inStock || 0} In Stock
+                        </div>
+                        <div className="rounded bg-warning/10 p-2 text-warning">
+                          {section.data?.lowStock || 0} Low
+                        </div>
+                        <div className="rounded bg-danger/10 p-2 text-danger">
+                          {section.data?.outOfStock || 0} Out
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {section.type === 'jobs' && (
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg bg-surface-hover p-2 text-center">
+                        <div className="text-lg font-semibold">{section.data?.new || 0}</div>
+                        <div className="text-xs text-gray-500">New Opportunities</div>
+                      </div>
+                      <div className="rounded-lg bg-surface-hover p-2 text-center">
+                        <div className="text-lg font-semibold">{section.data?.applied || 0}</div>
+                        <div className="text-xs text-gray-500">Applied</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setSelectedReport(null)}
+                className="flex-1 rounded-lg border border-surface-hover py-2 text-gray-400"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  // Export report as JSON
+                  const dataStr = JSON.stringify(selectedReport, null, 2);
+                  const blob = new Blob([dataStr], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `report-${selectedReport.title?.replace(/\s+/g, '-').toLowerCase()}.json`;
+                  a.click();
+                }}
+                className="flex-1 rounded-lg bg-primary py-2 font-medium text-white"
+              >
+                Export Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
