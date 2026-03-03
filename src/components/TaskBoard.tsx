@@ -292,6 +292,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
       assignee: task.assignee || '',
       tags: task.tags?.join(', ') || '',
     });
+    setShowForm(true);
   };
 
   const getProjectName = (projectId?: string) => {
