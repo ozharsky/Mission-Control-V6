@@ -20,12 +20,11 @@ const navItems: NavItem[] = [
   { id: 'tasks', label: 'Tasks', icon: '✅' },
   { id: 'calendar', label: 'Calendar', icon: '📅' },
   { id: 'files', label: 'Files', icon: '📎' },
-  { id: 'agent', label: 'Agent', icon: '🤖' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
 // Primary items for bottom nav (most used)
-const primaryNavItems = ['dashboard', 'tasks', 'projects', 'printers', 'agent'];
+const primaryNavItems = ['dashboard', 'tasks', 'projects', 'printers', 'settings'];
 
 export function Navigation({ activeSection, onSectionChange }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

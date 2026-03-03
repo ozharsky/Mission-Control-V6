@@ -3,7 +3,6 @@ import { useAppStore } from './stores/appStore';
 import { initTheme } from './stores/themeStore';
 import { initSimplyPrint, getSimplyPrint } from './lib/simplyprint';
 import { Navigation } from './components/Navigation';
-import { AgentPanel } from './components/AgentPanel';
 import { TaskBoard } from './components/TaskBoard';
 import { NotificationBell } from './components/NotificationBell';
 import { DashboardStats } from './components/DashboardStats';
@@ -187,9 +186,6 @@ function App() {
       case 'files':
         return <FileManager />;
 
-      case 'agent':
-        return <AgentPanel />;
-
       case 'settings':
         return <SettingsPage />;
 
@@ -218,12 +214,6 @@ function App() {
             <div className="flex items-center gap-4">
               <ThemeToggleSimple />
               <NotificationBell count={unreadCount} notifications={notifications} />
-              <div className="hidden items-center gap-2 sm:flex">
-                <div className={`h-2 w-2 rounded-full ${agent?.status === 'online' ? 'bg-success' : 'bg-gray-500'}`} />
-                <span className="text-sm text-gray-400">
-                  {agent?.status === 'online' ? 'Agent Online' : 'Agent Offline'}
-                </span>
-              </div>
             </div>
           </div>
         </header>
