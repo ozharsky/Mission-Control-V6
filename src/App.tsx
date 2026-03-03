@@ -86,12 +86,14 @@ function App() {
       return revenue.sort((a, b) => a.month.localeCompare(b.month));
     }
     
-    // If it's an object with numeric keys, convert to YYYY-MM format
+    // If it's an object with numeric keys (0, 1, 2...), convert to YYYY-MM format
+    // These represent sequential months starting from Jan 2025
     return Object.entries(revenue).map(([month, data]: [string, any]) => {
       let formattedMonth = month;
       // Check if key is numeric (0, 1, 2...)
       if (/^\d+$/.test(month)) {
         const monthNum = parseInt(month);
+        // Month 0 = Jan 2025, 1 = Feb 2025, ..., 11 = Dec 2025, 12 = Jan 2026
         const year = 2025 + Math.floor(monthNum / 12);
         const monthInYear = (monthNum % 12) + 1;
         formattedMonth = `${year}-${String(monthInYear).padStart(2, '0')}`;
