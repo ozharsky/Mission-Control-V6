@@ -6,6 +6,7 @@ import {
   Box, Wrench, Droplets, Tag, X, FileSpreadsheet
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
+import { LoadingButton } from '../components/Loading';
 import type { InventoryItem, InventoryTransaction, InventoryCategory, InventoryStatus } from '../types/inventory';
 import { 
   CATEGORY_LABELS, 
@@ -50,6 +51,7 @@ export function InventoryView({ items }: InventoryViewProps) {
     printTime: 0,
     weight: 0,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -122,13 +124,17 @@ export function InventoryView({ items }: InventoryViewProps) {
       weight: formData.weight,
     };
 
-    if (editingItem) {
-      await updateInventoryItem(editingItem.id, itemData);
-    } else {
-      await addInventoryItem(itemData);
+    setIsSubmitting(true);
+    try {
+      if (editingItem) {
+        await updateInventoryItem(editingItem.id, itemData);
+      } else {
+        await addInventoryItem(itemData);
+      }
+      resetForm();
+    } finally {
+      setIsSubmitting(false);
     }
-
-    resetForm();
   };
 
   const resetForm = () => {
@@ -650,12 +656,14 @@ export function InventoryView({ items }: InventoryViewProps) {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
-                  className="flex-1 rounded-lg bg-primary py-2 font-medium text-white"
+                  isLoading={isSubmitting}
+                  loadingText={editingItem ? 'Saving...' : 'Adding...'}
+                  className="flex-1 rounded-lg bg-primary py-2 font-medium text-white disabled:opacity-50"
                 >
                   {editingItem ? 'Save Changes' : 'Add Item'}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>
