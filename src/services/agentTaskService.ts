@@ -27,7 +27,8 @@ import { AGENTS, WORKFLOW_TEMPLATES } from '../constants/agents';
 
 export class AgentTaskService {
   private db: Database;
-  private basePath = 'missionControl';
+  private basePath = 'v6/agentTasks';
+  private workflowPath = 'v6/agentWorkflows';
 
   constructor(firebaseDb: Database) {
     this.db = firebaseDb;
@@ -72,25 +73,25 @@ export class AgentTaskService {
       projectId: taskData.projectId
     };
 
-    await set(ref(this.db, `${this.basePath}/agentTasks/${task.id}`), task);
+    await set(ref(this.db, `${this.basePath}/${task.id}`), task);
     return task;
   }
 
   async getAgentTask(taskId: string): Promise<AgentTask | null> {
-    const snapshot = await get(ref(this.db, `${this.basePath}/agentTasks/${taskId}`));
+    const snapshot = await get(ref(this.db, `${this.basePath}/${taskId}`));
     return snapshot.val();
   }
 
   async updateAgentTask(taskId: string, updates: Partial<AgentTask>): Promise<void> {
-    await firebaseUpdate(ref(this.db, `${this.basePath}/agentTasks/${taskId}`), updates);
+    await firebaseUpdate(ref(this.db, `${this.basePath}/${taskId}`), updates);
   }
 
   async deleteAgentTask(taskId: string): Promise<void> {
-    await remove(ref(this.db, `${this.basePath}/agentTasks/${taskId}`));
+    await remove(ref(this.db, `${this.basePath}/${taskId}`));
   }
 
   async listAgentTasks(filters: TaskFilters = {}): Promise<AgentTask[]> {
-    const snapshot = await get(ref(this.db, `${this.basePath}/agentTasks`));
+    const snapshot = await get(ref(this.db, `${this.basePath}`));
     const tasks: AgentTask[] = [];
 
     snapshot.forEach((child) => {
@@ -225,7 +226,7 @@ export class AgentTaskService {
     workflow.currentTaskId = tasks[0]?.id || null;
 
     // Save workflow
-    await set(ref(this.db, `${this.basePath}/agentWorkflows/${workflow.id}`), workflow);
+    await set(ref(this.db, `${this.workflowPath}/${workflow.id}`), workflow);
 
     // Activate first task
     if (tasks[0]) {
@@ -236,12 +237,12 @@ export class AgentTaskService {
   }
 
   async getWorkflow(workflowId: string): Promise<AgentWorkflow | null> {
-    const snapshot = await get(ref(this.db, `${this.basePath}/agentWorkflows/${workflowId}`));
+    const snapshot = await get(ref(this.db, `${this.workflowPath}/${workflowId}`));
     return snapshot.val();
   }
 
   async updateWorkflow(workflowId: string, updates: Partial<AgentWorkflow>): Promise<void> {
-    await firebaseUpdate(ref(this.db, `${this.basePath}/agentWorkflows/${workflowId}`), updates);
+    await firebaseUpdate(ref(this.db, `${this.workflowPath}/${workflowId}`), updates);
   }
 
   async completeWorkflowTask(taskId: string, output: any): Promise<AgentTask> {

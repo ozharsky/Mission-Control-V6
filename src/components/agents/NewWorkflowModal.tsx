@@ -72,9 +72,10 @@ export const NewWorkflowModal: React.FC<NewWorkflowModalProps> = ({
       setStep(1);
       setSelectedTemplate(null);
       setInput('');
-    } catch (err) {
-      setError('Failed to create workflow. Please try again.');
-      console.error(err);
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Unknown error';
+      setError(`Failed to create workflow: ${errorMessage}`);
+      console.error('Workflow creation error:', err);
     } finally {
       setIsCreating(false);
     }
