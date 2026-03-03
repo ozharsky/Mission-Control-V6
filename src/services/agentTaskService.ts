@@ -1,9 +1,18 @@
 /**
  * Agent Task Service
- * Mission Control V6 - Firebase Operations
+ * Mission Control V6 - Firebase Operations (Modular API v9+)
  */
 
-import { Database } from 'firebase/database';
+import { 
+  Database, 
+  ref, 
+  set, 
+  get, 
+  update as firebaseUpdate, 
+  remove,
+  child,
+  onValue
+} from 'firebase/database';
 import {
   AgentTask,
   AgentWorkflow,
@@ -49,8 +58,8 @@ export class AgentTaskService {
       discordChannelId: taskData.discordChannelId,
       discordMessageIds: [],
       createdAt: Date.now(),
-      startedAt: null,
-      completedAt: null,
+      startedAt: undefined,
+      completedAt: undefined,
       estimatedDuration: taskData.estimatedDuration,
       activityLog: [{
         timestamp: Date.now(),
@@ -63,25 +72,25 @@ export class AgentTaskService {
       projectId: taskData.projectId
     };
 
-    await this.db.ref(`${this.basePath}/agentTasks/${task.id}`).set(task);
+    await set(ref(this.db, `${this.basePath}/agentTasks/${task.id}`), task);
     return task;
   }
 
   async getAgentTask(taskId: string): Promise<AgentTask | null> {
-    const snapshot = await this.db.ref(`${this.basePath}/agentTasks/${taskId}`).once('value');
+    const snapshot = await get(ref(this.db, `${this.basePath}/agentTasks/${taskId}`));
     return snapshot.val();
   }
 
   async updateAgentTask(taskId: string, updates: Partial<AgentTask>): Promise<void> {
-    await this.db.ref(`${this.basePath}/agentTasks/${taskId}`).update(updates);
+    await firebaseUpdate(ref(this.db, `${this.basePath}/agentTasks/${taskId}`), updates);
   }
 
   async deleteAgentTask(taskId: string): Promise<void> {
-    await this.db.ref(`${this.basePath}/agentTasks/${taskId}`).remove();
+    await remove(ref(this.db, `${this.basePath}/agentTasks/${taskId}`));
   }
 
   async listAgentTasks(filters: TaskFilters = {}): Promise<AgentTask[]> {
-    const snapshot = await this.db.ref(`${this.basePath}/agentTasks`).once('value');
+    const snapshot = await get(ref(this.db, `${this.basePath}/agentTasks`));
     const tasks: AgentTask[] = [];
 
     snapshot.forEach((child) => {
@@ -216,7 +225,7 @@ export class AgentTaskService {
     workflow.currentTaskId = tasks[0]?.id || null;
 
     // Save workflow
-    await this.db.ref(`${this.basePath}/agentWorkflows/${workflow.id}`).set(workflow);
+    await set(ref(this.db, `${this.basePath}/agentWorkflows/${workflow.id}`), workflow);
 
     // Activate first task
     if (tasks[0]) {
@@ -227,12 +236,12 @@ export class AgentTaskService {
   }
 
   async getWorkflow(workflowId: string): Promise<AgentWorkflow | null> {
-    const snapshot = await this.db.ref(`${this.basePath}/agentWorkflows/${workflowId}`).once('value');
+    const snapshot = await get(ref(this.db, `${this.basePath}/agentWorkflows/${workflowId}`));
     return snapshot.val();
   }
 
   async updateWorkflow(workflowId: string, updates: Partial<AgentWorkflow>): Promise<void> {
-    await this.db.ref(`${this.basePath}/agentWorkflows/${workflowId}`).update(updates);
+    await firebaseUpdate(ref(this.db, `${this.basePath}/agentWorkflows/${workflowId}`), updates);
   }
 
   async completeWorkflowTask(taskId: string, output: any): Promise<AgentTask> {
