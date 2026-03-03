@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { 
   CheckCircle2, Clock, Circle, TrendingUp, AlertCircle,
   Briefcase, Package, DollarSign, Printer, Zap, Flame, Thermometer,
-  ChevronRight, Sparkles, Target, Calendar, AlertTriangle
+  ChevronRight, Sparkles, Target, Calendar, AlertTriangle, TrendingDown,
+  Activity, Award, BarChart3
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import type { Task, Project, Job, InventoryItem, Printer } from '../types';
@@ -91,78 +92,215 @@ function AIInsightsCard({
       });
     }
 
-    // 5. Success: Revenue up
+    // 5. Revenue insights with goal tracking
     if (revenue) {
-      const revenueData = Object.values(revenue).filter((r: any) => r && r.month) as Array<{ value: number; month: string }>;
+      const revenueData = Object.values(revenue).filter((r: any) => r && r.month) as Array<{ value: number; orders: number; month: string }>;
+      
       if (revenueData.length >= 2) {
         const sorted = revenueData.sort((a, b) => a.month.localeCompare(b.month));
         const current = sorted[sorted.length - 1];
         const last = sorted[sorted.length - 2];
         const change = ((current.value - last.value) / last.value) * 100;
+        const totalRevenue = sorted.reduce((sum, r) => sum + r.value, 0);
+        const totalOrders = sorted.reduce((sum, r: any) => sum + (r.orders || 0), 0);
+        const aov = totalOrders > 0 ? totalRevenue / totalOrders : 0;
         
-        if (change > 15) {
+        const monthlyGoal = 500;
+        const goalProgress = (current.value / monthlyGoal) * 100;
+        const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+        const currentDay = new Date().getDate();
+        const daysLeft = daysInMonth - currentDay;
+        const dailyRateNeeded = (monthlyGoal - current.value) / daysLeft;
+        
+        if (change > 20) {
           items.push({
             id: 'revenueup',
             type: 'success',
             icon: <TrendingUp className="h-5 w-5" />,
-            title: 'Revenue Up!',
+            title: 'Revenue Surging!',
             message: `+${change.toFixed(0)}% from last month ($${current.value.toLocaleString()})`,
             action: { label: 'View Revenue', section: 'revenue' }
           });
-        } else if (change < -20) {
+        } else if (change < -25) {
           items.push({
             id: 'revenuedown',
             type: 'warning',
-            icon: <TrendingUp className="h-5 w-5 rotate-180" />,
-            title: 'Revenue Down',
-            message: `${change.toFixed(0)}% from last month`,
+            icon: <TrendingDown className="h-5 w-5" />,
+            title: 'Revenue Declining',
+            message: `${change.toFixed(0)}% drop - consider marketing push`,
             action: { label: 'View Revenue', section: 'revenue' }
+          });
+        }
+        
+        if (goalProgress >= 100) {
+          items.push({
+            id: 'goalmet',
+            type: 'success',
+            icon: <Target className="h-5 w-5" />,
+            title: 'Monthly Goal Crushed!',
+            message: `$${current.value.toLocaleString()} of $${monthlyGoal} goal (${goalProgress.toFixed(0)}%)`,
+          });
+        } else if (goalProgress < 50 && daysLeft < 10) {
+          items.push({
+            id: 'goalbehind',
+            type: 'warning',
+            icon: <Target className="h-5 w-5" />,
+            title: 'Behind Monthly Goal',
+            message: `${goalProgress.toFixed(0)}% of $${monthlyGoal} - need $${dailyRateNeeded.toFixed(0)}/day`,
+            action: { label: 'View Revenue', section: 'revenue' }
+          });
+        }
+        
+        if (aov > 40) {
+          items.push({
+            id: 'highaov',
+            type: 'success',
+            icon: <DollarSign className="h-5 w-5" />,
+            title: 'Strong AOV',
+            message: `$${aov.toFixed(2)} average order value across ${totalOrders} orders`,
           });
         }
       }
     }
 
-    // 6. Success: Nearly done projects
-    const nearlyDone = projects.filter(p => {
-      if (p.status === 'done') return false;
-      return (p.progress || 0) >= 80;
-    });
-    if (nearlyDone.length > 0) {
-      items.push({
-        id: 'nearlydone',
-        type: 'success',
-        icon: <CheckCircle2 className="h-5 w-5" />,
-        title: `${nearlyDone.length} Project${nearlyDone.length > 1 ? 's' : ''} Almost Done`,
-        message: `${nearlyDone[0].name} is ${nearlyDone[0].progress}% complete`,
-        action: { label: 'View Projects', section: 'projects' }
-      });
+    // 6. Printer utilization insights
+    if (printers.length > 0) {
+      const printing = printers.filter(p => p.status === 'printing');
+      const idle = printers.filter(p => p.status === 'operational');
+      const utilizationRate = (printing.length / printers.length) * 100;
+      
+      if (printing.length > 0) {
+        const avgProgress = Math.round(printing.reduce((sum, p) => sum + (p.job?.progress || 0), 0) / printing.length);
+        const totalTimeRemaining = printing.reduce((sum, p) => sum + (p.job?.timeLeft || 0), 0);
+        const hoursRemaining = Math.ceil(totalTimeRemaining / 3600);
+        
+        items.push({
+          id: 'printing',
+          type: 'info',
+          icon: <Printer className="h-5 w-5" />,
+          title: `${printing.length} Printer${printing.length > 1 ? 's' : ''} Running`,
+          message: `${avgProgress}% avg${hoursRemaining > 0 ? `, ~${hoursRemaining}h left` : ''}`,
+          action: { label: 'View', section: 'printers' }
+        });
+      }
+      
+      if (utilizationRate < 25 && printers.length > 1 && idle.length > 0) {
+        items.push({
+          id: 'lowutilization',
+          type: 'warning',
+          icon: <Zap className="h-5 w-5" />,
+          title: 'Low Printer Utilization',
+          message: `${utilizationRate.toFixed(0)}% used - ${idle.length} idle`,
+          action: { label: 'View', section: 'printers' }
+        });
+      }
     }
 
-    // 7. Info: Printers printing
-    const printing = printers.filter(p => p.status === 'printing');
-    if (printing.length > 0) {
-      const avgProgress = Math.round(printing.reduce((sum, p) => sum + (p.job?.progress || 0), 0) / printing.length);
-      items.push({
-        id: 'printing',
-        type: 'info',
-        icon: <Printer className="h-5 w-5" />,
-        title: `${printing.length} Printer${printing.length > 1 ? 's' : ''} Active`,
-        message: `Average progress: ${avgProgress}%`,
-        action: { label: 'View Printers', section: 'printers' }
-      });
+    // 7. Inventory value insight
+    if (inventory.length > 0) {
+      const totalValue = inventory.reduce((sum, i) => sum + (i.quantity * i.unitCost), 0);
+      
+      if (totalValue > 1000) {
+        items.push({
+          id: 'inventoryvalue',
+          type: 'info',
+          icon: <BarChart3 className="h-5 w-5" />,
+          title: 'Inventory Value',
+          message: `$${(totalValue / 1000).toFixed(1)}k in ${inventory.length} items`,
+          action: { label: 'View', section: 'inventory' }
+        });
+      }
     }
 
-    // 8. Info: New jobs
-    const newJobs = jobs.filter(j => j.status === 'new');
-    if (newJobs.length > 0) {
-      items.push({
-        id: 'newjobs',
-        type: 'info',
-        icon: <Briefcase className="h-5 w-5" />,
-        title: `${newJobs.length} New Job Opportunity${newJobs.length > 1 ? 'ies' : ''}`,
-        message: `Review and apply to new opportunities`,
-        action: { label: 'View Jobs', section: 'jobs' }
+    // 8. Project velocity insights
+    if (projects.length > 0) {
+      const activeProjects = projects.filter(p => p.status !== 'done');
+      const nearlyDone = activeProjects.filter(p => (p.progress || 0) >= 80);
+      const stalled = activeProjects.filter(p => (p.progress || 0) === 0 && p.status !== 'backlog');
+      const avgProgress = activeProjects.length > 0 
+        ? activeProjects.reduce((sum, p) => sum + (p.progress || 0), 0) / activeProjects.length 
+        : 0;
+      
+      if (nearlyDone.length > 0) {
+        items.push({
+          id: 'nearlydone',
+          type: 'success',
+          icon: <CheckCircle2 className="h-5 w-5" />,
+          title: `${nearlyDone.length} Almost Done`,
+          message: `${nearlyDone[0].name} at ${nearlyDone[0].progress}%`,
+          action: { label: 'View', section: 'projects' }
+        });
+      }
+      
+      if (stalled.length > 0) {
+        items.push({
+          id: 'stalled',
+          type: 'warning',
+          icon: <Clock className="h-5 w-5" />,
+          title: `${stalled.length} Stalled`,
+          message: `No progress - review priorities`,
+          action: { label: 'View', section: 'projects' }
+        });
+      }
+      
+      if (avgProgress > 60 && activeProjects.length > 2) {
+        items.push({
+          id: 'projecthealth',
+          type: 'success',
+          icon: <Activity className="h-5 w-5" />,
+          title: 'Projects Moving',
+          message: `${avgProgress.toFixed(0)}% avg across ${activeProjects.length} active`,
+        });
+      }
+    }
+
+    // 9. Task velocity insight
+    const totalTasks = tasks.pending.length + tasks.inProgress.length + tasks.completed.length;
+    if (totalTasks > 0) {
+      const recentlyCompleted = tasks.completed.filter(t => {
+        const completedDate = new Date(t.completedAt || t.updatedAt || t.createdAt);
+        return (Date.now() - completedDate.getTime()) < (7 * 24 * 60 * 60 * 1000);
       });
+      
+      if (recentlyCompleted.length >= 5) {
+        items.push({
+          id: 'productive',
+          type: 'success',
+          icon: <Award className="h-5 w-5" />,
+          title: 'Productive Week!',
+          message: `${recentlyCompleted.length} tasks done in 7 days`,
+        });
+      }
+    }
+
+    // 10. Job pipeline with high-value detection
+    if (jobs.length > 0) {
+      const newJobs = jobs.filter(j => j.status === 'new');
+      const highValueJobs = newJobs.filter(j => {
+        const salary = j.salary?.toLowerCase() || '';
+        const match = salary.match(/(\d+)/);
+        return match && parseInt(match[1]) >= 5;
+      });
+      
+      if (highValueJobs.length > 0) {
+        items.push({
+          id: 'highvaluejobs',
+          type: 'success',
+          icon: <DollarSign className="h-5 w-5" />,
+          title: `${highValueJobs.length} High-Value Jobs`,
+          message: `$5k+ opportunities waiting`,
+          action: { label: 'View', section: 'jobs' }
+        });
+      } else if (newJobs.length > 0) {
+        items.push({
+          id: 'newjobs',
+          type: 'info',
+          icon: <Briefcase className="h-5 w-5" />,
+          title: `${newJobs.length} New Opportunity${newJobs.length > 1 ? 'ies' : ''}`,
+          message: `Review and apply`,
+          action: { label: 'View', section: 'jobs' }
+        });
+      }
     }
 
     // Default: All good
@@ -172,11 +310,11 @@ function AIInsightsCard({
         type: 'success',
         icon: <Sparkles className="h-5 w-5" />,
         title: 'All Systems Go',
-        message: 'Everything is running smoothly. Great job!'
+        message: 'Everything running smoothly!'
       });
     }
 
-    return items.slice(0, 4);
+    return items.slice(0, 6);
   }, [tasks, projects, revenue, printers, inventory, jobs]);
 
   const colors = {
@@ -193,6 +331,7 @@ function AIInsightsCard({
           <Sparkles className="h-4 w-4 text-primary" />
         </div>
         <h3 className="font-semibold">AI Insights</h3>
+        <span className="ml-auto text-xs text-gray-500">{insights.length} updates</span>
       </div>
 
       <div className="space-y-2">
