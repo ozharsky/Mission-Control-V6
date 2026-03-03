@@ -93,13 +93,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Delete from old location
     await setData(fromPath, null);
 
-    // Add to new location with updated status
+    // Add to new location with updated status - preserve the ID!
     const updatedTask = { ...task, status: toStatus };
-    const toPath = toStatus === 'pending' ? 'v6/tasks/pending' :
-                   toStatus === 'in-progress' ? 'v6/tasks/inProgress' :
-                   'v6/tasks/completed';
+    const toPath = toStatus === 'pending' ? `v6/tasks/pending/${id}` :
+                   toStatus === 'in-progress' ? `v6/tasks/inProgress/${id}` :
+                   `v6/tasks/completed/${id}`;
 
-    await pushData(toPath, updatedTask);
+    await setData(toPath, updatedTask);
   },
 
   deleteTask: async (id, status) => {
