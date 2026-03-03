@@ -155,77 +155,132 @@ function generateAIInsights({
 }) {
   const insights: Array<{ type: 'info' | 'warning' | 'success' | 'urgent'; message: string; action?: string }> = [];
 
-  // Task insights
+  // Task insights - detailed analysis
   const urgentTasks = tasks.pending.filter(t => t.priority === 'high');
   const overdueTasks = tasks.pending.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+  const dueSoonTasks = tasks.pending.filter(t => {
+    if (!t.dueDate) return false;
+    const due = new Date(t.dueDate);
+    const today = new Date();
+    const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diff >= 0 && diff <= 3;
+  });
   
   if (overdueTasks.length > 0) {
+    const taskNames = overdueTasks.slice(0, 2).map(t => t.title).join(', ');
+    const more = overdueTasks.length > 2 ? ` and ${overdueTasks.length - 2} more` : '';
     insights.push({
       type: 'urgent',
-      message: `You have ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''} that need${overdueTasks.length === 1 ? 's' : ''} attention.`,
+      message: `⚠️ ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''}: ${taskNames}${more}. These need immediate attention.`,
       action: 'Review Tasks'
+    });
+  } else if (dueSoonTasks.length > 0) {
+    insights.push({
+      type: 'warning',
+      message: `⏰ ${dueSoonTasks.length} task${dueSoonTasks.length > 1 ? 's' : ''} due in the next 3 days. Stay on track!`,
+      action: 'View Tasks'
     });
   } else if (urgentTasks.length > 0) {
     insights.push({
       type: 'warning',
-      message: `${urgentTasks.length} high-priority task${urgentTasks.length > 1 ? 's' : ''} waiting to be started.`,
+      message: `🔥 ${urgentTasks.length} high-priority task${urgentTasks.length > 1 ? 's' : ''} waiting. Consider tackling these next.`,
       action: 'View Tasks'
     });
   }
 
-  // Project insights
+  // Project insights - progress analysis
   const activeProjects = projects.filter(p => p.status !== 'done');
   const stalledProjects = activeProjects.filter(p => {
-    if (!p.tasks || p.tasks.length === 0) return false;
+    if (!p.tasks || p.tasks.length === 0) return p.status === 'backlog';
     const completed = p.tasks.filter(t => t.completed).length;
-    return completed === 0 && p.tasks.length > 0;
+    return completed === 0;
+  });
+  const nearlyDoneProjects = activeProjects.filter(p => {
+    if (!p.tasks || p.tasks.length === 0) return false;
+    const progress = p.progress || 0;
+    return progress >= 75 && progress < 100;
   });
   
-  if (stalledProjects.length > 0) {
+  if (nearlyDoneProjects.length > 0) {
+    const projectNames = nearlyDoneProjects.slice(0, 2).map(p => p.name).join(', ');
+    insights.push({
+      type: 'success',
+      message: `🎯 ${nearlyDoneProjects.length} project${nearlyDoneProjects.length > 1 ? 's' : ''} (${projectNames}) ${nearlyDoneProjects.length > 1 ? 'are' : 'is'} 75%+ complete. Push to finish!`,
+      action: 'Check Projects'
+    });
+  } else if (stalledProjects.length > 0) {
     insights.push({
       type: 'info',
-      message: `${stalledProjects.length} project${stalledProjects.length > 1 ? 's' : ''} haven't started yet.`,
+      message: `📁 ${stalledProjects.length} project${stalledProjects.length > 1 ? 's' : ''} haven't started yet. Time to make progress?`,
       action: 'Check Projects'
     });
   }
 
-  // Revenue insights
+  // Revenue insights - trend analysis
   if (revenue) {
     const revenueData = Object.values(revenue) as Array<{ value: number; orders: number; month: string }>;
+    const sortedData = revenueData.sort((a, b) => a.month.localeCompare(b.month));
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const currentRevenue = revenueData.find(r => r.month === currentMonth);
-    const lastMonthData = revenueData.filter(r => r.month < currentMonth).pop();
+    const currentRevenue = sortedData.find(r => r.month === currentMonth);
+    const lastMonthData = sortedData.filter(r => r.month < currentMonth).pop();
+    const avgRevenue = sortedData.length > 0 ? sortedData.reduce((sum, r) => sum + r.value, 0) / sortedData.length : 0;
     
     if (currentRevenue && lastMonthData) {
       const change = ((currentRevenue.value - lastMonthData.value) / lastMonthData.value) * 100;
-      if (change > 20) {
+      const avgChange = ((currentRevenue.value - avgRevenue) / avgRevenue) * 100;
+      
+      if (change > 30) {
         insights.push({
           type: 'success',
-          message: `Revenue is up ${change.toFixed(0)}% from last month! Great job.`,
+          message: `🚀 Revenue up ${change.toFixed(0)}% vs last month! ${avgChange > 0 ? `Also ${avgChange.toFixed(0)}% above your average.` : ''}`,
         });
-      } else if (change < -20) {
+      } else if (change > 10) {
+        insights.push({
+          type: 'success',
+          message: `📈 Revenue up ${change.toFixed(0)}% from last month. Steady growth!`,
+        });
+      } else if (change < -30) {
+        insights.push({
+          type: 'urgent',
+          message: `📉 Revenue down ${Math.abs(change).toFixed(0)}% from last month. ${currentRevenue.orders === 0 ? 'No orders yet this month!' : 'Consider marketing push.'}`,
+          action: 'View Revenue'
+        });
+      } else if (change < -10) {
         insights.push({
           type: 'warning',
-          message: `Revenue is down ${Math.abs(change).toFixed(0)}% from last month.`,
+          message: `📊 Revenue down ${Math.abs(change).toFixed(0)}% from last month.`,
           action: 'View Revenue'
         });
       }
     }
   }
 
-  // Printer insights
+  // Printer insights - operational status
   const printingPrinters = printers.filter(p => p.status === 'printing');
   const offlinePrinters = printers.filter(p => p.status === 'offline');
+  const errorPrinters = printers.filter(p => p.status === 'error');
   
-  if (printingPrinters.length > 0) {
+  if (errorPrinters.length > 0) {
     insights.push({
-      type: 'info',
-      message: `${printingPrinters.length} printer${printingPrinters.length > 1 ? 's are' : ' is'} currently printing.`,
+      type: 'urgent',
+      message: `🚨 ${errorPrinters.length} printer${errorPrinters.length > 1 ? 's have' : ' has'} errors and need attention.`,
       action: 'View Printers'
     });
-  }
-  
-  if (offlinePrinters.length > 0) {
+  } else if (offlinePrinters.length > 0 && offlinePrinters.length === printers.length) {
+    insights.push({
+      type: 'urgent',
+      message: `⚠️ All ${printers.length} printers are offline! Check your network connection.`,
+      action: 'Check Printers'
+    });
+  } else if (printingPrinters.length > 0) {
+    const totalProgress = printingPrinters.reduce((sum, p) => sum + (p.job?.progress || 0), 0);
+    const avgProgress = Math.round(totalProgress / printingPrinters.length);
+    insights.push({
+      type: 'info',
+      message: `🖨️ ${printingPrinters.length} printer${printingPrinters.length > 1 ? 's are' : ' is'} printing (${avgProgress}% avg progress).`,
+      action: 'View Printers'
+    });
+  } else if (offlinePrinters.length > 0) {
     insights.push({
       type: 'warning',
       message: `${offlinePrinters.length} printer${offlinePrinters.length > 1 ? 's are' : ' is'} offline.`,
@@ -233,23 +288,59 @@ function generateAIInsights({
     });
   }
 
-  // Inventory insights
+  // Inventory insights - stock levels with specific items
   const lowStock = inventory.filter(i => i.quantity <= i.minStock);
-  if (lowStock.length > 0) {
+  const criticalStock = inventory.filter(i => i.quantity === 0);
+  
+  if (criticalStock.length > 0) {
+    const itemNames = criticalStock.slice(0, 2).map(i => i.name).join(', ');
+    const more = criticalStock.length > 2 ? ` and ${criticalStock.length - 2} more` : '';
+    insights.push({
+      type: 'urgent',
+      message: `🚨 OUT OF STOCK: ${itemNames}${more}. Restock immediately!`,
+      action: 'View Inventory'
+    });
+  } else if (lowStock.length > 0) {
+    const itemNames = lowStock.slice(0, 2).map(i => i.name).join(', ');
+    const more = lowStock.length > 2 ? ` and ${lowStock.length - 2} more` : '';
     insights.push({
       type: lowStock.length > 3 ? 'urgent' : 'warning',
-      message: `${lowStock.length} item${lowStock.length > 1 ? 's are' : ' is'} running low on stock.`,
+      message: `⚠️ Low stock: ${itemNames}${more}. Consider restocking soon.`,
       action: 'View Inventory'
     });
   }
 
-  // Job insights
+  // Job insights - opportunities
   const newJobs = jobs.filter(j => j.status === 'new');
-  if (newJobs.length > 0) {
+  const highValueJobs = newJobs.filter(j => {
+    const salary = j.salary?.toLowerCase() || '';
+    return salary.includes('k') && parseInt(salary) >= 5;
+  });
+  
+  if (highValueJobs.length > 0) {
+    insights.push({
+      type: 'success',
+      message: `💰 ${highValueJobs.length} high-value job opportunity${highValueJobs.length > 1 ? 'ies' : 'y'} to review!`,
+      action: 'View Jobs'
+    });
+  } else if (newJobs.length > 0) {
     insights.push({
       type: 'info',
-      message: `${newJobs.length} new job opportunity${newJobs.length > 1 ? 'ies' : 'y'} to review.`,
+      message: `📋 ${newJobs.length} new job opportunity${newJobs.length > 1 ? 'ies' : 'y'} to review.`,
       action: 'View Jobs'
+    });
+  }
+
+  // Productivity insight
+  const totalCompleted = tasks.completed.length;
+  const completionRate = totalCompleted > 0 
+    ? Math.round((tasks.completed.length / (tasks.pending.length + tasks.inProgress.length + tasks.completed.length)) * 100)
+    : 0;
+  
+  if (completionRate > 70 && insights.length < 3) {
+    insights.push({
+      type: 'success',
+      message: `🎉 Amazing! You've completed ${completionRate}% of your tasks. Keep the momentum going!`,
     });
   }
 
@@ -257,7 +348,7 @@ function generateAIInsights({
   if (insights.length === 0) {
     insights.push({
       type: 'success',
-      message: 'All systems operational. You\'re on top of everything!',
+      message: '✅ All systems operational. You\'re on top of everything! Consider adding new tasks or projects.',
     });
   }
 
