@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { initSimplyPrint, getSimplyPrint, clearSimplyPrint, SimplyPrintPrinter } from '../../lib/simplyprint';
+import { initSimplyPrint, getSimplyPrint, clearSimplyPrint } from '../../lib/simplyprint';
+import type { SimplyPrintPrinter } from '../../lib/simplyprint';
 import { Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 
 export function SimplyPrintSettings() {

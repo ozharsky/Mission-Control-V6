@@ -4,7 +4,8 @@ import {
   Search, Filter, Grid, List, Download, Trash2, Eye,
   X, Check, Folder, Link, Loader2
 } from 'lucide-react';
-import { getFileStorage, FileItem } from '../lib/fileStorage';
+import { getFileStorage } from '../lib/fileStorage';
+import type { FileItem } from '../lib/fileStorage';
 import { useAppStore } from '../stores/appStore';
 import { setData, subscribeToData } from '../lib/firebase';
 

@@ -1,5 +1,6 @@
 import { Sun, Moon, Monitor } from 'lucide-react';
-import { useThemeStore, Theme } from '../stores/themeStore';
+import { useThemeStore } from '../stores/themeStore';
+import type { Theme } from '../stores/themeStore';
 
 const themes: { id: Theme; label: string; icon: typeof Sun }[] = [
   { id: 'light', label: 'Light', icon: Sun },
