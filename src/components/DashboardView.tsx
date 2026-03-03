@@ -15,6 +15,7 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
     }
     
     return Object.entries(revenue)
+      .filter(([month, r]: [string, any]) => month && r && typeof r === 'object') // Filter out invalid entries
       .map(([month, r]: [string, any]) => ({ 
         month, 
         value: r?.value || 0,
