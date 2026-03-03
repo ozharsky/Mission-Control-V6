@@ -76,7 +76,10 @@ function App() {
   }, [initSubscriptions, setPrinters]);
 
   const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => ({
-    month,
+    // Convert numeric month (0-11) to YYYY-MM format, or keep if already YYYY-MM
+    month: /^\d{1,2}$/.test(month) 
+      ? `2025-${String(parseInt(month) + 1).padStart(2, '0')}`  // Convert 0->2025-01, 1->2025-02
+      : month,
     value: data.value || 0,
     orders: data.orders || 0
   })).sort((a, b) => a.month.localeCompare(b.month)) : [];
