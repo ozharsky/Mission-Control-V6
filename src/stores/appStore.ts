@@ -310,8 +310,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   generateReport: async (config) => {
-    // Generate report data based on date range
-    const { get } = useAppStore;
+    // Get current state from get() provided by Zustand
     const state = get();
     
     // Calculate summary stats
