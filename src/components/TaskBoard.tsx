@@ -163,6 +163,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
   const { addTask, moveTask, deleteTask, updateTask } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [selectedProject, setSelectedProject] = useState<string>('all');
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -246,14 +247,53 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
     return projects.find(p => p.id === projectId)?.name;
   };
 
+  // Filter tasks by selected project
+  const filteredTasks = {
+    pending: selectedProject === 'all' ? tasks.pending : tasks.pending.filter(t => t.projectId === selectedProject),
+    inProgress: selectedProject === 'all' ? tasks.inProgress : tasks.inProgress.filter(t => t.projectId === selectedProject),
+    completed: selectedProject === 'all' ? tasks.completed : tasks.completed.filter(t => t.projectId === selectedProject),
+  };
+
   const columns = [
-    { id: 'pending', title: 'To Do', icon: Circle, tasks: tasks.pending, colorClass: 'warning', bgColor: 'bg-warning/5', iconBg: 'bg-warning/10', iconText: 'text-warning' },
-    { id: 'inProgress', title: 'In Progress', icon: Clock, tasks: tasks.inProgress, colorClass: 'primary', bgColor: 'bg-primary/5', iconBg: 'bg-primary/10', iconText: 'text-primary' },
-    { id: 'completed', title: 'Done', icon: CheckCircle, tasks: tasks.completed, colorClass: 'success', bgColor: 'bg-success/5', iconBg: 'bg-success/10', iconText: 'text-success' },
+    { id: 'pending', title: 'To Do', icon: Circle, tasks: filteredTasks.pending, colorClass: 'warning', bgColor: 'bg-warning/5', iconBg: 'bg-warning/10', iconText: 'text-warning' },
+    { id: 'inProgress', title: 'In Progress', icon: Clock, tasks: filteredTasks.inProgress, colorClass: 'primary', bgColor: 'bg-primary/5', iconBg: 'bg-primary/10', iconText: 'text-primary' },
+    { id: 'completed', title: 'Done', icon: CheckCircle, tasks: filteredTasks.completed, colorClass: 'success', bgColor: 'bg-success/5', iconBg: 'bg-success/10', iconText: 'text-success' },
   ];
 
   return (
     <div className="space-y-6">
+      {/* Project Filter */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-gray-400">Filter by Project:</label>
+          <select
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            className="rounded-xl border border-surface-hover bg-surface px-4 py-2 text-white focus:border-primary focus:outline-none"
+          >
+            <option value="all">All Projects</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          {selectedProject !== 'all' && (
+            <button
+              onClick={() => setSelectedProject('all')}
+              className="text-sm text-gray-400 hover:text-white"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white hover:bg-primary-hover"
+        >
+          <Plus className="h-5 w-5" />
+          Add Task
+        </button>
+      </div>
       {/* Add/Edit Task Modal */}
       {(showForm || editingTask) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -348,18 +388,6 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
         </div>
       )}
 
-      {/* Add Task Button */}
-      <div className="rounded-2xl border border-surface-hover bg-surface p-6">
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-surface-hover py-4 text-gray-500 transition-colors hover:border-primary hover:text-primary"
-        >
-          <Plus className="h-5 w-5" />
-          Add New Task
-        </button>
-      </div>
-
-      {/* Task Columns */}
       {/* Task Columns */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {columns.map((column) => (
