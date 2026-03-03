@@ -20,6 +20,7 @@ const navItems: NavItem[] = [
   { id: 'tasks', label: 'Tasks', icon: '✅' },
   { id: 'jobs', label: 'Jobs', icon: '💼' },
   { id: 'inventory', label: 'Inventory', icon: '📦' },
+  { id: 'reports', label: 'Reports', icon: '📈' },
   { id: 'calendar', label: 'Calendar', icon: '📅' },
   { id: 'files', label: 'Files', icon: '📎' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },

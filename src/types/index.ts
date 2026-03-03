@@ -3,6 +3,7 @@
 
 export * from './jobs';
 export * from './inventory';
+export * from './reports';
 
 export interface Task {
   id: string;

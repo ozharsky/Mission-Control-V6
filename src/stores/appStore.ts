@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeToData, updateData, setData, pushData } from '../lib/firebase';
-import type { Task, Project, ProjectTask, Notification, AgentState, Job, InventoryItem, InventoryTransaction } from '../types';
+import type { Task, Project, ProjectTask, Notification, AgentState, Job, InventoryItem, InventoryTransaction, Report, ReportSchedule } from '../types';
 import { cleanForFirebase } from '../types';
 
 interface AppState {
@@ -18,6 +18,8 @@ interface AppState {
   projects: Project[];
   jobs: Job[];
   inventory: InventoryItem[];
+  reports: Report[];
+  reportSchedules: ReportSchedule[];
   _lastPrinterUpdate?: number;
 
   setAgent: (agent: AgentState) => void;
@@ -37,6 +39,11 @@ interface AppState {
   updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
   addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>) => Promise<void>;
+  generateReport: (config: any) => Promise<void>;
+  deleteReport: (id: string) => Promise<void>;
+  addReportSchedule: (schedule: Omit<ReportSchedule, 'id'>) => Promise<void>;
+  updateReportSchedule: (id: string, updates: Partial<ReportSchedule>) => Promise<void>;
+  deleteReportSchedule: (id: string) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   initSubscriptions: () => void;
 }
@@ -52,6 +59,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   projects: [],
   jobs: [],
   inventory: [],
+  reports: [],
+  reportSchedules: [],
   _lastPrinterUpdate: 0,
 
   setAgent: (agent) => {
@@ -249,6 +258,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     subscribeToData('v6/inventory', (data) => {
       if (data) set({ inventory: Object.values(data) });
     });
+
+    subscribeToData('v6/reports', (data) => {
+      if (data) set({ reports: Object.values(data) });
+    });
+
+    subscribeToData('v6/reportSchedules', (data) => {
+      if (data) set({ reportSchedules: Object.values(data) });
+    });
   },
 
   addJob: async (job) => {
@@ -290,5 +307,68 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addInventoryTransaction: async (transaction) => {
     await pushData('v6/inventory/transactions', transaction);
+  },
+
+  generateReport: async (config) => {
+    // Generate report data based on date range
+    const { get } = useAppStore;
+    const state = get();
+    
+    // Calculate summary stats
+    const summary = {
+      revenue: {
+        total: state.revenue ? Object.values(state.revenue).reduce((sum: number, r: any) => sum + (r.value || 0), 0) : 0,
+        previousPeriod: 0,
+        change: 0,
+        orders: state.revenue ? Object.values(state.revenue).reduce((sum: number, r: any) => sum + (r.orders || 0), 0) : 0,
+      },
+      tasks: {
+        completed: state.tasks.completed.length,
+        created: state.tasks.pending.length + state.tasks.inProgress.length + state.tasks.completed.length,
+        pending: state.tasks.pending.length + state.tasks.inProgress.length,
+      },
+      projects: {
+        completed: state.projects.filter(p => p.status === 'done').length,
+        active: state.projects.filter(p => p.status !== 'done').length,
+        new: 0,
+      },
+      inventory: {
+        lowStock: state.inventory.filter(i => i.quantity <= i.minStock).length,
+        totalValue: state.inventory.reduce((sum, i) => sum + (i.quantity * i.unitCost), 0),
+      },
+    };
+
+    const report = {
+      ...config,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      summary,
+      sections: config.sections.map((section: string) => ({
+        id: section,
+        title: section.charAt(0).toUpperCase() + section.slice(1),
+        type: section,
+        data: {},
+        insights: [],
+      })),
+    };
+
+    await pushData('v6/reports', report);
+  },
+
+  deleteReport: async (id) => {
+    await setData(`v6/reports/${id}`, null);
+  },
+
+  addReportSchedule: async (schedule) => {
+    await pushData('v6/reportSchedules', schedule);
+  },
+
+  updateReportSchedule: async (id, updates) => {
+    await updateData(`v6/reportSchedules/${id}`, updates);
+  },
+
+  deleteReportSchedule: async (id) => {
+    await setData(`v6/reportSchedules/${id}`, null);
   },
 }));

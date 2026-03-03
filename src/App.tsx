@@ -16,6 +16,7 @@ import { SettingsPage } from './components/SettingsPage';
 import { ThemeToggleSimple } from './components/ThemeToggle';
 import { JobsView } from './components/JobsView';
 import { InventoryView } from './components/InventoryView';
+import { ReportsView } from './components/ReportsView';
 
 function App() {
   const {
@@ -29,6 +30,7 @@ function App() {
     projects,
     jobs,
     inventory,
+    reports,
     setPrinters
   } = useAppStore();
 
@@ -189,6 +191,9 @@ function App() {
 
       case 'inventory':
         return <InventoryView items={inventory} />;
+
+      case 'reports':
+        return <ReportsView reports={reports} />;
 
       case 'calendar':
         return <CalendarView events={[]} projects={projects} tasks={tasks} />;
