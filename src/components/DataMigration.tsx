@@ -35,12 +35,16 @@ export function DataMigration({ onClose }: DataMigrationProps) {
 
   const handleExport = async (format: 'json' | 'csv') => {
     try {
-      // Fetch all V6 data
-      const [tasks, projects, revenue, files] = await Promise.all([
+      // Fetch all V6 data including jobs, inventory, reports
+      const [tasks, projects, revenue, files, jobs, inventory, reports, reportSchedules] = await Promise.all([
         getData('v6/tasks'),
         getData('v6/data/projects'),
         getData('v6/data/revenue'),
         getData('v6/files'),
+        getData('v6/jobs'),
+        getData('v6/inventory'),
+        getData('v6/reports'),
+        getData('v6/reportSchedules'),
       ]);
 
       const data = {
@@ -48,6 +52,10 @@ export function DataMigration({ onClose }: DataMigrationProps) {
         projects,
         revenue,
         files,
+        jobs,
+        inventory,
+        reports,
+        reportSchedules,
         exportedAt: new Date().toISOString(),
         version: 'v6',
       };
@@ -63,6 +71,24 @@ export function DataMigration({ onClose }: DataMigrationProps) {
             orders: val.orders,
           }));
           exportToCSV(revenueArray, `revenue-${new Date().toISOString().slice(0, 10)}.csv`);
+        }
+        
+        // Export inventory
+        if (inventory) {
+          const inventoryArray = Object.entries(inventory).map(([id, item]: [string, any]) => ({
+            id,
+            ...item,
+          }));
+          exportToCSV(inventoryArray, `inventory-${new Date().toISOString().slice(0, 10)}.csv`);
+        }
+        
+        // Export jobs
+        if (jobs) {
+          const jobsArray = Object.entries(jobs).map(([id, job]: [string, any]) => ({
+            id,
+            ...job,
+          }));
+          exportToCSV(jobsArray, `jobs-${new Date().toISOString().slice(0, 10)}.csv`);
         }
       }
     } catch (err) {
