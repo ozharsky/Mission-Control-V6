@@ -31,7 +31,9 @@ function TaskCard({
   projectName,
   onMove,
   onEdit,
-  onDelete 
+  onDelete,
+  onDragStart,
+  isDragging
 }: { 
   task: Task; 
   index: number; 
@@ -39,6 +41,8 @@ function TaskCard({
   onMove: (direction: 'forward' | 'backward') => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDragStart?: () => void;
+  isDragging?: boolean;
 }) {
   const [showActions, setShowActions] = useState(false);
   
@@ -54,7 +58,9 @@ function TaskCard({
 
   return (
     <div
-      className="group relative rounded-xl border border-surface-hover bg-background p-4 transition-all duration-200 hover:border-primary hover:shadow-lg"
+      draggable
+      onDragStart={onDragStart}
+      className={`group relative rounded-xl border border-surface-hover bg-background p-4 transition-all duration-200 hover:border-primary hover:shadow-lg ${isDragging ? 'opacity-50' : ''} cursor-move`}
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Header with actions */}
@@ -229,6 +235,28 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
     }
   };
 
+  // Drag and drop handlers
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+
+  const handleDragStart = (task: Task) => {
+    setDraggedTask(task);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, newStatus: Task['status']) => {
+    e.preventDefault();
+    if (!draggedTask || draggedTask.status === newStatus) {
+      setDraggedTask(null);
+      return;
+    }
+
+    moveTask(draggedTask.id, draggedTask.status, newStatus);
+    setDraggedTask(null);
+  };
+
   const openEditModal = (task: Task) => {
     setEditingTask(task);
     setNewTask({
@@ -390,40 +418,50 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
 
       {/* Task Columns */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {columns.map((column) => (
-          <div key={column.id} className={`rounded-2xl border border-surface-hover ${column.bgColor}`}>
-            <div className="border-b border-surface-hover/50 px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${column.iconBg}`}>
-                  <column.icon className={`h-4 w-4 ${column.iconText}`} />
+        {columns.map((column) => {
+          const columnStatus = column.id === 'inProgress' ? 'in-progress' : column.id as Task['status'];
+          return (
+            <div 
+              key={column.id} 
+              className={`rounded-2xl border border-surface-hover ${column.bgColor}`}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, columnStatus)}
+            >
+              <div className="border-b border-surface-hover/50 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${column.iconBg}`}>
+                    <column.icon className={`h-4 w-4 ${column.iconText}`} />
+                  </div>
+                  <span className="font-semibold">{column.title}</span>
+                  <span className="ml-auto rounded-full bg-surface px-3 py-1 text-sm font-medium">
+                    {column.tasks.length}
+                  </span>
                 </div>
-                <span className="font-semibold">{column.title}</span>
-                <span className="ml-auto rounded-full bg-surface px-3 py-1 text-sm font-medium">
-                  {column.tasks.length}
-                </span>
+              </div>
+
+              <div className="space-y-3 p-4 min-h-[200px]">
+                {column.tasks.map((task, index) => (
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    index={index}
+                    projectName={getProjectName(task.projectId)}
+                    onMove={(direction) => handleMoveTask(task, direction)}
+                    onEdit={() => openEditModal(task)}
+                    onDelete={() => handleDeleteTask(task)}
+                    onDragStart={() => handleDragStart(task)}
+                    isDragging={draggedTask?.id === task.id}
+                  />
+                ))}
+                {column.tasks.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-surface-hover py-8 text-center text-gray-500">
+                    Drop tasks here
+                  </div>
+                )}
               </div>
             </div>
-
-            <div className="space-y-3 p-4">
-              {column.tasks.map((task, index) => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
-                  index={index}
-                  projectName={getProjectName(task.projectId)}
-                  onMove={(direction) => handleMoveTask(task, direction)}
-                  onEdit={() => openEditModal(task)}
-                  onDelete={() => handleDeleteTask(task)}
-                />
-              ))}
-              {column.tasks.length === 0 && (
-                <div className="rounded-xl border border-dashed border-surface-hover py-8 text-center text-gray-500">
-                  No tasks
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
