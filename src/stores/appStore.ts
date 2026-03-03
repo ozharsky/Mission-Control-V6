@@ -221,7 +221,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     });
 
-    subscribeToData('data/revenueHistory', (data) => {
+    subscribeToData('v6/data/revenue', (data) => {
       if (data) set({ revenue: data });
     });
 
