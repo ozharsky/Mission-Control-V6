@@ -3,7 +3,7 @@ import {
   CheckCircle2, Clock, Circle, TrendingUp, AlertCircle,
   Briefcase, Package, DollarSign, Printer, Zap, Flame, Thermometer,
   ChevronRight, Sparkles, Target, Calendar, AlertTriangle, TrendingDown,
-  Activity, Award, BarChart3
+  Activity, Award, BarChart3, Plus
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import type { Task, Project, Job, InventoryItem, Printer } from '../types';
@@ -539,6 +539,38 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         jobs={jobs}
         onNavigate={onNavigate}
       />
+
+      {/* Quick Actions */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => onNavigate('tasks')}
+          className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+        >
+          <Plus className="h-4 w-4" />
+          Add Task
+        </button>
+        <button
+          onClick={() => onNavigate('projects')}
+          className="flex items-center gap-2 rounded-lg bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-400 transition-colors hover:bg-blue-500/20"
+        >
+          <Plus className="h-4 w-4" />
+          Add Project
+        </button>
+        <button
+          onClick={() => onNavigate('jobs')}
+          className="flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2 text-sm font-medium text-success transition-colors hover:bg-success/20"
+        >
+          <Briefcase className="h-4 w-4" />
+          View Jobs
+        </button>
+        <button
+          onClick={() => onNavigate('inventory')}
+          className="flex items-center gap-2 rounded-lg bg-warning/10 px-4 py-2 text-sm font-medium text-warning transition-colors hover:bg-warning/20"
+        >
+          <Package className="h-4 w-4" />
+          Inventory
+        </button>
+      </div>
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">

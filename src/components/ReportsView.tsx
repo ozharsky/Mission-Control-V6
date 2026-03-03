@@ -14,7 +14,7 @@ interface ReportsViewProps {
 }
 
 export function ReportsView({ reports }: ReportsViewProps) {
-  const { generateReport, deleteReport, addReportSchedule, updateReportSchedule, deleteReportSchedule } = useAppStore();
+  const { generateReport, deleteReport, addReportSchedule, updateReportSchedule, deleteReportSchedule, reportSchedules } = useAppStore();
   const [activeTab, setActiveTab] = useState<'reports' | 'schedules' | 'generate'>('reports');
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -42,8 +42,8 @@ export function ReportsView({ reports }: ReportsViewProps) {
 
   const [newRecipient, setNewRecipient] = useState('');
 
-  // Mock schedules (would come from store)
-  const schedules: ReportSchedule[] = [];
+  // Use reportSchedules from store
+  const schedules = reportSchedules || [];
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
