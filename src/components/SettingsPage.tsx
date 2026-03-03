@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { SimplyPrintSettings } from './settings/SimplyPrintSettings';
 import { DataMigration } from './DataMigration';
+import { ActivityLog } from './ActivityLog';
+import { History } from 'lucide-react';
 
 interface FirebaseConfig {
   apiKey: string;
@@ -209,6 +211,14 @@ export function SettingsPage() {
       <div className="mt-8 border-t border-surface-hover pt-8">
         <h3 className="mb-4 text-lg font-semibold">Data Management</h3>
         <DataMigration />
+      </div>
+
+      <div className="mt-8 border-t border-surface-hover pt-8">
+        <div className="mb-4 flex items-center gap-2">
+          <History className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold">Activity Log</h3>
+        </div>
+        <ActivityLog limit={20} />
       </div>
     </div>
   );

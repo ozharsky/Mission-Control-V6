@@ -3,6 +3,7 @@ import { subscribeToData, updateData, setData, pushData } from '../lib/firebase'
 import type { Task, Project, ProjectTask, Notification, Job, InventoryItem, InventoryTransaction, Report, ReportSchedule } from '../types';
 import { cleanForFirebase } from '../types';
 import { useToastStore } from '../components/Toast';
+import { logActivity } from './activityStore';
 
 // Store unsubscribe functions for cleanup
 let unsubscribers: (() => void)[] = [];
@@ -81,6 +82,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         title: 'Task added',
         message: `"${task.title}" has been added to your tasks`,
         duration: 3000,
+      });
+      logActivity('task_created', `Task created: ${task.title}`, {
+        entityId: task.title,
+        entityType: 'task',
       });
     } catch (error) {
       useToastStore.getState().addToast({
@@ -188,6 +193,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         title: 'Project created',
         message: `"${project.name}" has been created`,
         duration: 3000,
+      });
+      logActivity('project_created', `Project created: ${project.name}`, {
+        entityId: project.name,
+        entityType: 'project',
       });
     } catch (error) {
       useToastStore.getState().addToast({
