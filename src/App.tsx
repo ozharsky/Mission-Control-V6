@@ -75,24 +75,11 @@ function App() {
     }
   }, [initSubscriptions, setPrinters]);
 
-  const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => {
-    // Convert numeric month (0-11) to YYYY-MM format
-    let formattedMonth = month;
-    if (/^\d{1,2}$/.test(month)) {
-      const monthNum = parseInt(month);
-      // Month 0-11 = 2025, Month 12+ = 2026
-      const year = monthNum < 12 ? 2025 : 2026;
-      const monthInYear = monthNum < 12 ? monthNum + 1 : monthNum - 11;
-      formattedMonth = `${year}-${String(monthInYear).padStart(2, '0')}`;
-    }
-    return {
-      month: formattedMonth,
-      value: data.value || 0,
-      orders: data.orders || 0
-    };
-  }).sort((a, b) => a.month.localeCompare(b.month)) : [];
-  
-  console.log('Revenue data sorted:', revenueData.map(d => d.month));
+  const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => ({
+    month,  // Keep the month key as-is (should be YYYY-MM format from V5)
+    value: data.value || 0,
+    orders: data.orders || 0
+  })).sort((a, b) => a.month.localeCompare(b.month)) : [];
 
   const renderSection = () => {
     switch (activeSection) {

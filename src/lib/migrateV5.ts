@@ -134,8 +134,25 @@ export async function migrateV5ToV6(v5Data: {
   }
   
   if (v5Data.revenueHistory) {
-    await setData('v6/data/revenue', v5Data.revenueHistory);
-    results.revenue = v5Data.revenueHistory;
+    // Convert V5 array format to V6 object format
+    // V5: [{month: "2025-01", value: 100, orders: 5}, ...]
+    // V6: {"2025-01": {value: 100, orders: 5}, ...}
+    const revenueObject: Record<string, { value: number; orders: number }> = {};
+    if (Array.isArray(v5Data.revenueHistory)) {
+      v5Data.revenueHistory.forEach((entry: any) => {
+        if (entry.month) {
+          revenueObject[entry.month] = {
+            value: entry.value || 0,
+            orders: entry.orders || 0
+          };
+        }
+      });
+    } else if (typeof v5Data.revenueHistory === 'object') {
+      // Already in object format
+      Object.assign(revenueObject, v5Data.revenueHistory);
+    }
+    await setData('v6/data/revenue', revenueObject);
+    results.revenue = revenueObject;
   }
   
   if (v5Data.events) {
