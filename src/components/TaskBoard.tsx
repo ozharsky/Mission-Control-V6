@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { 
   Plus, CheckCircle, Clock, Circle, MoreHorizontal, Calendar, Folder, 
-  ArrowRight, ArrowLeft, Trash2, Edit2, X, User, Bot 
+  ArrowRight, ArrowLeft, Trash2, Edit2, X, User, Bot, Filter
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
+import { useToast } from '../components/Toast';
+import { LoadingButton } from '../components/Loading';
 import type { Task } from '../types';
 
 interface Project {

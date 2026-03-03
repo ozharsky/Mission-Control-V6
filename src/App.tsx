@@ -17,6 +17,8 @@ import { ThemeToggleSimple } from './components/ThemeToggle';
 import { JobsView } from './components/JobsView';
 import { InventoryView } from './components/InventoryView';
 import { ReportsView } from './components/ReportsView';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ToastContainer } from './components/Toast';
 
 function App() {
   const {
@@ -210,36 +212,39 @@ function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background text-white">
-      <Navigation activeSection={activeSection} onSectionChange={setActiveSection} />
+    <ErrorBoundary>
+      <div className="flex min-h-screen bg-background text-white">
+        <Navigation activeSection={activeSection} onSectionChange={setActiveSection} />
 
-      <div className="flex-1 pt-14 lg:ml-0 lg:pt-0">
-        <header className="sticky top-14 z-10 border-b border-surface-hover bg-surface/80 px-4 py-3 backdrop-blur lg:top-0 lg:px-6 lg:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-                🚀
+        <div className="flex-1 pt-14 lg:ml-0 lg:pt-0">
+          <header className="sticky top-14 z-10 border-b border-surface-hover bg-surface/80 px-4 py-3 backdrop-blur lg:top-0 lg:px-6 lg:py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+                  🚀
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">Mission Control</h1>
+                  <p className="text-sm text-gray-400">V6</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-bold">Mission Control</h1>
-                <p className="text-sm text-gray-400">V6</p>
+
+              <div className="flex items-center gap-4">
+                <ThemeToggleSimple />
+                <NotificationBell count={unreadCount} notifications={notifications} />
               </div>
             </div>
+          </header>
 
-            <div className="flex items-center gap-4">
-              <ThemeToggleSimple />
-              <NotificationBell count={unreadCount} notifications={notifications} />
+          <main className="p-4 pb-28 lg:p-6 lg:pb-6">
+            <div className="mx-auto max-w-7xl">
+              {renderSection()}
             </div>
-          </div>
-        </header>
-
-        <main className="p-4 pb-28 lg:p-6 lg:pb-6">
-          <div className="mx-auto max-w-7xl">
-            {renderSection()}
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
+      <ToastContainer />
+    </ErrorBoundary>
   );
 }
 
