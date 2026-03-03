@@ -6,6 +6,7 @@ import {
   User, Bot, Mail, Building2
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
+import { LoadingButton } from '../components/Loading';
 import type { Job } from '../types/jobs';
 import { 
   JOB_TYPE_LABELS, 
@@ -94,6 +95,7 @@ export function JobsView({ jobs }: JobsViewProps) {
   const [sortField, setSortField] = useState<SortField>('datePosted');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showFilters, setShowFilters] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Job>>({
     title: '',
@@ -204,13 +206,38 @@ export function JobsView({ jobs }: JobsViewProps) {
       addedBy: 'user',
     };
 
-    if (editingJob) {
-      await updateJob(editingJob.id, jobData);
-    } else {
-      await addJob(jobData);
-    }
+    setIsSubmitting(true);
+    try {
+      const jobData: Omit<Job, 'id' | 'addedAt'> = {
+        title: formData.title,
+        company: formData.company,
+        location: formData.location || 'Remote',
+        type: formData.type || 'freelance',
+        status: formData.status || 'new',
+        source: formData.source || '',
+        url: formData.url,
+        description: formData.description || '',
+        requirements: formData.requirements || [],
+        salary: formData.salary,
+        datePosted: formData.datePosted || new Date().toISOString().split('T')[0],
+        notes: formData.notes || '',
+        priority: formData.priority || 'medium',
+        tags: formData.tags || [],
+        contactName: formData.contactName,
+        contactEmail: formData.contactEmail,
+        addedBy: 'user',
+      };
 
-    resetForm();
+      if (editingJob) {
+        await updateJob(editingJob.id, jobData);
+      } else {
+        await addJob(jobData);
+      }
+
+      resetForm();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleImportFoundJobs = async () => {
@@ -733,12 +760,14 @@ export function JobsView({ jobs }: JobsViewProps) {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
-                  className="flex-1 rounded-lg bg-primary py-2 font-medium text-white"
+                  isLoading={isSubmitting}
+                  loadingText={editingJob ? 'Saving...' : 'Adding...'}
+                  className="flex-1 rounded-lg bg-primary py-2 font-medium text-white disabled:opacity-50"
                 >
                   {editingJob ? 'Save Changes' : 'Add Job'}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>
