@@ -24,7 +24,6 @@ import { SkeletonCard, SkeletonList } from './components/Loading';
 function App() {
   const {
     initSubscriptions,
-    agent,
     tasks,
     notifications,
     unreadCount,

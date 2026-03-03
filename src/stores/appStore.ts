@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeToData, updateData, setData, pushData } from '../lib/firebase';
-import type { Task, Project, ProjectTask, Notification, AgentState, Job, InventoryItem, InventoryTransaction, Report, ReportSchedule } from '../types';
+import type { Task, Project, ProjectTask, Notification, Job, InventoryItem, InventoryTransaction, Report, ReportSchedule } from '../types';
 import { cleanForFirebase } from '../types';
 import { useToastStore } from '../components/Toast';
 
@@ -8,7 +8,6 @@ import { useToastStore } from '../components/Toast';
 let unsubscribers: (() => void)[] = [];
 
 interface AppState {
-  agent: AgentState | null;
   tasks: {
     pending: Task[];
     inProgress: Task[];
@@ -27,7 +26,6 @@ interface AppState {
   _lastPrinterUpdate?: number;
   _isSubscribed: boolean;
 
-  setAgent: (agent: AgentState) => void;
   setPrinters: (printers: any[]) => void;
   addTask: (task: Omit<Task, 'id'>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
@@ -56,7 +54,6 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  agent: null,
   tasks: { pending: [], inProgress: [], completed: [] },
   notifications: [],
   unreadCount: 0,
@@ -70,11 +67,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   reportSchedules: [],
   _lastPrinterUpdate: 0,
   _isSubscribed: false,
-
-  setAgent: (agent) => {
-    set({ agent });
-    setData('v6/agent', agent);
-  },
 
   setPrinters: (printers) => {
     set({ printers, _lastPrinterUpdate: Date.now() });
@@ -306,12 +298,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().cleanupSubscriptions();
 
     const newUnsubscribers: (() => void)[] = [];
-
-    newUnsubscribers.push(
-      subscribeToData('v6/agent', (data) => {
-        if (data) set({ agent: data });
-      })
-    );
 
     newUnsubscribers.push(
       subscribeToData('v6/tasks', (data) => {

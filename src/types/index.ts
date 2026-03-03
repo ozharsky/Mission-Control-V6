@@ -53,13 +53,6 @@ export interface Notification {
   read: boolean;
 }
 
-export interface AgentState {
-  status: 'online' | 'offline' | 'busy';
-  currentTask: string;
-  lastSeen: string;
-  model: string;
-}
-
 export interface Printer {
   id: string;
   name: string;
