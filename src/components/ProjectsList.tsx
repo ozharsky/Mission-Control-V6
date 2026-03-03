@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { Plus, X, Filter, Calendar, CheckCircle2, Clock, Circle, MoreHorizontal, ArrowRight } from 'lucide-react';
+import { LoadingButton } from '../components/Loading';
 import { ProjectDetails } from './ProjectDetails';
 import type { Project } from '../types';
 
@@ -34,6 +35,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
   const [selectedBoard, setSelectedBoard] = useState<ProjectBoard>('all');
   const [selectedFilter, setSelectedFilter] = useState<ProjectFilter>('all');
   const [draggedProject, setDraggedProject] = useState<Project | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newProject, setNewProject] = useState({
     name: '',
     description: '',
@@ -91,22 +93,27 @@ export function ProjectsList({ projects }: ProjectsListProps) {
     e.preventDefault();
     if (!newProject.name.trim()) return;
 
-    await addProject({
-      name: newProject.name,
-      description: newProject.description,
-      status: 'backlog',
-      progress: 0,
-      tasksCompleted: 0,
-      tasksTotal: 0,
-      dueDate: newProject.dueDate || undefined,
-      tags: newProject.tags.split(',').map(t => t.trim()).filter(Boolean),
-      tasks: [],
-      priority: newProject.priority,
-      board: newProject.board,
-    });
+    setIsSubmitting(true);
+    try {
+      await addProject({
+        name: newProject.name,
+        description: newProject.description,
+        status: 'backlog',
+        progress: 0,
+        tasksCompleted: 0,
+        tasksTotal: 0,
+        dueDate: newProject.dueDate || undefined,
+        tags: newProject.tags.split(',').map(t => t.trim()).filter(Boolean),
+        tasks: [],
+        priority: newProject.priority,
+        board: newProject.board,
+      });
 
-    setNewProject({ name: '', description: '', dueDate: '', tags: '', priority: 'medium', board: 'general' });
-    setShowModal(false);
+      setNewProject({ name: '', description: '', dueDate: '', tags: '', priority: 'medium', board: 'general' });
+      setShowModal(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDragStart = (project: Project) => {
@@ -306,6 +313,13 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                   </div>
                 );
               })}
+              {projectsByStatus[column.id].length === 0 && (
+                <div className="rounded-xl border border-dashed border-surface-hover py-8 text-center text-gray-500">
+                  <Circle className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                  <p className="text-sm">No projects</p>
+                  <p className="text-xs opacity-70">Drag projects here</p>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -398,12 +412,14 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
-                  className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover"
+                  isLoading={isSubmitting}
+                  loadingText="Creating..."
+                  className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-50"
                 >
                   Create Project
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>
