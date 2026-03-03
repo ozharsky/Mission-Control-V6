@@ -65,8 +65,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     else if (tasks.inProgress.find(t => t.id === id)) path = 'v6/tasks/inProgress/' + id;
     else if (tasks.completed.find(t => t.id === id)) path = 'v6/tasks/completed/' + id;
 
-    if (path) {
+    if (path && id) {
       await updateData(path, updates);
+    } else {
+      console.error('Task not found for update:', id);
     }
   },
 

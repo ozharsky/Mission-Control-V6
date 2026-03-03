@@ -220,7 +220,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
 
   const handleEditTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTask) return;
+    if (!editingTask || !editingTask.id) return;
 
     await updateTask(editingTask.id, {
       title: newTask.title,
