@@ -80,25 +80,29 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
       </div>
       
       {/* Simple Bar Chart */}
-      <div className="mb-4">
-        <div className="flex items-end justify-between gap-2 h-32">
+      <div className="mb-4 px-2">
+        <div className="flex items-end justify-between gap-2 h-32 border-b border-surface-hover pb-2">
           {data.map((d, i) => {
-            const height = Math.max((d.value / max) * 100, 8);
+            const heightPercent = Math.max((d.value / max) * 100, 5);
             const isCurrent = d.month === currentMonth;
             
             return (
-              <div key={i} className="flex-1 flex flex-col items-center">
+              <div key={i} className="flex-1 flex flex-col items-center min-w-0">
                 {/* Value label on top */}
-                <div className="text-xs text-gray-400 mb-1">${(d.value / 1000).toFixed(1)}k</div>
+                <div className="text-xs text-gray-400 mb-1 whitespace-nowrap">
+                  ${d.value >= 1000 ? (d.value / 1000).toFixed(1) + 'k' : d.value}
+                </div>
                 
-                {/* Bar */}
-                <div
-                  className={`w-full rounded-t transition-all duration-500 ${
-                    isCurrent ? 'bg-success' : 'bg-success/40'
-                  }`}
-                  style={{ height: `${height}%` }}
-                  title={`${d.month}: $${d.value.toLocaleString()} (${d.orders} orders)`}
-                />
+                {/* Bar container */}
+                <div className="w-full flex items-end justify-center" style={{ height: '80px' }}>
+                  <div
+                    className={`w-full max-w-[40px] rounded-t transition-all duration-500 ${
+                      isCurrent ? 'bg-success' : 'bg-success/50'
+                    }`}
+                    style={{ height: `${heightPercent}%`, minHeight: '4px' }}
+                    title={`${d.month}: $${d.value.toLocaleString()} (${d.orders} orders)`}
+                  />
+                </div>
                 
                 {/* Month label */}
                 <div className={`text-xs mt-2 ${isCurrent ? 'text-success font-medium' : 'text-gray-500'}`}>
