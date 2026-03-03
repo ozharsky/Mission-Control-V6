@@ -44,8 +44,8 @@ function App() {
     initSubscriptions();
     initTheme();
 
-    // Simulate initial loading
-    const timer = setTimeout(() => setIsLoading(false), 1000);
+    // Simulate initial loading for skeleton display
+    const timer = setTimeout(() => setIsLoading(false), 800);
 
     // Initialize SimplyPrint on app load if API key exists
     const apiKey = localStorage.getItem('simplyprint_api_key');
