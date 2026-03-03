@@ -370,7 +370,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
 
         {viewMode === 'chart' ? (
           filteredData.length > 0 ? (
-            <div className="flex items-end gap-2" style={{ minHeight: '250px' }}>
+            <div className="flex items-end gap-2 h-64">
               {filteredData.map((item) => {
                 const heightPercent = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
                 const isGoalMet = item.value >= goal;
