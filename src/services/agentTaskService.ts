@@ -37,8 +37,11 @@ export class AgentTaskService {
   // ==================== AGENT TASKS ====================
 
   async createAgentTask(taskData: Partial<AgentTask>): Promise<AgentTask> {
-    const task: AgentTask = {
-      id: this.generateTaskId(),
+    const taskId = this.generateTaskId();
+    
+    // Build task object, only including defined values
+    const task: any = {
+      id: taskId,
       type: taskData.type || 'custom',
       assignee: taskData.assignee || 'surveyor',
       requestedBy: taskData.requestedBy || 'system',
@@ -49,19 +52,11 @@ export class AgentTaskService {
       },
       title: taskData.title || 'Untitled Task',
       description: taskData.description || '',
-      input: taskData.input || null,
+      input: taskData.input ?? null,
       output: null,
-      parentTaskId: taskData.parentTaskId,
-      workflowId: taskData.workflowId,
-      previousAgentTaskId: taskData.previousAgentTaskId,
       nextAgentTaskId: null,
-      discordThreadId: taskData.discordThreadId,
-      discordChannelId: taskData.discordChannelId,
       discordMessageIds: [],
       createdAt: Date.now(),
-      startedAt: undefined,
-      completedAt: undefined,
-      estimatedDuration: taskData.estimatedDuration,
       activityLog: [{
         timestamp: Date.now(),
         agent: 'system',
@@ -69,12 +64,20 @@ export class AgentTaskService {
         message: `Task created by ${taskData.requestedBy || 'system'}`
       }],
       tags: taskData.tags || [],
-      priority: taskData.priority || 'medium',
-      projectId: taskData.projectId
+      priority: taskData.priority || 'medium'
     };
 
+    // Only add optional fields if they have values
+    if (taskData.parentTaskId !== undefined) task.parentTaskId = taskData.parentTaskId;
+    if (taskData.workflowId !== undefined) task.workflowId = taskData.workflowId;
+    if (taskData.previousAgentTaskId !== undefined) task.previousAgentTaskId = taskData.previousAgentTaskId;
+    if (taskData.discordThreadId !== undefined) task.discordThreadId = taskData.discordThreadId;
+    if (taskData.discordChannelId !== undefined) task.discordChannelId = taskData.discordChannelId;
+    if (taskData.estimatedDuration !== undefined) task.estimatedDuration = taskData.estimatedDuration;
+    if (taskData.projectId !== undefined) task.projectId = taskData.projectId;
+
     await set(ref(this.db, `${this.basePath}/${task.id}`), task);
-    return task;
+    return task as AgentTask;
   }
 
   async getAgentTask(taskId: string): Promise<AgentTask | null> {
