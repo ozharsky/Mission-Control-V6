@@ -373,7 +373,7 @@ export function InventoryView({ items }: InventoryViewProps) {
                   className="cursor-pointer p-4 hover:bg-surface-hover/50"
                 >
                   <div className="flex items-start justify-between"
-003e
+>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="font-mono text-sm text-gray-500">{item.sku}</span>
