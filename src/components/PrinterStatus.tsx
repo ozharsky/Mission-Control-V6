@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Zap, Moon, AlertCircle, CheckCircle, Layers, Flame, Clock, MoreHorizontal, Settings, Power, Pause, Play, Square } from 'lucide-react';
+import { RefreshCw, Zap, Moon, AlertCircle, CheckCircle, Layers, Flame, Clock, MoreHorizontal, Settings, Power, Pause, Play, Square, Circle, Printer, AlertTriangle } from 'lucide-react';
 import { getSimplyPrint, SimplyPrintPrinter } from '../lib/simplyprint';
 
 interface PrinterJob {
@@ -68,19 +68,19 @@ function truncateFilename(filename?: string, maxLength = 25): string {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const configs: Record<string, { bg: string; text: string; label: string; icon: string }> = {
-    operational: { bg: 'bg-success/10', text: 'text-success', label: 'Online', icon: '🟢' },
-    printing: { bg: 'bg-primary/10', text: 'text-primary', label: 'Printing', icon: '🖨️' },
-    idle: { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Idle', icon: '💤' },
-    error: { bg: 'bg-danger/10', text: 'text-danger', label: 'Error', icon: '🔴' },
-    offline: { bg: 'bg-gray-800', text: 'text-gray-500', label: 'Offline', icon: '⚫' },
+  const configs: Record<string, { bg: string; text: string; label: string; icon: React.ReactNode }> = {
+    operational: { bg: 'bg-success/10', text: 'text-success', label: 'Online', icon: <CheckCircle className="h-3 w-3" /> },
+    printing: { bg: 'bg-primary/10', text: 'text-primary', label: 'Printing', icon: <Printer className="h-3 w-3" /> },
+    idle: { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Idle', icon: <Moon className="h-3 w-3" /> },
+    error: { bg: 'bg-danger/10', text: 'text-danger', label: 'Error', icon: <AlertTriangle className="h-3 w-3" /> },
+    offline: { bg: 'bg-gray-800', text: 'text-gray-500', label: 'Offline', icon: <Circle className="h-3 w-3" /> },
   };
 
   const config = configs[status] || configs.offline;
 
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${config.bg} ${config.text}`}>
-      <span>{config.icon}</span>
+      {config.icon}
       {config.label}
     </span>
   );
@@ -447,8 +447,8 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
         ))}
       </div>
 
-      {/* Printer Grid - Mobile: 3 columns, Desktop: normal */}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+      {/* Printer Grid - Mobile: 1 column, Tablet: 2 columns, Desktop: 3 columns */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filteredPrinters.map((printer, index) => (
           <PrinterCard key={printer.id} printer={printer} index={index} />
         ))}
@@ -456,7 +456,7 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
 
       {filteredPrinters.length === 0 && (
         <div className="rounded-2xl border border-dashed border-surface-hover py-16 text-center">
-          <div className="mb-4 text-6xl">🖨️</div>
+          <Printer className="mx-auto mb-4 h-16 w-16 text-gray-600" />
           <h3 className="mb-2 text-xl font-semibold">No printers found</h3>
           <p className="text-gray-500">{filter === 'all' ? 'Add your first printer to get started' : 'Try a different filter'}</p>
         </div>
