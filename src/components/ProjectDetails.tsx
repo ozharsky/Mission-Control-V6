@@ -85,8 +85,8 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
     }
   };
 
-  const completedTasks = project.tasks.filter(t => t.completed);
-  const pendingTasks = project.tasks.filter(t => !t.completed);
+  const completedTasks = (project.tasks || []).filter(t => t.completed);
+  const pendingTasks = (project.tasks || []).filter(t => !t.completed);
 
   return (
     <div className="space-y-6">
@@ -283,7 +283,7 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
                 </div>
               )}
               <div className="flex flex-wrap gap-2">
-                {project.tags.map(tag => (
+                {(project.tags || []).map(tag => (
                   <span key={tag} className="rounded-full bg-surface-hover px-3 py-1 text-xs text-gray-400">
                     #{tag}
                   </span>
@@ -333,15 +333,15 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
 
       {/* Tasks List */}
       <div className="rounded-2xl border border-surface-hover bg-surface p-6">
-        <h2 className="mb-4 text-lg font-semibold">Tasks ({project.tasks.length})</h2>
+        <h2 className="mb-4 text-lg font-semibold">Tasks ({(project.tasks || []).length})</h2>
 
-        {project.tasks.length === 0 ? (
+        {(project.tasks || []).length === 0 ? (
           <div className="py-8 text-center text-gray-500">
             No tasks yet. Add one above!
           </div>
         ) : (
           <div className="space-y-2">
-            {project.tasks.map((task) => (
+            {(project.tasks || []).map((task) => (
               <div
                 key={task.id}
                 className="flex items-center gap-3 rounded-xl border border-surface-hover bg-background p-4"
