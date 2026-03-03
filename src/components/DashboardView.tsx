@@ -79,24 +79,29 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
       </div>
       
       {/* Simple Bar Chart - Scrollable for many months */}
-      <div className="mb-4 overflow-x-auto">
-        <div className="flex items-end gap-3 min-w-max px-2 pb-2" style={{ height: '120px' }}>
+      <div className="mb-4 overflow-x-auto pb-2">
+        <div className="flex items-end gap-2 min-w-max px-2" style={{ height: '140px' }}>
           {data.map((d, i) => {
-            const heightPercent = Math.max((d.value / max) * 100, 5);
+            const heightPercent = Math.max((d.value / max) * 100, 8);
             const isCurrent = d.month === currentMonth;
             
+            // Format value label - show in k for thousands
+            const formattedValue = d.value >= 1000 
+              ? `$${(d.value / 1000).toFixed(1)}k`
+              : `$${Math.round(d.value)}`;
+            
             return (
-              <div key={i} className="flex flex-col items-center" style={{ width: '50px' }}>
-                {/* Value label on top */}
-                <div className="text-xs text-gray-400 mb-1 whitespace-nowrap">
-                  ${d.value >= 1000 ? (d.value / 1000).toFixed(1) + 'k' : d.value}
+              <div key={i} className="flex flex-col items-center justify-end" style={{ width: '45px', height: '100%' }}>
+                {/* Value label - rotated for space */}
+                <div className="text-[10px] text-gray-400 mb-1 whitespace-nowrap transform -rotate-45 origin-bottom-left translate-x-2">
+                  {formattedValue}
                 </div>
                 
                 {/* Bar container */}
-                <div className="w-full flex items-end justify-center" style={{ height: '70px' }}>
+                <div className="w-full flex items-end justify-center" style={{ height: '90px' }}>
                   <div
-                    className={`w-full max-w-[30px] rounded-t transition-all duration-500 ${
-                      isCurrent ? 'bg-success' : 'bg-success/50'
+                    className={`w-full max-w-[28px] rounded-t-md transition-all duration-500 ${
+                      isCurrent ? 'bg-success shadow-lg shadow-success/20' : 'bg-success/40 hover:bg-success/60'
                     }`}
                     style={{ height: `${heightPercent}%`, minHeight: '4px' }}
                     title={`${d.month}: $${d.value.toLocaleString()} (${d.orders} orders)`}
@@ -104,7 +109,7 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
                 </div>
                 
                 {/* Month label */}
-                <div className={`text-xs mt-2 ${isCurrent ? 'text-success font-medium' : 'text-gray-500'}`}>
+                <div className={`text-xs mt-2 font-medium ${isCurrent ? 'text-success' : 'text-gray-500'}`}>
                   {d.month.slice(5)}
                 </div>
               </div>
