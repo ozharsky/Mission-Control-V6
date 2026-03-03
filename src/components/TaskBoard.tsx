@@ -53,6 +53,25 @@ function TaskCard({
   };
 
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'completed';
+  
+  // Calculate days until due for display
+  const getDueText = () => {
+    if (!task.dueDate || task.status === 'completed') return null;
+    const due = new Date(task.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    const diff = due.getTime() - today.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    
+    if (days < 0) return { text: `${Math.abs(days)}d overdue`, color: 'text-danger' };
+    if (days === 0) return { text: 'Due today', color: 'text-danger' };
+    if (days === 1) return { text: 'Due tomorrow', color: 'text-warning' };
+    if (days <= 3) return { text: `Due in ${days}d`, color: 'text-warning' };
+    return { text: `Due in ${days}d`, color: 'text-gray-500' };
+  };
+  
+  const dueText = getDueText();
   const canMoveForward = task.status !== 'completed';
   const canMoveBackward = task.status !== 'pending';
 
@@ -147,13 +166,10 @@ function TaskCard({
       {/* Footer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">
-            {new Date(task.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-          </span>
-          {task.dueDate && (
-            <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-danger' : 'text-gray-500'}`}>
+          {dueText && (
+            <span className={`text-xs flex items-center gap-1 ${dueText.color}`}>
               <Calendar className="h-3 w-3" />
-              {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              {dueText.text}
             </span>
           )}
         </div>
@@ -170,6 +186,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'urgent' | 'due-soon' | 'overdue'>('all');
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -275,11 +292,54 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
     return projects.find(p => p.id === projectId)?.name;
   };
 
-  // Filter tasks by selected project
+  // Helper to calculate days until due
+  const getDaysUntilDue = (dueDate?: string) => {
+    if (!dueDate) return null;
+    const due = new Date(dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    const diff = due.getTime() - today.getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  // Filter tasks by selected project and filter type
+  const getFilteredTasks = (taskList: Task[]) => {
+    let filtered = taskList;
+
+    // Filter by project
+    if (selectedProject !== 'all') {
+      filtered = filtered.filter(t => t.projectId === selectedProject);
+    }
+
+    // Filter by type
+    switch (selectedFilter) {
+      case 'urgent':
+        filtered = filtered.filter(t => t.priority === 'high' && t.status !== 'completed');
+        break;
+      case 'due-soon':
+        filtered = filtered.filter(t => {
+          if (!t.dueDate || t.status === 'completed') return false;
+          const days = getDaysUntilDue(t.dueDate);
+          return days !== null && days <= 3 && days >= 0;
+        });
+        break;
+      case 'overdue':
+        filtered = filtered.filter(t => {
+          if (!t.dueDate || t.status === 'completed') return false;
+          const days = getDaysUntilDue(t.dueDate);
+          return days !== null && days < 0;
+        });
+        break;
+    }
+
+    return filtered;
+  };
+
   const filteredTasks = {
-    pending: selectedProject === 'all' ? tasks.pending : tasks.pending.filter(t => t.projectId === selectedProject),
-    inProgress: selectedProject === 'all' ? tasks.inProgress : tasks.inProgress.filter(t => t.projectId === selectedProject),
-    completed: selectedProject === 'all' ? tasks.completed : tasks.completed.filter(t => t.projectId === selectedProject),
+    pending: getFilteredTasks(tasks.pending),
+    inProgress: getFilteredTasks(tasks.inProgress),
+    completed: getFilteredTasks(tasks.completed),
   };
 
   const columns = [
@@ -292,21 +352,41 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
     <div className="space-y-6">
       {/* Project Filter */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-400">Filter by Project:</label>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm text-gray-400">Filter:</label>
+          
+          {/* Project Filter */}
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-            className="rounded-xl border border-surface-hover bg-surface px-4 py-2 text-white focus:border-primary focus:outline-none"
+            className="rounded-xl border border-surface-hover bg-surface px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
           >
             <option value="all">All Projects</option>
             {projects.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          {selectedProject !== 'all' && (
+          
+          {/* Type Filters */}
+          <div className="flex items-center gap-1">
+            {(['all', 'urgent', 'due-soon', 'overdue'] as const).map(filter => (
+              <button
+                key={filter}
+                onClick={() => setSelectedFilter(filter)}
+                className={`rounded-lg px-3 py-2 text-sm capitalize ${
+                  selectedFilter === filter
+                    ? 'bg-primary text-white'
+                    : 'border border-surface-hover text-gray-400 hover:bg-surface-hover'
+                }`}
+              >
+                {filter === 'due-soon' ? 'Due Soon' : filter}
+              </button>
+            ))}
+          </div>
+          
+          {(selectedProject !== 'all' || selectedFilter !== 'all') && (
             <button
-              onClick={() => setSelectedProject('all')}
+              onClick={() => { setSelectedProject('all'); setSelectedFilter('all'); }}
               className="text-sm text-gray-400 hover:text-white"
             >
               Clear
