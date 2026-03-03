@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, CheckCircle, Circle, Clock, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, CheckCircle, Circle, Clock, Calendar, Edit2, X } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import type { Project } from '../types';
 
@@ -12,6 +12,14 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
   const { updateProject, addProjectTask, toggleProjectTask } = useAppStore();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [showAddTask, setShowAddTask] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: project.name,
+    description: project.description,
+    dueDate: project.dueDate || '',
+    status: project.status,
+    tags: project.tags.join(', '),
+  });
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +33,20 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
 
     setNewTaskTitle('');
     setShowAddTask(false);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    await updateProject(project.id, {
+      name: editForm.name,
+      description: editForm.description,
+      dueDate: editForm.dueDate || undefined,
+      status: editForm.status,
+      tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean),
+    });
+
+    setIsEditing(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -63,54 +85,154 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
 
       {/* Project Header Card */}
       <div className="rounded-2xl border border-surface-hover bg-surface p-6">
-        <div className="mb-4 flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{project.name}</h1>            
-            <p className="mt-1 text-gray-400">{project.description}</p>
-          </div>
-          <span className={`rounded-full border px-4 py-1.5 text-sm font-medium ${getStatusColor(project.status)}`}>
-            {project.status}
-          </span>
-        </div>
-
-        {/* Progress */}
-        <div className="mb-4">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm text-gray-400">Progress</span>
-            <span className="font-medium">{project.progress}%</span>
-          </div>
-          <div className="h-3 overflow-hidden rounded-full bg-surface">
-            <div 
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${project.progress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 rounded-xl bg-surface-hover px-4 py-2">
-            <CheckCircle className="h-4 w-4 text-success" />
-            <span className="text-sm">{completedTasks.length} completed</span>
-          </div>
-          <div className="flex items-center gap-2 rounded-xl bg-surface-hover px-4 py-2">
-            <Circle className="h-4 w-4 text-warning" />
-            <span className="text-sm">{pendingTasks.length} pending</span>
-          </div>
-          {project.dueDate && (
-            <div className="flex items-center gap-2 rounded-xl bg-surface-hover px-4 py-2">
-              <Calendar className="h-4 w-4 text-gray-400" />
-              <span className="text-sm">Due {new Date(project.dueDate).toLocaleDateString()}</span>
+        {isEditing ? (
+          /* Edit Mode */
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Edit Project</h2>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {project.tags.map(tag => (
-              <span key={tag} className="rounded-full bg-surface-hover px-3 py-1 text-xs text-gray-400">
-                #{tag}
-              </span>
-            ))}
-          </div>
-        </div>
+            
+            <div>
+              <label className="mb-1 block text-sm text-gray-400">Project Name</label>
+              <input
+                type="text"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="mb-1 block text-sm text-gray-400">Description</label>
+              <textarea
+                value={editForm.description}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                rows={3}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Due Date</label>
+                <input
+                  type="date"
+                  value={editForm.dueDate}
+                  onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                  className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                >
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="on-hold">On Hold</option>
+                </select>
+              </div>
+            </div>
+            
+            <div>
+              <label className="mb-1 block text-sm text-gray-400">Tags (comma separated)</label>
+              <input
+                type="text"
+                value={editForm.tags}
+                onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+                className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                placeholder="tag1, tag2, tag3"
+              />
+            </div>
+            
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="flex-1 rounded-xl border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        ) : (
+          /* View Mode */
+          <>
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h1 className="text-2xl font-bold">{project.name}</h1>            
+                <p className="mt-1 text-gray-400">{project.description}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-1.5 text-sm text-gray-400 hover:bg-surface-hover hover:text-white"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  Edit
+                </button>
+                <span className={`rounded-full border px-4 py-1.5 text-sm font-medium ${getStatusColor(project.status)}`}>
+                  {project.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div className="mb-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm text-gray-400">Progress</span>
+                <span className="font-medium">{project.progress}%</span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-surface">
+                <div 
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${project.progress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center gap-2 rounded-xl bg-surface-hover px-4 py-2">
+                <CheckCircle className="h-4 w-4 text-success" />
+                <span className="text-sm">{completedTasks.length} completed</span>
+              </div>
+              <div className="flex items-center gap-2 rounded-xl bg-surface-hover px-4 py-2">
+                <Circle className="h-4 w-4 text-warning" />
+                <span className="text-sm">{pendingTasks.length} pending</span>
+              </div>
+              {project.dueDate && (
+                <div className="flex items-center gap-2 rounded-xl bg-surface-hover px-4 py-2">
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm">Due {new Date(project.dueDate).toLocaleDateString()}</span>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {project.tags.map(tag => (
+                  <span key={tag} className="rounded-full bg-surface-hover px-3 py-1 text-xs text-gray-400">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Add Task Form */}
