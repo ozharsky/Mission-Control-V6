@@ -143,21 +143,21 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigateMonth(-1)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-surface-hover hover:bg-surface-hover"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-surface-hover hover:bg-surface-hover"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             
             <button
               onClick={goToToday}
-              className="rounded-xl border border-surface-hover px-4 py-2 text-sm font-medium hover:bg-surface-hover"
+              className="min-h-[44px] rounded-xl border border-surface-hover px-4 py-2 text-sm font-medium hover:bg-surface-hover"
             >
               Today
             </button>
             
             <button
               onClick={() => navigateMonth(1)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-surface-hover hover:bg-surface-hover"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-surface-hover hover:bg-surface-hover"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -170,7 +170,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
           
           <button
             onClick={() => setFilter('all')}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`min-h-[44px] rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
               filter === 'all' ? 'bg-primary text-white' : 'bg-surface-hover text-gray-400 hover:text-white'
             }`}
           >
@@ -183,7 +183,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
               <button
                 key={type}
                 onClick={() => setFilter(type)}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`flex min-h-[44px] items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                   filter === type ? colors.light + ' ' + colors.text : 'bg-surface-hover text-gray-400 hover:text-white'
                 }`}
               >

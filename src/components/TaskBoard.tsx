@@ -89,7 +89,7 @@ function TaskCard({
         <div className="relative">
           <button 
             onClick={() => setShowActions(!showActions)}
-            className="rounded p-1 text-gray-500 hover:bg-surface-hover hover:text-white"
+            className="flex h-11 w-11 items-center justify-center rounded p-1 text-gray-500 hover:bg-surface-hover hover:text-white"
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>
@@ -377,12 +377,12 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
           </select>
           
           {/* Type Filters */}
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {(['all', 'urgent', 'due-soon', 'overdue'] as const).map(filter => (
               <button
                 key={filter}
                 onClick={() => setSelectedFilter(filter)}
-                className={`rounded-lg px-3 py-2 text-sm capitalize ${
+                className={`min-h-[44px] rounded-lg px-3 py-2 text-sm capitalize ${
                   selectedFilter === filter
                     ? 'bg-primary text-white'
                     : 'border border-surface-hover text-gray-400 hover:bg-surface-hover'

@@ -319,16 +319,16 @@ export function InventoryView({ items }: InventoryViewProps) {
 
           <button
             onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-            className={`flex items-center gap-2 rounded-lg px-3 py-2 ${showLowStockOnly ? 'bg-warning text-white' : 'border border-surface-hover text-gray-400'}`}
+            className={`flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2 ${showLowStockOnly ? 'bg-warning text-white' : 'border border-surface-hover text-gray-400'}`}
           >
             <AlertTriangle className="h-4 w-4" />
             Low Stock
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-gray-400 hover:bg-surface-hover"
+              className="flex min-h-[44px] items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-gray-400 hover:bg-surface-hover"
             >
               <Download className="h-4 w-4" />
               Export
@@ -336,7 +336,7 @@ export function InventoryView({ items }: InventoryViewProps) {
 
             <button
               onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-gray-400 hover:bg-surface-hover"
+              className="flex min-h-[44px] items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-gray-400 hover:bg-surface-hover"
             >
               <Upload className="h-4 w-4" />
               Import
@@ -344,7 +344,7 @@ export function InventoryView({ items }: InventoryViewProps) {
 
             <button
               onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
+              className="flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
             >
               <Plus className="h-4 w-4" />
               Add Item

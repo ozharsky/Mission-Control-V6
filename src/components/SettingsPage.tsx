@@ -175,10 +175,10 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="mt-6 flex gap-3">
+      <div className="mt-6 flex flex-wrap gap-3">
         <button
           onClick={handleSave}
-          className="rounded-lg bg-primary px-6 py-2 font-medium text-white hover:bg-primary-hover"
+          className="min-h-[44px] rounded-lg bg-primary px-6 py-2 font-medium text-white hover:bg-primary-hover"
         >
           {saved ? 'Saved!' : 'Save Settings'}
         </button>
@@ -186,7 +186,7 @@ export function SettingsPage() {
         {isConfigured && (
           <button
             onClick={handleClear}
-            className="rounded-lg border border-surface-hover px-6 py-2 font-medium text-gray-400 hover:bg-surface-hover"
+            className="min-h-[44px] rounded-lg border border-surface-hover px-6 py-2 font-medium text-gray-400 hover:bg-surface-hover"
           >
             Clear
           </button>

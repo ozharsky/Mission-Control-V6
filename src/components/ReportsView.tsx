@@ -97,22 +97,22 @@ export function ReportsView({ reports }: ReportsViewProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setActiveTab('reports')}
-              className={`rounded-lg px-4 py-2 ${activeTab === 'reports' ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
+              className={`min-h-[44px] rounded-lg px-4 py-2 ${activeTab === 'reports' ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
             >
               Reports
             </button>
             <button
               onClick={() => setActiveTab('schedules')}
-              className={`rounded-lg px-4 py-2 ${activeTab === 'schedules' ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
+              className={`min-h-[44px] rounded-lg px-4 py-2 ${activeTab === 'schedules' ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
             >
               Schedules
             </button>
             <button
               onClick={() => setShowGenerateModal(true)}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
+              className="flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
             >
               <Plus className="h-4 w-4" />
               Generate
@@ -158,13 +158,13 @@ export function ReportsView({ reports }: ReportsViewProps) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); }}
-                      className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg p-2 text-gray-400 hover:bg-surface-hover"
                     >
                       <Download className="h-4 w-4" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteReport(report.id); }}
-                      className="rounded-lg p-2 text-gray-400 hover:bg-danger/10 hover:text-danger"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg p-2 text-gray-400 hover:bg-danger/10 hover:text-danger"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

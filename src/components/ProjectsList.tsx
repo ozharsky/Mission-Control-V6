@@ -190,12 +190,12 @@ export function ProjectsList({ projects }: ProjectsListProps) {
           </div>
 
           {/* Type Filter */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {(['all', 'active', 'completed', 'high'] as const).map(filter => (
               <button
                 key={filter}
                 onClick={() => setSelectedFilter(filter)}
-                className={`rounded-lg px-3 py-1.5 text-sm capitalize ${
+                className={`min-h-[44px] rounded-lg px-3 py-1.5 text-sm capitalize ${
                   selectedFilter === filter
                     ? 'bg-primary text-white'
                     : 'border border-surface-hover text-gray-400 hover:bg-surface-hover'
@@ -331,7 +331,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
           <div className="w-full max-w-md rounded-2xl border border-surface-hover bg-surface p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-xl font-semibold">New Project</h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setShowModal(false)} className="flex h-11 w-11 items-center justify-center text-gray-400 hover:text-white">
                 <X className="h-5 w-5" />
               </button>
             </div>

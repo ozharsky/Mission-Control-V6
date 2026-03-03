@@ -53,7 +53,7 @@ function StatCard({ label, value, icon, color, subtext }: StatCardProps) {
       }`}
     >
       <div className="flex items-start justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${colorClasses[color]}`}>
+        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${colorClasses[color]}`}>
           {icon}
         </div>
         {subtext && (

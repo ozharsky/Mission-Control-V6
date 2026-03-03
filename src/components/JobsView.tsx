@@ -331,7 +331,7 @@ export function JobsView({ jobs }: JobsViewProps) {
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 ${showFilters ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
+            className={`flex min-h-[44px] items-center gap-2 rounded-lg px-4 py-2 ${showFilters ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
           >
             <Filter className="h-4 w-4" />
             Filters
@@ -339,7 +339,7 @@ export function JobsView({ jobs }: JobsViewProps) {
 
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
+            className="flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
           >
             <Plus className="h-4 w-4" />
             Add Job
@@ -348,7 +348,7 @@ export function JobsView({ jobs }: JobsViewProps) {
           {jobs.length === 0 && (
             <button
               onClick={handleImportFoundJobs}
-              className="flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-primary hover:bg-primary hover:text-white"
+              className="flex min-h-[44px] items-center gap-2 rounded-lg border border-primary px-4 py-2 text-primary hover:bg-primary hover:text-white"
             >
               <Bot className="h-4 w-4" />
               Import Found Jobs

@@ -84,14 +84,14 @@ function FileCard({
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button 
             onClick={() => onDownload?.(file)}
-            className="rounded-lg p-2 hover:bg-surface-hover"
+            className="flex h-11 w-11 items-center justify-center rounded-lg p-2 hover:bg-surface-hover"
             title="Download"
           >
             <Download className="h-4 w-4"></Download>
           </button>
           <button 
             onClick={() => onDelete?.(file)}
-            className="rounded-lg p-2 text-danger hover:bg-danger/10"
+            className="flex h-11 w-11 items-center justify-center rounded-lg p-2 text-danger hover:bg-danger/10"
             title="Delete"
           >
             <Trash2 className="h-4 w-4"></Trash2>
@@ -157,14 +157,14 @@ function FileCard({
       >
         <button 
           onClick={() => onDownload?.(file)}
-          className="rounded-lg bg-surface p-2 shadow-lg hover:bg-surface-hover"
+          className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface p-2 shadow-lg hover:bg-surface-hover"
           title="Download"
         >
           <Download className="h-4 w-4"></Download>
         </button>
         <button 
           onClick={() => onDelete?.(file)}
-          className="rounded-lg bg-surface p-2 text-danger shadow-lg hover:bg-danger/10"
+          className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface p-2 text-danger shadow-lg hover:bg-danger/10"
           title="Delete"
         >
           <Trash2 className="h-4 w-4"></Trash2>
@@ -313,13 +313,13 @@ export function FileManager({ projectId }: FileManagerProps) {
             <div className="flex rounded-lg border border-surface-hover">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`px-3 py-2 ${viewMode === 'grid' ? 'bg-primary text-white' : 'hover:bg-surface-hover'} rounded-l-lg`}
+                className={`min-h-[44px] px-3 py-2 ${viewMode === 'grid' ? 'bg-primary text-white' : 'hover:bg-surface-hover'} rounded-l-lg`}
               >
                 <Grid className="h-4 w-4"></Grid>
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-3 py-2 ${viewMode === 'list' ? 'bg-primary text-white' : 'hover:bg-surface-hover'} rounded-r-lg`}
+                className={`min-h-[44px] px-3 py-2 ${viewMode === 'list' ? 'bg-primary text-white' : 'hover:bg-surface-hover'} rounded-r-lg`}
               >
                 <List className="h-4 w-4"></List>
               </button>
@@ -328,7 +328,7 @@ export function FileManager({ projectId }: FileManagerProps) {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+              className="flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-50"
             >
               {isUploading ? (
                 <Loader2 className="h-4 w-4 animate-spin"></Loader2>

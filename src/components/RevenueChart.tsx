@@ -215,7 +215,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
           <div className="w-full max-w-md rounded-2xl border border-surface-hover bg-surface p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-xl font-semibold">{editingEntry ? 'Edit Entry' : 'Add Revenue Entry'}</h3>
-              <button onClick={() => { setShowAddModal(false); setEditingEntry(null); }} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
+              <button onClick={() => { setShowAddModal(false); setEditingEntry(null); }} className="flex h-11 w-11 items-center justify-center text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={editingEntry ? handleEditEntry : handleAddEntry} className="space-y-4">
               <div>
@@ -256,7 +256,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
           <div className="w-full max-w-lg rounded-2xl border border-surface-hover bg-surface p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-xl font-semibold">Import Revenue CSV</h3>
-              <button onClick={() => { setShowImportModal(false); setImportPreview(null); }} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
+              <button onClick={() => { setShowImportModal(false); setImportPreview(null); }} className="flex h-11 w-11 items-center justify-center text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
             </div>
             {!importPreview ? (
               <div className="space-y-4">
@@ -350,20 +350,20 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm text-white"><Plus className="h-4 w-4" /> Add</button>
-            <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm"><Upload className="h-4 w-4" /> Import</button>
+            <button onClick={() => setShowAddModal(true)} className="flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm text-white"><Plus className="h-4 w-4" /> Add</button>
+            <button onClick={() => setShowImportModal(true)} className="flex min-h-[44px] items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm"><Upload className="h-4 w-4" /> Import</button>
 
             <div className="flex rounded-lg border border-surface-hover">
               {(['3m', '6m', '12m', 'all'] as const).map((range) => (
-                <button key={range} onClick={() => setTimeRange(range)} className={`px-3 py-2 text-sm ${timeRange === range ? 'bg-primary text-white' : 'hover:bg-surface-hover'}`}>
+                <button key={range} onClick={() => setTimeRange(range)} className={`min-h-[44px] px-3 py-2 text-sm ${timeRange === range ? 'bg-primary text-white' : 'hover:bg-surface-hover'}`}>
                   {range === 'all' ? 'All' : range}
                 </button>
               ))}
             </div>
 
             <div className="flex rounded-lg border border-surface-hover">
-              <button onClick={() => setViewMode('chart')} className={`px-3 py-2 ${viewMode === 'chart' ? 'bg-primary text-white' : ''}`}><BarChart3 className="h-4 w-4" /></button>
-              <button onClick={() => setViewMode('table')} className={`px-3 py-2 ${viewMode === 'table' ? 'bg-primary text-white' : ''}`}><Table className="h-4 w-4" /></button>
+              <button onClick={() => setViewMode('chart')} className={`min-h-[44px] px-3 py-2 ${viewMode === 'chart' ? 'bg-primary text-white' : ''}`}><BarChart3 className="h-4 w-4" /></button>
+              <button onClick={() => setViewMode('table')} className={`min-h-[44px] px-3 py-2 ${viewMode === 'table' ? 'bg-primary text-white' : ''}`}><Table className="h-4 w-4" /></button>
             </div>
           </div>
         </div>
