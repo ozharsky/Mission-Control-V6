@@ -7,7 +7,7 @@ import { setData } from '../lib/firebase';
 import { parseEtsyCSV, readFile, aggregateRevenueByMonth, downloadTemplate } from '../lib/csv';
 
 interface RevenueData {
-  month: string;
+  month: string;  // Format: YYYY-MM
   value: number;
   orders: number;
 }
@@ -73,7 +73,48 @@ function LineChart({ data, color = 'primary' }: { data: number[]; color?: string
   );
 }
 
+// Helper to format month display
+function formatMonthLabel(monthStr: string): string {
+  // Handle various formats: "2025-01", "01", "2025-1"
+  if (!monthStr) return '-';
+  
+  // If it's already YYYY-MM format
+  if (/^\d{4}-\d{1,2}$/.test(monthStr)) {
+    const [year, month] = monthStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+  }
+  
+  // If it's just MM format (old data), prepend 2025
+  if (/^\d{1,2}$/.test(monthStr)) {
+    const date = new Date(2025, parseInt(monthStr) - 1, 1);
+    return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+  }
+  
+  return monthStr;
+}
+
+function formatMonthFull(monthStr: string): string {
+  if (!monthStr) return '-';
+  
+  if (/^\d{4}-\d{1,2}$/.test(monthStr)) {
+    const [year, month] = monthStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
+  
+  if (/^\d{1,2}$/.test(monthStr)) {
+    const date = new Date(2025, parseInt(monthStr) - 1, 1);
+    return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
+  
+  return monthStr;
+}
+
 export function RevenueChart({ data, goal }: RevenueChartProps) {
+  // Debug: log data to console
+  console.log('RevenueChart data:', data);
+  
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
   const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m' | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -110,6 +151,8 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
 
   // Calculate max value for chart - ensure it's never 0
   const maxValue = Math.max(stats.max, goal * 1.2, 100);
+  
+  console.log('Chart stats:', { maxValue, dataLength: filteredData.length, maxRevenue: stats.max });
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
@@ -258,7 +301,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard title="Total Revenue" value={formatCurrency(stats.total)} icon={DollarSign} color="success" />
         <StatCard title="Total Orders" value={stats.orders.toString()} icon={ShoppingCart} color="primary" />
-        <StatCard title="Avg/Month" value={formatCurrency(stats.avg)} icon={Calendar} color="info" subtext={`Best: ${stats.bestMonth?.month || '-'}`} />
+        <StatCard title="Avg/Month" value={formatCurrency(stats.avg)} icon={Calendar} color="info" subtext={`Best: ${formatMonthLabel(stats.bestMonth?.month || '')}`} />
         <StatCard title="Avg Order" value={formatCurrency(stats.avgOrderValue)} icon={TrendingUp} trend={stats.trend} color="warning" />
       </div>
 
@@ -290,7 +333,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
           <div className="rounded-xl border border-surface-hover bg-surface p-4">
             <div className="mb-2 flex items-center gap-2"><Award className="h-4 w-4 text-warning" /><span className="text-sm font-medium">Best Month</span></div>
             {stats.bestMonth?.value > 0 ? (
-              <div><div className="text-2xl font-bold">{formatCurrency(stats.bestMonth.value)}</div><div className="text-sm text-gray-400">{stats.bestMonth.month}</div></div>
+              <div><div className="text-2xl font-bold">{formatCurrency(stats.bestMonth.value)}</div><div className="text-sm text-gray-400">{formatMonthLabel(stats.bestMonth.month)}</div></div>
             ) : (
               <div className="text-sm text-gray-500">No data</div>
             )}
@@ -332,7 +375,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                 const heightPercent = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
                 const isGoalMet = item.value >= goal;
                 return (
-                  <div key={item.month} className="group flex flex-1 flex-col items-center justify-end">
+                  <div key={item.month} className="group flex flex-1 flex-col items-center justify-end h-full">
                     <div className="relative w-full flex-1 flex items-end">
                       <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-surface-hover px-3 py-2 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                         <p className="font-semibold">{formatCurrency(item.value)}</p>
@@ -343,7 +386,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                         style={{ height: `${Math.max(heightPercent, 2)}%` }} 
                       />
                     </div>
-                    <div className="mt-2 text-xs text-gray-500">{new Date(item.month + '-01').toLocaleDateString(undefined, { month: 'short' })}</div>
+                    <div className="mt-2 text-xs text-gray-500">{formatMonthLabel(item.month)}</div>
                   </div>
                 );
               })}
@@ -360,7 +403,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                   const isGoalMet = item.value >= goal;
                   return (
                     <tr key={item.month} className="border-b border-surface-hover/50">
-                      <td className="py-3">{new Date(item.month + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</td>
+                      <td className="py-3">{formatMonthFull(item.month)}</td>
                       <td className={`py-3 text-right font-semibold ${isGoalMet ? 'text-success' : ''}`}>{formatCurrency(item.value)}</td>
                       <td className="py-3 text-right">{item.orders}</td>
                       <td className="py-3 text-center"><span className={`rounded-full px-2 py-1 text-xs ${isGoalMet ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>{isGoalMet ? '✓ Goal' : 'Below'}</span></td>
