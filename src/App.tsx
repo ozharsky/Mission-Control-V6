@@ -91,6 +91,8 @@ function App() {
       orders: data.orders || 0
     };
   }).sort((a, b) => a.month.localeCompare(b.month)) : [];
+  
+  console.log('Revenue data sorted:', revenueData.map(d => d.month));
 
   const renderSection = () => {
     switch (activeSection) {
