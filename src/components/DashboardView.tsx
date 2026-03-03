@@ -220,7 +220,9 @@ function generateAIInsights({
   // Revenue insights - trend analysis
   if (revenue) {
     const revenueData = Object.values(revenue) as Array<{ value: number; orders: number; month: string }>;
-    const sortedData = revenueData.sort((a, b) => a.month.localeCompare(b.month));
+    // Filter out entries with undefined month before sorting
+    const validRevenueData = revenueData.filter(r => r && r.month);
+    const sortedData = validRevenueData.sort((a, b) => a.month.localeCompare(b.month));
     const currentMonth = new Date().toISOString().slice(0, 7);
     const currentRevenue = sortedData.find(r => r.month === currentMonth);
     const lastMonthData = sortedData.filter(r => r.month < currentMonth).pop();
