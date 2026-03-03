@@ -181,7 +181,7 @@ function App() {
         return <TaskBoard tasks={tasks} projects={projects.map(p => ({ id: p.id, name: p.name }))} />;
 
       case 'calendar':
-        return <CalendarView events={[]} />;
+        return <CalendarView events={[]} projects={projects} tasks={tasks} />;
 
       case 'files':
         return <FileManager />;

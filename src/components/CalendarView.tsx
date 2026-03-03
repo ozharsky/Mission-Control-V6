@@ -1,18 +1,26 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Clock, Printer, Briefcase, AlertCircle, Filter } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Clock, Printer, Briefcase, AlertCircle, Filter, CheckCircle, Folder } from 'lucide-react';
+import type { Project, Task } from '../types';
 
 interface CalendarEvent {
   id: string;
   title: string;
   date: string;
   time?: string;
-  type: 'print' | 'meeting' | 'deadline' | 'delivery' | 'maintenance';
+  type: 'print' | 'meeting' | 'deadline' | 'delivery' | 'maintenance' | 'project' | 'task';
   description?: string;
   projectId?: string;
+  status?: string;
 }
 
 interface CalendarViewProps {
-  events: CalendarEvent[];
+  events?: CalendarEvent[];
+  projects?: Project[];
+  tasks?: {
+    pending: Task[];
+    inProgress: Task[];
+    completed: Task[];
+  };
 }
 
 const EVENT_COLORS = {
@@ -21,13 +29,55 @@ const EVENT_COLORS = {
   deadline: { bg: 'bg-red-500', light: 'bg-red-500/10', text: 'text-red-400', icon: AlertCircle },
   delivery: { bg: 'bg-green-500', light: 'bg-green-500/10', text: 'text-green-400', icon: Clock },
   maintenance: { bg: 'bg-orange-500', light: 'bg-orange-500/10', text: 'text-orange-400', icon: AlertCircle },
+  project: { bg: 'bg-indigo-500', light: 'bg-indigo-500/10', text: 'text-indigo-400', icon: Folder },
+  task: { bg: 'bg-cyan-500', light: 'bg-cyan-500/10', text: 'text-cyan-400', icon: CheckCircle },
 };
 
-export function CalendarView({ events }: CalendarViewProps) {
+export function CalendarView({ events = [], projects = [], tasks }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<string | 'all'>('all');
+
+  // Generate events from projects and tasks
+  const allEvents = useMemo(() => {
+    const generatedEvents: CalendarEvent[] = [...events];
+
+    // Add project due dates
+    projects.forEach(project => {
+      if (project.dueDate) {
+        generatedEvents.push({
+          id: `project-${project.id}`,
+          title: project.name,
+          date: project.dueDate,
+          type: 'project',
+          description: `Project due: ${project.description?.slice(0, 50)}...`,
+          projectId: project.id,
+          status: project.status,
+        });
+      }
+    });
+
+    // Add task due dates
+    if (tasks) {
+      const allTasks = [...tasks.pending, ...tasks.inProgress, ...tasks.completed];
+      allTasks.forEach(task => {
+        if (task.dueDate) {
+          generatedEvents.push({
+            id: `task-${task.id}`,
+            title: task.title,
+            date: task.dueDate,
+            type: 'task',
+            description: `Task due - Priority: ${task.priority}`,
+            projectId: task.projectId,
+            status: task.status,
+          });
+        }
+      });
+    }
+
+    return generatedEvents;
+  }, [events, projects, tasks]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -52,7 +102,7 @@ export function CalendarView({ events }: CalendarViewProps) {
 
   const getEventsForDay = (day: number) => {
     const dateStr = new Date(year, month, day).toISOString().split('T')[0];
-    let dayEvents = events.filter(e => e.date.startsWith(dateStr));
+    let dayEvents = allEvents.filter(e => e.date.startsWith(dateStr));
     if (filter !== 'all') {
       dayEvents = dayEvents.filter(e => e.type === filter);
     }
@@ -82,11 +132,11 @@ export function CalendarView({ events }: CalendarViewProps) {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <CalendarIcon className="h-6 w-6 text-primary"></CalendarIcon>
+              <CalendarIcon className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h2 className="text-2xl font-bold">{monthName}</h2>
-              <p className="text-sm text-gray-400">{events.length} events this month</p>
+              <p className="text-sm text-gray-400">{allEvents.length} events this month</p>
             </div>
           </div>
 
@@ -95,7 +145,7 @@ export function CalendarView({ events }: CalendarViewProps) {
               onClick={() => navigateMonth(-1)}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-surface-hover hover:bg-surface-hover"
             >
-              <ChevronLeft className="h-5 w-5"></ChevronLeft>
+              <ChevronLeft className="h-5 w-5" />
             </button>
             
             <button
@@ -109,19 +159,14 @@ export function CalendarView({ events }: CalendarViewProps) {
               onClick={() => navigateMonth(1)}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-surface-hover hover:bg-surface-hover"
             >
-              <ChevronRight className="h-5 w-5"></ChevronRight>
-            </button>
-
-            <button className="ml-2 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover">
-              <Plus className="h-4 w-4"></Plus>
-              Add Event
+              <ChevronRight className="h-5 w-5" />
             </button>
           </div>
         </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-400"></Filter>
+          <Filter className="h-4 w-4 text-gray-400" />
           
           <button
             onClick={() => setFilter('all')}
@@ -142,7 +187,7 @@ export function CalendarView({ events }: CalendarViewProps) {
                   filter === type ? colors.light + ' ' + colors.text : 'bg-surface-hover text-gray-400 hover:text-white'
                 }`}
               >
-                <div className={`h-2 w-2 rounded-full ${colors.bg}`}></div>
+                <div className={`h-2 w-2 rounded-full ${colors.bg}`} />
                 <span className="capitalize">{type}</span>
               </button>
             );
@@ -166,7 +211,7 @@ export function CalendarView({ events }: CalendarViewProps) {
             {/* Calendar Days */}
             <div className="grid grid-cols-7 gap-1">
               {Array.from({ length: startingDay }).map((_, i) => (
-                <div key={`empty-${i}`} className="min-h-[100px] p-1"></div>
+                <div key={`empty-${i}`} className="min-h-[100px] p-1" />
               ))}
 
               {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -236,7 +281,7 @@ export function CalendarView({ events }: CalendarViewProps) {
                         <div className="mb-2 flex items-start justify-between">
                           <div className="flex items-center gap-2">
                             <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${EVENT_COLORS[event.type].light}`}>
-                              <Icon className={`h-4 w-4 ${EVENT_COLORS[event.type].text}`}></Icon>
+                              <Icon className={`h-4 w-4 ${EVENT_COLORS[event.type].text}`} />
                             </div>
                             <span className={`text-xs font-medium uppercase ${EVENT_COLORS[event.type].text}`}>
                               {event.type}
@@ -250,6 +295,12 @@ export function CalendarView({ events }: CalendarViewProps) {
                         {event.description && (
                           <p className="text-sm text-gray-400">{event.description}</p>
                         )}
+                        
+                        {event.status && (
+                          <span className="mt-2 inline-block rounded-full bg-surface-hover px-2 py-0.5 text-xs text-gray-400">
+                            {event.status}
+                          </span>
+                        )}
                       </div>
                     );
                   })
@@ -259,11 +310,6 @@ export function CalendarView({ events }: CalendarViewProps) {
                     <p>No events for this day</p>
                   </div>
                 )}
-
-                <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-surface-hover py-3 text-sm font-medium text-gray-400 transition-colors hover:border-primary hover:text-white">
-                  <Plus className="h-4 w-4"></Plus>
-                  Add Event
-                </button>
               </div>
             ) : (
               <div className="py-12 text-center text-gray-500">
