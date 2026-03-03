@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { Plus, X, Filter, Calendar, CheckCircle2, Clock, Circle, MoreHorizontal, ArrowRight } from 'lucide-react';
+import { Plus, X, Filter, Calendar, CheckCircle2, Clock, Circle, MoreHorizontal, ArrowRight, Trash2, Edit2 } from 'lucide-react';
 import { LoadingButton } from '../components/Loading';
 import { ProjectDetails } from './ProjectDetails';
 import type { Project } from '../types';
@@ -29,13 +29,14 @@ const BOARDS = [
 ];
 
 export function ProjectsList({ projects }: ProjectsListProps) {
-  const { addProject, updateProject } = useAppStore();
+  const { addProject, updateProject, deleteProject } = useAppStore();
   const [showModal, setShowModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedBoard, setSelectedBoard] = useState<ProjectBoard>('all');
   const [selectedFilter, setSelectedFilter] = useState<ProjectFilter>('all');
   const [draggedProject, setDraggedProject] = useState<Project | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [newProject, setNewProject] = useState({
     name: '',
     description: '',
@@ -110,6 +111,29 @@ export function ProjectsList({ projects }: ProjectsListProps) {
       });
 
       setNewProject({ name: '', description: '', dueDate: '', tags: '', priority: 'medium', board: 'general' });
+      setShowModal(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProject || !newProject.name.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateProject(editingProject.id, {
+        name: newProject.name,
+        description: newProject.description,
+        dueDate: newProject.dueDate || undefined,
+        tags: newProject.tags.split(',').map(t => t.trim()).filter(Boolean),
+        priority: newProject.priority,
+        board: newProject.board,
+      });
+
+      setNewProject({ name: '', description: '', dueDate: '', tags: '', priority: 'medium', board: 'general' });
+      setEditingProject(null);
       setShowModal(false);
     } finally {
       setIsSubmitting(false);
@@ -247,69 +271,106 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                     key={project.id}
                     draggable
                     onDragStart={() => handleDragStart(project)}
-                    onClick={() => setSelectedProject(project)}
-                    className="cursor-pointer rounded-lg border border-surface-hover bg-background p-3 transition-all hover:border-primary hover:shadow-md"
+                    className="group relative rounded-lg border border-surface-hover bg-background p-3 transition-all hover:border-primary hover:shadow-md"
                   >
-                    {/* Header */}
-                    <div className="mb-2 flex items-start justify-between">
-                      <h3 className="flex-1 pr-2 text-sm font-medium">{project.name}</h3>
-                      {project.priority && (
-                        <span className={`rounded-full border px-2 py-0.5 text-xs ${getPriorityColor(project.priority)}`}>
-                          {project.priority}
-                        </span>
+                    {/* Action Buttons - Always visible on mobile, hover on desktop */}
+                    <div className="absolute right-2 top-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingProject(project);
+                          setNewProject({
+                            name: project.name,
+                            description: project.description || '',
+                            dueDate: project.dueDate || '',
+                            tags: project.tags?.join(', ') || '',
+                            priority: project.priority || 'medium',
+                            board: project.board || 'general',
+                          });
+                          setShowModal(true);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-primary/20 hover:text-primary"
+                        title="Edit project"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete project "${project.name}"? This cannot be undone.`)) {
+                            deleteProject(project.id);
+                          }
+                        }}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-danger/20 hover:text-danger"
+                        title="Delete project"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {/* Clickable area for details */}
+                    <div onClick={() => setSelectedProject(project)} className="cursor-pointer">
+                      {/* Header */}
+                      <div className="mb-2 flex items-start justify-between pr-16">
+                        <h3 className="flex-1 pr-2 text-sm font-medium">{project.name}</h3>
+                        {project.priority && (
+                          <span className={`rounded-full border px-2 py-0.5 text-xs ${getPriorityColor(project.priority)}`}>
+                            {project.priority}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Description */}
+                      {project.description && (
+                        <p className="mb-2 line-clamp-2 text-xs text-gray-500">{project.description}</p>
+                      )}
+
+                      {/* Board Badge */}
+                      {project.board && project.board !== 'general' && (
+                        <div className="mb-2">
+                          <span className={`rounded-full border px-2 py-0.5 text-xs ${getBoardColor(project.board)}`}>
+                            {project.board}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Progress */}
+                      <div className="mb-2">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-surface">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all"
+                            style={{ width: `${project.progress}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <div className="flex items-center gap-2">
+                          {project.dueDate && (
+                            <span className={`flex items-center gap-1 ${isOverdue ? 'text-danger' : ''}`}>
+                              <Calendar className="h-3 w-3" />
+                              {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` : `${daysUntilDue}d left`}
+                            </span>
+                          )}
+                        </div>
+                        <span>{project.tasksCompleted}/{project.tasksTotal} tasks</span>
+                      </div>
+
+                      {/* Tags */}
+                      {(project.tags || []).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {(project.tags || []).slice(0, 2).map(tag => (
+                            <span key={tag} className="rounded bg-surface-hover px-1.5 py-0.5 text-xs text-gray-400">
+                              #{tag}
+                            </span>
+                          ))}
+                          {(project.tags || []).length > 2 && (
+                            <span className="text-xs text-gray-500">+{(project.tags || []).length - 2}</span>
+                          )}
+                        </div>
                       )}
                     </div>
-
-                    {/* Description */}
-                    {project.description && (
-                      <p className="mb-2 line-clamp-2 text-xs text-gray-500">{project.description}</p>
-                    )}
-
-                    {/* Board Badge */}
-                    {project.board && project.board !== 'general' && (
-                      <div className="mb-2">
-                        <span className={`rounded-full border px-2 py-0.5 text-xs ${getBoardColor(project.board)}`}>
-                          {project.board}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Progress */}
-                    <div className="mb-2">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-surface">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${project.progress}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <div className="flex items-center gap-2">
-                        {project.dueDate && (
-                          <span className={`flex items-center gap-1 ${isOverdue ? 'text-danger' : ''}`}>
-                            <Calendar className="h-3 w-3" />
-                            {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` : `${daysUntilDue}d left`}
-                          </span>
-                        )}
-                      </div>
-                      <span>{project.tasksCompleted}/{project.tasksTotal} tasks</span>
-                    </div>
-
-                    {/* Tags */}
-                    {(project.tags || []).length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {(project.tags || []).slice(0, 2).map(tag => (
-                          <span key={tag} className="rounded bg-surface-hover px-1.5 py-0.5 text-xs text-gray-400">
-                            #{tag}
-                          </span>
-                        ))}
-                        {(project.tags || []).length > 2 && (
-                          <span className="text-xs text-gray-500">+{(project.tags || []).length - 2}</span>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -325,17 +386,24 @@ export function ProjectsList({ projects }: ProjectsListProps) {
         ))}
       </div>
 
-      {/* Add Project Modal */}
+      {/* Add/Edit Project Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl border border-surface-hover bg-surface p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xl font-semibold">New Project</h3>
-              <button onClick={() => setShowModal(false)} className="flex h-11 w-11 items-center justify-center text-gray-400 hover:text-white">
+              <h3 className="text-xl font-semibold">{editingProject ? 'Edit Project' : 'New Project'}</h3>
+              <button 
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingProject(null);
+                  setNewProject({ name: '', description: '', dueDate: '', tags: '', priority: 'medium', board: 'general' });
+                }} 
+                className="flex h-11 w-11 items-center justify-center text-gray-400 hover:text-white"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={handleAddProject} className="space-y-4">
+            <form onSubmit={editingProject ? handleEditProject : handleAddProject} className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm text-gray-400">Project Name</label>
                 <input
@@ -407,7 +475,11 @@ export function ProjectsList({ projects }: ProjectsListProps) {
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingProject(null);
+                    setNewProject({ name: '', description: '', dueDate: '', tags: '', priority: 'medium', board: 'general' });
+                  }}
                   className="flex-1 rounded-xl border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
                 >
                   Cancel
@@ -415,10 +487,10 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                 <LoadingButton
                   type="submit"
                   isLoading={isSubmitting}
-                  loadingText="Creating..."
+                  loadingText={editingProject ? 'Saving...' : 'Creating...'}
                   className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-50"
                 >
-                  Create Project
+                  {editingProject ? 'Save Changes' : 'Create Project'}
                 </LoadingButton>
               </div>
             </form>

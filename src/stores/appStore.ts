@@ -35,6 +35,7 @@ interface AppState {
   deleteTask: (id: string, status: Task['status']) => Promise<void>;
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
   updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   addProjectTask: (projectId: string, task: Omit<ProjectTask, 'id'>) => Promise<void>;
   toggleProjectTask: (projectId: string, taskId: string) => Promise<void>;
   addJob: (job: Omit<Job, 'id' | 'addedAt'>) => Promise<void>;
@@ -212,6 +213,28 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     await updateData(`v6/data/projects/${id}`, updates);
+  },
+
+  deleteProject: async (id) => {
+    if (!id) {
+      console.error('deleteProject: id is required');
+      return;
+    }
+    try {
+      await setData(`v6/data/projects/${id}`, null);
+      useToastStore.getState().addToast({
+        type: 'success',
+        title: 'Project deleted',
+        duration: 3000,
+      });
+    } catch (error) {
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Failed to delete project',
+        duration: 5000,
+      });
+      throw error;
+    }
   },
 
   addProjectTask: async (projectId, task) => {

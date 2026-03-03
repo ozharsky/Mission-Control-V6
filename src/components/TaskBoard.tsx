@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { 
-  Plus, CheckCircle, Clock, Circle, MoreHorizontal, Calendar, Folder, 
+  Plus, CheckCircle, Clock, Circle, Calendar, Folder, 
   ArrowRight, ArrowLeft, Trash2, Edit2, X, User, Bot, Filter
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
@@ -45,8 +45,6 @@ function TaskCard({
   onDragStart?: () => void;
   isDragging?: boolean;
 }) {
-  const [showActions, setShowActions] = useState(false);
-  
   const priorityColors = {
     high: 'bg-danger/10 text-danger border-danger/30',
     medium: 'bg-warning/10 text-warning border-warning/30',
@@ -83,49 +81,47 @@ function TaskCard({
       className={`group relative rounded-xl border border-surface-hover bg-background p-4 transition-all duration-200 hover:border-primary hover:shadow-lg ${isDragging ? 'opacity-50' : ''} cursor-move`}
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Header with actions */}
-      <div className="mb-3 flex items-start justify-between">
-        <span className="flex-1 pr-2 text-sm font-medium leading-relaxed">{task.title}</span>
-        <div className="relative">
-          <button 
-            onClick={() => setShowActions(!showActions)}
-            className="flex h-11 w-11 items-center justify-center rounded p-1 text-gray-500 hover:bg-surface-hover hover:text-white"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
+      {/* Header with actions - Always visible action buttons */}
+      <div className="mb-3">
+        <div className="flex items-start justify-between gap-2">
+          <span className="flex-1 text-sm font-medium leading-relaxed">{task.title}</span>
           
-          {/* Actions Dropdown */}
-          {showActions && (
-            <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-xl border border-surface-hover bg-surface shadow-lg">
-              {canMoveBackward && (
-                <button 
-                  onClick={() => { onMove('backward'); setShowActions(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:bg-surface-hover hover:text-white"
-                >
-                  <ArrowLeft className="h-4 w-4" /> Move Back
-                </button>
-              )}
-              {canMoveForward && (
-                <button 
-                  onClick={() => { onMove('forward'); setShowActions(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:bg-surface-hover hover:text-white"
-                >
-                  <ArrowRight className="h-4 w-4" /> Move Forward
-                </button>
-              )}
-              <button 
-                onClick={() => { onEdit(); setShowActions(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:bg-surface-hover hover:text-white"
-              >
-                <Edit2 className="h-4 w-4" /> Edit
-              </button>
-              <button 
-                onClick={() => { onDelete(); setShowActions(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger/10"
-              >
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            </div>
+          {/* Always-visible action buttons */}
+          <div className="flex items-center gap-1 shrink-0">
+            <button 
+              onClick={() => onEdit()}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-primary/20 hover:text-primary transition-colors"
+              title="Edit task"
+            >
+              <Edit2 className="h-4 w-4" />
+            </button>
+            <button 
+              onClick={() => onDelete()}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-danger/20 hover:text-danger transition-colors"
+              title="Delete task"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Move buttons row */}
+        <div className="mt-2 flex items-center gap-2">
+          {canMoveBackward && (
+            <button 
+              onClick={() => onMove('backward')}
+              className="flex items-center gap-1 rounded-lg bg-surface-hover px-2 py-1 text-xs text-gray-400 hover:bg-surface-hover/80 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="h-3 w-3" /> Move Back
+            </button>
+          )}
+          {canMoveForward && (
+            <button 
+              onClick={() => onMove('forward')}
+              className="flex items-center gap-1 rounded-lg bg-surface-hover px-2 py-1 text-xs text-gray-400 hover:bg-surface-hover/80 hover:text-white transition-colors"
+            >
+              Move Forward <ArrowRight className="h-3 w-3" />
+            </button>
           )}
         </div>
       </div>
@@ -168,14 +164,6 @@ function TaskCard({
             </span>
           ))}
         </div>
-      )}
-
-      {/* Click outside to close actions */}
-      {showActions && (
-        <div 
-          className="fixed inset-0 z-0" 
-          onClick={() => setShowActions(false)}
-        />
       )}
     </div>
   );
