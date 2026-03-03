@@ -192,18 +192,23 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
 
     setIsSubmitting(true);
     try {
-      await addTask({
+      // Build task object, only including fields with values
+      const taskData: any = {
         title: newTask.title,
-        description: newTask.description,
+        description: newTask.description || '',
         priority: newTask.priority,
         status: 'pending',
         createdBy: 'user',
         createdAt: new Date().toISOString(),
-        dueDate: newTask.dueDate || undefined,
-        projectId: newTask.projectId || undefined,
-        assignee: newTask.assignee || undefined,
         tags: newTask.tags.split(',').map(t => t.trim()).filter(Boolean),
-      });
+      };
+      
+      // Only add optional fields if they have values
+      if (newTask.dueDate) taskData.dueDate = newTask.dueDate;
+      if (newTask.projectId) taskData.projectId = newTask.projectId;
+      if (newTask.assignee) taskData.assignee = newTask.assignee;
+      
+      await addTask(taskData);
       setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', projectId: '', assignee: '', tags: '' });
       setShowForm(false);
     } finally {
@@ -217,16 +222,22 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
 
     setIsSubmitting(true);
     try {
-      await updateTask(editingTask.id, {
+      // Build update object, only including fields with values
+      const updates: any = {
         title: newTask.title,
-        description: newTask.description,
+        description: newTask.description || '',
         priority: newTask.priority,
-        dueDate: newTask.dueDate || undefined,
-        projectId: newTask.projectId || undefined,
-        assignee: newTask.assignee || undefined,
         tags: newTask.tags.split(',').map(t => t.trim()).filter(Boolean),
-      });
+      };
+      
+      // Only add optional fields if they have values
+      if (newTask.dueDate) updates.dueDate = newTask.dueDate;
+      if (newTask.projectId) updates.projectId = newTask.projectId;
+      if (newTask.assignee) updates.assignee = newTask.assignee;
+      
+      await updateTask(editingTask.id, updates);
       setEditingTask(null);
+      setShowForm(false);
       setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', projectId: '', assignee: '', tags: '' });
     } finally {
       setIsSubmitting(false);
