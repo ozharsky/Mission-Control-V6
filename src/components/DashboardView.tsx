@@ -20,8 +20,7 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
         value: r?.value || 0,
         orders: r?.orders || 0
       }))
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .slice(-6);
+      .sort((a, b) => a.month.localeCompare(b.month));
   }, [revenue]);
   
   if (data.length === 0) {
@@ -79,24 +78,24 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
         </button>
       </div>
       
-      {/* Simple Bar Chart */}
-      <div className="mb-4 px-2">
-        <div className="flex items-end justify-between gap-2 h-32 border-b border-surface-hover pb-2">
+      {/* Simple Bar Chart - Scrollable for many months */}
+      <div className="mb-4 overflow-x-auto">
+        <div className="flex items-end gap-3 min-w-max px-2 pb-2" style={{ height: '120px' }}>
           {data.map((d, i) => {
             const heightPercent = Math.max((d.value / max) * 100, 5);
             const isCurrent = d.month === currentMonth;
             
             return (
-              <div key={i} className="flex-1 flex flex-col items-center min-w-0">
+              <div key={i} className="flex flex-col items-center" style={{ width: '50px' }}>
                 {/* Value label on top */}
                 <div className="text-xs text-gray-400 mb-1 whitespace-nowrap">
                   ${d.value >= 1000 ? (d.value / 1000).toFixed(1) + 'k' : d.value}
                 </div>
                 
                 {/* Bar container */}
-                <div className="w-full flex items-end justify-center" style={{ height: '80px' }}>
+                <div className="w-full flex items-end justify-center" style={{ height: '70px' }}>
                   <div
-                    className={`w-full max-w-[40px] rounded-t transition-all duration-500 ${
+                    className={`w-full max-w-[30px] rounded-t transition-all duration-500 ${
                       isCurrent ? 'bg-success' : 'bg-success/50'
                     }`}
                     style={{ height: `${heightPercent}%`, minHeight: '4px' }}
@@ -121,11 +120,11 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
           <div className="font-bold text-success">${(current?.value || 0).toLocaleString()}</div>
         </div>
         <div className="text-center border-x border-surface-hover">
-          <div className="text-xs text-gray-500 mb-1">Average</div>
+          <div className="text-xs text-gray-500 mb-1">{data.length} Month Avg</div>
           <div className="font-bold">${Math.round(avg).toLocaleString()}</div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">Total (6mo)</div>
+          <div className="text-xs text-gray-500 mb-1">All Time Total</div>
           <div className="font-bold">${total.toLocaleString()}</div>
         </div>
       </div>
