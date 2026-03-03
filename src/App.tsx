@@ -75,11 +75,22 @@ function App() {
     }
   }, [initSubscriptions, setPrinters]);
 
-  const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => ({
-    month,  // Keep the month key as-is (should be YYYY-MM format from V5)
-    value: data.value || 0,
-    orders: data.orders || 0
-  })).sort((a, b) => a.month.localeCompare(b.month)) : [];
+  const revenueData = revenue ? Object.entries(revenue).map(([month, data]: [string, any]) => {
+    // Firebase data has numeric keys (0-12) representing months from 2025
+    // 0 = Jan 2025, 11 = Dec 2025, 12 = Jan 2026
+    let formattedMonth = month;
+    if (/^\d{1,2}$/.test(month)) {
+      const monthNum = parseInt(month);
+      const year = 2025 + Math.floor(monthNum / 12);
+      const monthInYear = (monthNum % 12) + 1;
+      formattedMonth = `${year}-${String(monthInYear).padStart(2, '0')}`;
+    }
+    return {
+      month: formattedMonth,
+      value: data.value || 0,
+      orders: data.orders || 0
+    };
+  }).sort((a, b) => a.month.localeCompare(b.month)) : [];
 
   const renderSection = () => {
     switch (activeSection) {
