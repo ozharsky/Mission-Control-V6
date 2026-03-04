@@ -1,3 +1,6 @@
+// Vercel Serverless Function - Kalshi Proxy
+const https = require('https');
+
 module.exports = async (req, res) => {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,36 +16,51 @@ module.exports = async (req, res) => {
     const { action, ticker, series } = req.query;
 
     // Kalshi API base URL
-    const KALSHI_API = 'https://api.elections.kalshi.com/trade-api/v2';
+    const KALSHI_API = 'api.elections.kalshi.com';
 
-    let url;
+    let path;
     
     switch (action) {
       case 'markets':
-        url = `${KALSHI_API}/markets?status=open&limit=100`;
+        path = '/trade-api/v2/markets?status=open&limit=100';
         break;
       case 'series':
-        url = `${KALSHI_API}/series/${series}/markets?status=open`;
+        path = `/trade-api/v2/series/${series}/markets?status=open`;
         break;
       case 'market':
-        url = `${KALSHI_API}/markets/${ticker}`;
+        path = `/trade-api/v2/markets/${ticker}`;
         break;
       default:
-        url = `${KALSHI_API}/markets?status=open&limit=100`;
+        path = '/trade-api/v2/markets?status=open&limit=100';
     }
 
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
+    // Use Node.js https module instead of fetch
+    const data = await new Promise((resolve, reject) => {
+      const request = https.get({
+        hostname: KALSHI_API,
+        path: path,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      }, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error('Invalid JSON response'));
+          }
+        });
+      });
+      
+      request.on('error', reject);
+      request.setTimeout(10000, () => {
+        request.destroy();
+        reject(new Error('Request timeout'));
+      });
     });
-
-    if (!response.ok) {
-      throw new Error(`Kalshi API error: ${response.status}`);
-    }
-
-    const data = await response.json();
     
     res.status(200).json(data);
   } catch (error) {
