@@ -278,6 +278,49 @@ export class AgentTaskService {
     return { ...task, output };
   }
 
+  // ==================== DELETE OPERATIONS ====================
+
+  /**
+   * Delete a workflow and all its tasks
+   */
+  async deleteWorkflow(workflowId: string): Promise<void> {
+    try {
+      // Get workflow to find associated tasks
+      const workflowRef = ref(this.db, `${this.workflowPath}/${workflowId}`);
+      const workflowSnap = await get(workflowRef);
+      const workflow = workflowSnap.val() as AgentWorkflow | null;
+
+      if (workflow?.tasks) {
+        // Delete all tasks in the workflow
+        for (const taskId of workflow.tasks) {
+          const taskRef = ref(this.db, `${this.taskPath}/${taskId}`);
+          await remove(taskRef);
+        }
+      }
+
+      // Delete the workflow
+      await remove(workflowRef);
+      console.log(`[DELETE] Workflow ${workflowId} and ${workflow?.tasks?.length || 0} tasks deleted`);
+    } catch (error) {
+      console.error('[DELETE] Error deleting workflow:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a single task
+   */
+  async deleteTask(taskId: string): Promise<void> {
+    try {
+      const taskRef = ref(this.db, `${this.taskPath}/${taskId}`);
+      await remove(taskRef);
+      console.log(`[DELETE] Task ${taskId} deleted`);
+    } catch (error) {
+      console.error('[DELETE] Error deleting task:', error);
+      throw error;
+    }
+  }
+
   // ==================== HELPERS ====================
 
   private generateTaskId(): string {
