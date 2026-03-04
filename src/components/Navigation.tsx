@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import {
   Menu, X, LayoutDashboard, Printer, CircleDollarSign,
   FolderKanban, CheckSquare, Briefcase, Package, BarChart3,
-  Calendar, Paperclip, Settings, Rocket, Bot
+  Calendar, Paperclip, Settings, Rocket, Bot, Sun, Moon, Bell
 } from 'lucide-react';
+import { useThemeStore } from '../stores/themeStore';
+import { useAppStore } from '../stores/appStore';
 
 interface NavItem {
   id: string;
@@ -37,6 +39,10 @@ const primaryNavItems = ['dashboard', 'tasks', 'agents', 'projects', 'settings']
 export function Navigation({ activeSection, onSectionChange }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const { theme, toggleTheme } = useThemeStore();
+  const { notifications } = useAppStore();
+  
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
@@ -87,16 +93,44 @@ export function Navigation({ activeSection, onSectionChange }: NavigationProps) 
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Rocket className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold">Mission Control</span>
+          <div>
+            <span className="font-bold">Mission Control</span>
+            <span className="text-xs text-gray-400 ml-1">V6</span>
+          </div>
         </div>
         
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-surface-hover hover:text-white min-h-[44px] min-w-[44px]"
-          aria-label="Toggle menu"
-        >
-          {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-surface-hover hover:text-white"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
+          
+          {/* Notification Bell */}
+          <button
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-surface-hover hover:text-white relative"
+            aria-label="Notifications"
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          
+          {/* Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-surface-hover hover:text-white min-h-[44px] min-w-[44px]"
+            aria-label="Toggle menu"
+          >
+            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
       </header>
 
       {/* Mobile Menu Overlay */}
