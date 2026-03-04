@@ -550,7 +550,7 @@ export function TradesView() {
 
       {/* Trade Cards - Mobile: Compact / Desktop: Detailed */}
       <div className="grid gap-3">
-        {filteredTrades.map((trade, index) => {
+        {tradesWithMetrics.map((trade, index) => {
           const Icon = CATEGORY_ICONS[trade.category];
           const edge = trade.research.edge;
           const isStrongBuy = edge > 20;
@@ -583,7 +583,7 @@ export function TradesView() {
                   </a>
                 </div>
 
-                {/* Row 2: Price, Edge, Confidence, Multiplier */}
+                {/* Row 2: Price, Edge, Confidence, Multiplier, R-Score, Kelly */}
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold">{trade.yesPrice}¢</span>
@@ -593,7 +593,10 @@ export function TradesView() {
 
                   <div className="flex items-center gap-2">
                     <span className={`text-sm font-medium ${(trade.rScore || 0) > 1.5 ? 'text-success' : 'text-gray-400'}`}>
-                      R:{trade.rScore?.toFixed(1) || 'N/A'}
+                      R:{trade.rScore?.toFixed(1)}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      K:{(trade.kellyFraction || 0).toFixed(1)}%
                     </span>
                     <span className="text-right">
                       <span className="text-lg font-bold text-success">{trade.payout.multiplier}x</span>
