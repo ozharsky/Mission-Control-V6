@@ -1,13 +1,5 @@
 {
   "version": 2,
-  "functions": {
-    "api/kalshi.js": {
-      "runtime": "nodejs18.x"
-    },
-    "api/simplyprint.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/images/(.*)", "destination": "/images/$1" },
