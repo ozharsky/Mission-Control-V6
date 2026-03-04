@@ -150,15 +150,32 @@ export function TradesView() {
     try {
       const KALSHI_PROXY_URL = 'https://mission-control-v6-kappa.vercel.app/api/kalshi';
       
-      // Fetch specific series: crypto, weather, politics
+      // Fetch specific series: crypto, weather, politics, economics
       const seriesToFetch = [
-        { series: 'KXBTC', category: 'crypto', name: 'Bitcoin' },
-        { series: 'KXETH', category: 'crypto', name: 'Ethereum' },
+        // Weather (5)
         { series: 'KXHIGHTSEA', category: 'weather', name: 'Seattle Weather' },
         { series: 'KXHIGHNY', category: 'weather', name: 'NYC Weather' },
-        { series: 'KXRAINSEA', category: 'weather', name: 'Seattle Rain' },
-        { series: 'TRUMP', category: 'politics', name: 'Trump' },
-        { series: 'GOV', category: 'politics', name: 'Government' }
+        { series: 'KXHIGHCHI', category: 'weather', name: 'Chicago Weather' },
+        { series: 'KXHIGHMIA', category: 'weather', name: 'Miami Weather' },
+        { series: 'KXHIGHTPHX', category: 'weather', name: 'Phoenix Weather' },
+        // Crypto (5)
+        { series: 'KXBTC', category: 'crypto', name: 'Bitcoin' },
+        { series: 'KXETH', category: 'crypto', name: 'Ethereum' },
+        { series: 'KXSOL', category: 'crypto', name: 'Solana' },
+        { series: 'KXADA', category: 'crypto', name: 'Cardano' },
+        { series: 'KXDOT', category: 'crypto', name: 'Polkadot' },
+        // Politics (5)
+        { series: 'KXTRUMP', category: 'politics', name: 'Trump' },
+        { series: 'KXTRUTHSOCIAL', category: 'politics', name: 'Trump Social' },
+        { series: 'KX538APPROVE', category: 'politics', name: 'Approval Ratings' },
+        { series: 'KXTRUMPZELENSKYY', category: 'politics', name: 'Trump-Zelenskyy' },
+        { series: 'KXTRUMPMEET', category: 'politics', name: 'Trump Meetings' },
+        // Economics (5)
+        { series: 'KXFED', category: 'economics', name: 'Fed Policy' },
+        { series: 'KXCPI', category: 'economics', name: 'CPI Inflation' },
+        { series: 'KXJOBS', category: 'economics', name: 'Jobs Report' },
+        { series: 'KXGDP', category: 'economics', name: 'GDP Growth' },
+        { series: 'KXIR', category: 'economics', name: 'Interest Rates' }
       ];
       
       let allMarkets: any[] = [];
