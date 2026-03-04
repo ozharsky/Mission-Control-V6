@@ -1,8 +1,11 @@
 /**
  * Discord Notification Service
  * Mission Control V6
+ * 
+ * Queues notifications in Firebase for background processing
  */
 
+import { Database, ref, set } from 'firebase/database';
 import { AgentTask, AgentId } from '../types/agentTask';
 import { AGENT_NAMES, AGENT_EMOJIS } from '../constants/agents';
 
@@ -21,15 +24,14 @@ const AGENT_CHANNELS: Record<AgentId, string> = {
 const COORDINATION_CHANNEL = '1478488567020785867'; // #🎯-agent-coordination
 
 export class DiscordNotificationService {
-  private webhookUrl: string | null = null;
+  private db: Database;
 
-  constructor() {
-    // Could load from env/config
-    this.webhookUrl = null;
+  constructor(firebaseDb: Database) {
+    this.db = firebaseDb;
   }
 
   /**
-   * Send task notification to agent's Discord channel
+   * Queue notification for agent's Discord channel
    */
   async notifyAgentOfTask(task: AgentTask): Promise<void> {
     const channelId = AGENT_CHANNELS[task.assignee];
@@ -41,116 +43,61 @@ export class DiscordNotificationService {
     const agentName = AGENT_NAMES[task.assignee];
     const agentEmoji = AGENT_EMOJIS[task.assignee];
 
-    const message = {
-      content: `${agentEmoji} **New Task for ${agentName}**`,
-      embeds: [{
-        title: task.title,
-        description: task.input?.topic 
-          ? `**Prompt:** "${task.input.topic}"`
-          : task.description,
-        color: this.getPriorityColor(task.priority),
-        fields: [
-          {
-            name: 'Task ID',
-            value: task.id,
-            inline: true
-          },
-          {
-            name: 'Priority',
-            value: `${this.getPriorityEmoji(task.priority)} ${task.priority}`,
-            inline: true
-          },
-          {
-            name: 'Status',
-            value: task.status,
-            inline: true
-          }
-        ],
-        footer: {
-          text: `Click to view in Mission Control • ${new Date(task.createdAt).toLocaleString()}`
-        }
-      }]
-    };
+    const message = `${agentEmoji} **New Task for ${agentName}**\n\n` +
+      `**${task.title}**\n` +
+      (task.input?.topic ? `Prompt: "${task.input.topic}"\n` : '') +
+      `\nPriority: ${this.getPriorityEmoji(task.priority)} ${task.priority} | Status: ${task.status}\n` +
+      `Task ID: \`${task.id}\``;
 
-    await this.sendToChannel(channelId, message);
+    await this.queueNotification(channelId, message, task.id);
   }
 
   /**
-   * Notify coordination channel of workflow start
+   * Queue notification to coordination channel
    */
-  async notifyWorkflowStarted(workflowName: string, firstAgent: AgentId, input: string): Promise<void> {
-    const message = {
-      content: `🚀 **Workflow Started: ${workflowName}**`,
-      embeds: [{
-        description: `**Input:** "${input}"`,
-        color: 0x3b82f6, // Blue
-        fields: [
-          {
-            name: 'First Agent',
-            value: `${AGENT_EMOJIS[firstAgent]} ${AGENT_NAMES[firstAgent]}`,
-            inline: true
-          }
-        ],
-        timestamp: new Date().toISOString()
-      }]
-    };
+  async notifyWorkflowStarted(workflowName: string, firstAgent: AgentId, input: any): Promise<void> {
+    const topic = typeof input === 'string' ? input : input?.topic || 'New workflow';
+    
+    const message = `🚀 **Workflow Started: ${workflowName}**\n\n` +
+      `Input: "${topic}"\n` +
+      `First Agent: ${AGENT_EMOJIS[firstAgent]} ${AGENT_NAMES[firstAgent]}`;
 
-    await this.sendToChannel(COORDINATION_CHANNEL, message);
+    await this.queueNotification(COORDINATION_CHANNEL, message, `workflow-${Date.now()}`);
   }
 
   /**
-   * Notify that task was completed and handed off
+   * Queue notification for task handoff
    */
   async notifyTaskHandoff(
     completedTask: AgentTask, 
     nextAgent: AgentId
   ): Promise<void> {
-    const message = {
-      content: `✅ **Task Completed** → ${AGENT_EMOJIS[nextAgent]} **${AGENT_NAMES[nextAgent]}**`,
-      embeds: [{
-        title: completedTask.title,
-        description: `Completed by ${AGENT_NAMES[completedTask.assignee]}`,
-        color: 0x22c55e, // Green
-        timestamp: new Date().toISOString()
-      }]
-    };
+    const message = `✅ **Task Completed** → ${AGENT_EMOJIS[nextAgent]} **${AGENT_NAMES[nextAgent]}**\n\n` +
+      `"${completedTask.title}" completed by ${AGENT_NAMES[completedTask.assignee]}`;
 
-    await this.sendToChannel(COORDINATION_CHANNEL, message);
-    
-    // Also notify the next agent directly
-    // This would require fetching the next task
+    await this.queueNotification(COORDINATION_CHANNEL, message, completedTask.id);
   }
 
   /**
-   * Send message to Discord channel via OpenClaw
+   * Queue notification in Firebase for background worker
    */
-  private async sendToChannel(channelId: string, message: any): Promise<void> {
+  private async queueNotification(channelId: string, message: string, referenceId: string): Promise<void> {
+    const notification = {
+      id: `discord-notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      channelId,
+      message,
+      referenceId,
+      status: 'pending',
+      createdAt: Date.now()
+    };
+
     try {
-      // Use OpenClaw's message tool via the gateway
-      const response = await fetch('/api/discord/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channelId,
-          ...message
-        })
-      });
-
-      if (!response.ok) {
-        console.error('Failed to send Discord notification:', await response.text());
-      }
+      await set(ref(this.db, `v6/discordNotifications/${notification.id}`), notification);
+      console.log(`[DISCORD QUEUED → ${channelId}]: ${message.substring(0, 100)}...`);
     } catch (error) {
-      console.error('Discord notification error:', error);
-    }
-  }
-
-  private getPriorityColor(priority: string): number {
-    switch (priority) {
-      case 'urgent': return 0xef4444; // Red
-      case 'high': return 0xf97316;   // Orange
-      case 'medium': return 0xeab308; // Yellow
-      case 'low': return 0x22c55e;    // Green
-      default: return 0x6b7280;       // Gray
+      console.error('Failed to queue Discord notification:', error);
+      // Still log so we know what should have been sent
+      console.log(`[DISCORD FAILED → ${channelId}]: ${message}`);
     }
   }
 

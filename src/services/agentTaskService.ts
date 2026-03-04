@@ -34,7 +34,7 @@ export class AgentTaskService {
 
   constructor(firebaseDb: Database) {
     this.db = firebaseDb;
-    this.discord = new DiscordNotificationService();
+    this.discord = new DiscordNotificationService(firebaseDb);
   }
 
   // ==================== AGENT TASKS ====================
