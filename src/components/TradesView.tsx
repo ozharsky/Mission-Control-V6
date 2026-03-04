@@ -16,6 +16,7 @@ interface KalshiTrade {
   noPrice: number;
   volume: number;
   expiration: string;
+  kalshiUrl: string;
   research: {
     trueProbability: number;
     edge: number;
@@ -41,6 +42,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 96,
     volume: 1247,
     expiration: '2026-03-10',
+    kalshiUrl: 'https://kalshi.com/markets/kxhighsea/26MAR10-T54',
     research: {
       trueProbability: 35,
       edge: 31,
@@ -63,6 +65,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 88,
     volume: 8934,
     expiration: '2026-03-15',
+    kalshiUrl: 'https://kalshi.com/markets/kxbtc/26MAR15-T92000',
     research: {
       trueProbability: 28,
       edge: 16,
@@ -85,6 +88,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 82,
     volume: 5621,
     expiration: '2026-03-07',
+    kalshiUrl: 'https://kalshi.com/markets/kxunemp/26MAR07-T4.2',
     research: {
       trueProbability: 42,
       edge: 24,
@@ -107,6 +111,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 92,
     volume: 2156,
     expiration: '2026-03-08',
+    kalshiUrl: 'https://kalshi.com/markets/kxhighny/26MAR08-T55',
     research: {
       trueProbability: 25,
       edge: 17,
@@ -129,6 +134,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 85,
     volume: 4532,
     expiration: '2026-03-20',
+    kalshiUrl: 'https://kalshi.com/markets/kxeth/26MAR20-T2800',
     research: {
       trueProbability: 38,
       edge: 23,
@@ -151,6 +157,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 78,
     volume: 7891,
     expiration: '2026-03-12',
+    kalshiUrl: 'https://kalshi.com/markets/kxcpi/26MAR12-T2.9',
     research: {
       trueProbability: 45,
       edge: 23,
@@ -173,6 +180,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 72,
     volume: 9234,
     expiration: '2026-03-21',
+    kalshiUrl: 'https://kalshi.com/markets/kxspx/26MAR21-T5800',
     research: {
       trueProbability: 40,
       edge: 12,
@@ -195,6 +203,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 94,
     volume: 892,
     expiration: '2026-03-14',
+    kalshiUrl: 'https://kalshi.com/markets/kxsnowbos/26MAR14-T5',
     research: {
       trueProbability: 18,
       edge: 12,
@@ -217,6 +226,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 65,
     volume: 1567,
     expiration: '2026-03-09',
+    kalshiUrl: 'https://kalshi.com/markets/kxrainsea/26MAR09-T0.3',
     research: {
       trueProbability: 55,
       edge: 20,
@@ -239,6 +249,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 58,
     volume: 12453,
     expiration: '2026-03-19',
+    kalshiUrl: 'https://kalshi.com/markets/kxfed/26MAR19-T4.5',
     research: {
       trueProbability: 48,
       edge: 6,
@@ -491,6 +502,15 @@ export function TradesView() {
                   <div className="mt-3 rounded-lg bg-background p-2 text-center text-xs text-gray-400">
                     Risk ${trade.payout.buyPrice} → Win ${trade.payout.potentialReturn}
                   </div>
+
+                  <a
+                    href={trade.kalshiUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-primary py-2 text-sm font-medium text-white hover:bg-primary/90"
+                  >
+                    Trade on Kalshi <ExternalLink className="h-4 w-4" />
+                  </a>
                 </div>
               </div>
             </div>
