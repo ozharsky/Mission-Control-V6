@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  TrendingUp, Target, AlertCircle, CheckCircle, 
+import {
+  TrendingUp, Target, AlertCircle, CheckCircle,
   DollarSign, Percent, Calendar, ExternalLink,
   CloudRain, Zap, BarChart3, Activity,
   RefreshCw, BookOpen, Filter, ChevronDown, ChevronUp,
@@ -66,6 +66,14 @@ interface KalshiTrade {
     buyPrice: number;
     potentialReturn: number;
     multiplier: number;
+  };
+  // Trading bot fields
+  rScore?: number;
+  kellyFraction?: number;
+  position?: {
+    shares: number;
+    avgEntry: number;
+    unrealizedPnl: number;
   };
 }
 
@@ -344,7 +352,7 @@ export function TradesView() {
     try {
       // Try multiple endpoints for Kalshi public API
       let data = null;
-      
+
       // Try the series endpoint for specific markets
       const seriesResponse = await fetch('https://api.elections.kalshi.com/trade-api/v2/series/kxhighsea/markets?status=open');
       if (seriesResponse.ok) {
@@ -357,27 +365,27 @@ export function TradesView() {
           data = await response.json();
         }
       }
-      
+
       // Update trades with live prices where available
       if (data && data.markets && data.markets.length > 0) {
         setTrades(prevTrades => {
           const updatedTrades = prevTrades.map(trade => {
             // Try to find by ticker
             let liveMarket = data.markets.find((m: any) => m.ticker === trade.ticker);
-            
+
             // If not found by ticker, try by title similarity
             if (!liveMarket) {
-              liveMarket = data.markets.find((m: any) => 
-                m.title && trade.title && 
+              liveMarket = data.markets.find((m: any) =>
+                m.title && trade.title &&
                 (m.title.toLowerCase().includes(trade.title.toLowerCase().split(' ')[0]) ||
                  trade.title.toLowerCase().includes(m.title.toLowerCase().split(' ')[0]))
               );
             }
-            
+
             if (liveMarket) {
               const newPrice = liveMarket.yes_ask || liveMarket.yes_price || liveMarket.last_price || trade.yesPrice;
               const newVolume = liveMarket.volume || liveMarket.trade_volume || trade.volume;
-              
+
               return {
                 ...trade,
                 yesPrice: newPrice,
@@ -413,13 +421,52 @@ export function TradesView() {
   const filteredTrades = useMemo(() => {
     let result = selectedCategory === 'all' ? trades : trades.filter(t => t.category === selectedCategory);
     result = [...result].sort((a, b) => {
-      const comparison = sortBy === 'edge' 
-        ? a.research.edge - b.research.edge 
+      const comparison = sortBy === 'edge'
+        ? a.research.edge - b.research.edge
         : a.payout.multiplier - b.payout.multiplier;
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     return result;
   }, [trades, selectedCategory, sortBy, sortDirection]);
+
+  // Calculate R-Score and Kelly for each trade
+  const tradesWithMetrics = useMemo(() => {
+    return filteredTrades.map(trade => {
+      const p = trade.research.trueProbability / 100; // Your estimated probability
+      const b = trade.payout.multiplier; // Odds (payout multiplier)
+      const marketP = trade.yesPrice / 100; // Market implied probability
+
+      // R-Score = (Your Prob * Payout) / Market Price
+      // R-Score > 1.5 is considered +EV
+      const rScore = (p * b) / (trade.yesPrice / 100);
+
+      // Kelly Criterion: f* = (bp - q) / b
+      // where q = 1 - p
+      const q = 1 - p;
+      const kelly = ((b * p) - q) / b;
+      const kellyFraction = Math.max(0, kelly); // Don't bet if negative
+
+      return {
+        ...trade,
+        rScore,
+        kellyFraction
+      };
+    });
+  }, [filteredTrades]);
+
+  // Portfolio stats
+  const portfolioStats = useMemo(() => {
+    const totalRisk = tradesWithMetrics.reduce((sum, t) => sum + (t.position?.shares || 0) * (t.yesPrice / 100), 0);
+    const totalUnrealizedPnl = tradesWithMetrics.reduce((sum, t) => sum + (t.position?.unrealizedPnl || 0), 0);
+    const highRScoreTrades = tradesWithMetrics.filter(t => (t.rScore || 0) > 1.5).length;
+
+    return {
+      totalRisk: totalRisk.toFixed(2),
+      totalUnrealizedPnl: totalUnrealizedPnl.toFixed(2),
+      highRScoreTrades,
+      avgRScore: (tradesWithMetrics.reduce((sum, t) => sum + (t.rScore || 0), 0) / tradesWithMetrics.length).toFixed(2)
+    };
+  }, [tradesWithMetrics]);
 
   const stats = useMemo(() => ({
     total: trades.length,
@@ -447,12 +494,12 @@ export function TradesView() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button 
-            onClick={fetchLiveData} 
+          <button
+            onClick={fetchLiveData}
             disabled={isLoading}
             className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0 disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> 
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             {isLoading ? 'Updating...' : 'Refresh'}
           </button>
           <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0">
@@ -486,13 +533,13 @@ export function TradesView() {
           <div className="text-xs text-gray-400">Trades</div><div className="text-xl font-bold">{stats.total}</div>
         </div>
         <div className="rounded-xl border border-surface-hover bg-surface p-3">
-          <div className="text-xs text-gray-400">Avg Edge</div><div className="text-xl font-bold text-success">+{stats.avgEdge}%</div>
+          <div className="text-xs text-gray-400">Avg R-Score</div><div className={`text-xl font-bold ${parseFloat(portfolioStats.avgRScore) > 1.5 ? 'text-success' : 'text-warning'}`}>{portfolioStats.avgRScore}</div>
+        </div>
+        <div className="rounded-xl border border-surface-hover bg-surface p-3">
+          <div className="text-xs text-gray-400">+EV Trades (R&gt;1.5)</div><div className="text-xl font-bold text-success">{portfolioStats.highRScoreTrades}</div>
         </div>
         <div className="rounded-xl border border-surface-hover bg-surface p-3">
           <div className="text-xs text-gray-400">Avg Mult</div><div className="text-xl font-bold text-primary">{stats.avgMultiplier}x</div>
-        </div>
-        <div className="rounded-xl border border-surface-hover bg-surface p-3">
-          <div className="text-xs text-gray-400">Strong Buys</div><div className="text-xl font-bold text-success">{stats.strongBuyCount}</div>
         </div>
       </div>
 
@@ -525,8 +572,8 @@ export function TradesView() {
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-400">
-        <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-success" /> Strong Buy (&gt;20%)</span>
-        <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-warning" /> Good (10-20%)</span>
+        <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-success" /> R-Score &gt;1.5 (+EV)</span>
+        <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-warning" /> R-Score 1.0-1.5</span>
         <span className="ml-auto flex items-center gap-1 shrink-0"><RefreshCw className="h-3 w-3" /> {lastUpdated.toLocaleTimeString()}</span>
       </div>
 
@@ -536,10 +583,10 @@ export function TradesView() {
           const Icon = CATEGORY_ICONS[trade.category];
           const edge = trade.research.edge;
           const isStrongBuy = edge > 20;
-          
+
           return (
             <div key={trade.id} className={`rounded-xl border p-3 lg:p-4 transition-all hover:border-primary/50 ${isStrongBuy ? 'border-success/30 bg-success/5' : 'border-surface-hover bg-surface'}`}>
-              
+
               {/* MOBILE LAYOUT (default) */}
               <div className="lg:hidden">
                 {/* Row 1: Icon, Title, Trade Button */}
@@ -556,8 +603,8 @@ export function TradesView() {
                       {isStrongBuy && <span className="text-success ml-1">🔥#{index+1}</span>}
                     </div>
                   </div>
-                  
-                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
+
+                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 ml-2"
                     title="Trade on Kalshi"
                   >
@@ -572,9 +619,14 @@ export function TradesView() {
                     <span className={`text-sm ${edge > 0 ? 'text-success' : 'text-danger'}`}>+{edge}%</span>
                     <ConfidenceBadge level={trade.research.confidence} />
                   </div>
-                  
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-success">{trade.payout.multiplier}x</div>
+
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${(trade.rScore || 0) > 1.5 ? 'text-success' : 'text-gray-400'}`}>
+                      R:{trade.rScore?.toFixed(1) || 'N/A'}
+                    </span>
+                    <span className="text-right">
+                      <span className="text-lg font-bold text-success">{trade.payout.multiplier}x</span>
+                    </span>
                   </div>
                 </div>
 
@@ -591,7 +643,7 @@ export function TradesView() {
 
               {/* DESKTOP LAYOUT (lg+) - Two Column Grid */}
               <div className="hidden lg:grid lg:grid-cols-12 lg:gap-4">
-                
+
                 {/* Left Column: Trade Info (7 cols) */}
                 <div className="lg:col-span-7 space-y-3">
                   {/* Header Row */}
@@ -623,23 +675,23 @@ export function TradesView() {
                         <div className="text-xs text-gray-400">Current Price</div>
                       </div>
                     </div>
-                    
+
                     <div className="h-10 w-px bg-surface-hover" />
-                    
+
                     <div>
                       <div className="text-2xl font-bold text-success">+{edge}%</div>
                       <div className="text-xs text-gray-400">Edge</div>
                     </div>
-                    
+
                     <div className="h-10 w-px bg-surface-hover" />
-                    
+
                     <div>
                       <div className="text-2xl font-bold text-primary">{trade.research.trueProbability}%</div>
                       <div className="text-xs text-gray-400">True Prob</div>
                     </div>
-                    
+
                     <div className="h-10 w-px bg-surface-hover" />
-                    
+
                     <ConfidenceBadge level={trade.research.confidence} />
                   </div>
 
@@ -670,16 +722,16 @@ export function TradesView() {
                 <div className="lg:col-span-5">
                   <div className="rounded-xl bg-surface-hover p-4 h-full flex flex-col">
                     <div className="text-sm text-gray-400 mb-3">Payout Analysis</div>
-                    
+
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="text-center p-3 bg-surface rounded-lg">
-                        <div className="text-3xl font-bold text-success">{trade.payout.multiplier}x</div>
-                        <div className="text-xs text-gray-400">Multiplier</div>
+                        <div className={`text-3xl font-bold ${(trade.rScore || 0) > 1.5 ? 'text-success' : 'text-warning'}`}>{trade.rScore?.toFixed(2) || 'N/A'}</div>
+                        <div className="text-xs text-gray-400">R-Score</div>
                       </div>
-                      
+
                       <div className="text-center p-3 bg-surface rounded-lg">
-                        <div className="text-3xl font-bold text-success">+${trade.payout.potentialReturn - trade.payout.buyPrice}</div>
-                        <div className="text-xs text-gray-400">Net Profit</div>
+                        <div className="text-3xl font-bold text-primary">{(trade.kellyFraction || 0).toFixed(1)}%</div>
+                        <div className="text-xs text-gray-400">Kelly %</div>
                       </div>
                     </div>
 
@@ -688,26 +740,31 @@ export function TradesView() {
                         <span className="text-gray-400">Contract Price</span>
                         <span className="font-medium">{trade.yesPrice}¢ (${(trade.yesPrice/100).toFixed(2)})</span>
                       </div>
-                      
+
                       <div className="flex justify-between items-center py-2 border-b border-surface">
-                        <span className="text-gray-400">Potential Return</span>
-                        <span className="font-medium text-success">${trade.payout.potentialReturn}</span>
+                        <span className="text-gray-400">Multiplier</span>
+                        <span className="font-medium text-success">{trade.payout.multiplier}x</span>
                       </div>
-                      
+
                       <div className="flex justify-between items-center py-2 border-b border-surface">
-                        <span className="text-gray-400">Break-even Probability</span>
-                        <span className="font-medium">{trade.yesPrice}%</span>
+                        <span className="text-gray-400">Net Profit</span>
+                        <span className="font-medium text-success">+${trade.payout.potentialReturn - trade.payout.buyPrice}</span>
                       </div>
-                      
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-400">Expected Value (per $1)</span>
+
+                      <div className="flex justify-between items-center py-2 border-b border-surface">
+                        <span className="text-gray-400">Expected Value</span>
                         <span className={`font-medium ${(trade.research.trueProbability/100 * trade.payout.multiplier) > 1 ? 'text-success' : 'text-danger'}`}>
                           ${((trade.research.trueProbability/100 * trade.payout.multiplier)).toFixed(2)}
                         </span>
                       </div>
+
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-400">Break-even</span>
+                        <span className="font-medium">{trade.yesPrice}%</span>
+                      </div>
                     </div>
 
-                    <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
+                    <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
                       className="mt-auto flex items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-medium text-white hover:bg-primary/90"
                     >
                       Trade on Kalshi <ArrowUpRight className="h-4 w-4" />
