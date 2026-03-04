@@ -57,8 +57,8 @@ export function RevenueMiniChart({ revenue, onNavigate }: RevenueMiniChartProps)
   
   const formatValue = (val: number) => val >= 1000 ? (val / 1000).toFixed(1) + 'k' : Math.round(val);
   
-  // Format data for chart - last 6 months
-  const chartData = data.slice(-6).map(d => ({
+  // Format data for chart - all time
+  const chartData = data.map(d => ({
     month: d.month.slice(5),
     fullMonth: d.month,
     revenue: d.value,
@@ -66,7 +66,7 @@ export function RevenueMiniChart({ revenue, onNavigate }: RevenueMiniChartProps)
     isCurrent: d.month === currentMonth
   }));
   
-  // Calculate moving average for line
+  // Calculate moving average for line (3-month window)
   const movingAvg = chartData.map((d, i, arr) => {
     const start = Math.max(0, i - 2);
     const slice = arr.slice(start, i + 1);
@@ -145,28 +145,36 @@ export function RevenueMiniChart({ revenue, onNavigate }: RevenueMiniChartProps)
       </div>
 
       {/* Bar + Line Chart */}
-      <div className="px-4 pb-4 pt-2" style={{ height: '180px' }}>
+      <div className="px-4 pb-4 pt-2" style={{ height: '200px' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartDataWithAvg} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <ComposedChart 
+            data={chartDataWithAvg} 
+            margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
             <XAxis 
               dataKey="month" 
               axisLine={false} 
               tickLine={false} 
-              tick={{ fill: '#9ca3af', fontSize: 10 }} 
+              tick={{ fill: '#9ca3af', fontSize: 9 }}
+              angle={-45}
+              textAnchor="end"
+              height={40}
+              interval={0}
             />
             <YAxis 
               axisLine={false} 
               tickLine={false} 
               tick={{ fill: '#9ca3af', fontSize: 10 }}
               tickFormatter={(value) => value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}
+              width={40}
             />
             <Tooltip content={<CustomTooltip />} />
             <Bar 
               dataKey="revenue" 
               fill="#22c55e" 
-              radius={[4, 4, 0, 0]}
-              opacity={0.8}
+              radius={[2, 2, 0, 0]}
+              maxBarSize={20}
             />
             <Line 
               type="monotone" 
