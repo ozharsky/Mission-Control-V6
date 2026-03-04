@@ -2,12 +2,15 @@
  * Discord Notification Service
  * Mission Control V6
  * 
- * Queues notifications in Firebase for background processing
+ * Sends notifications via webhook server or queues to Firebase
  */
 
 import { Database, ref, set } from 'firebase/database';
 import { AgentTask, AgentId } from '../types/agentTask';
 import { AGENT_NAMES, AGENT_EMOJIS } from '../constants/agents';
+
+// Webhook server URL - update this after deploying to Render
+const WEBHOOK_SERVER_URL = import.meta.env.VITE_DISCORD_WEBHOOK_URL || 'http://localhost:3001';
 
 // Discord channel IDs for each agent
 const AGENT_CHANNELS: Record<AgentId, string> = {
@@ -78,7 +81,7 @@ export class DiscordNotificationService {
 
     // Try to send via webhook server first
     try {
-      const response = await fetch('http://localhost:3001/send-discord', {
+      const response = await fetch(`${WEBHOOK_SERVER_URL}/send-discord`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channelId, message })
