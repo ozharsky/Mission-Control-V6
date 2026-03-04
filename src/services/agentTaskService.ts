@@ -128,6 +128,17 @@ export class AgentTaskService {
     return tasks.sort((a, b) => b.createdAt - a.createdAt);
   }
 
+  async listAgentWorkflows(): Promise<AgentWorkflow[]> {
+    const snapshot = await get(ref(this.db, `${this.workflowPath}`));
+    const workflows: AgentWorkflow[] = [];
+
+    snapshot.forEach((child) => {
+      workflows.push(child.val() as AgentWorkflow);
+    });
+
+    return workflows.sort((a, b) => b.createdAt - a.createdAt);
+  }
+
   async transitionTaskState(
     taskId: string,
     newState: string,
