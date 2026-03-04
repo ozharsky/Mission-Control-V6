@@ -148,63 +148,109 @@ export function TradesView() {
   const fetchLiveData = async () => {
     setIsLoading(true);
     try {
-      // Use Vercel API route as proxy
       const KALSHI_PROXY_URL = 'https://mission-control-v6-kappa.vercel.app/api/kalshi';
-      const response = await fetch(`${KALSHI_PROXY_URL}?action=markets`);
-      if (!response.ok) throw new Error('Failed to fetch');
-      const data = await response.json();
       
-      if (data.markets && data.markets.length > 0) {
-        // Create trades from live markets that match our criteria
-        const liveTrades: KalshiTrade[] = data.markets
+      // Fetch specific series: crypto, weather, politics
+      const seriesToFetch = [
+        { series: 'KXBTC', category: 'crypto', name: 'Bitcoin' },
+        { series: 'KXETH', category: 'crypto', name: 'Ethereum' },
+        { series: 'KXHIGHSEA', category: 'weather', name: 'Seattle Weather' },
+        { series: 'KXHIGHNY', category: 'weather', name: 'NYC Weather' },
+        { series: 'KXRAINSEA', category: 'weather', name: 'Seattle Rain' },
+        { series: 'TRUMP', category: 'politics', name: 'Trump' },
+        { series: 'GOV', category: 'politics', name: 'Government' }
+      ];
+      
+      let allMarkets: any[] = [];
+      
+      // Fetch markets from each series
+      for (const { series, category, name } of seriesToFetch) {
+        try {
+          const response = await fetch(`${KALSHI_PROXY_URL}?action=series&series=${series}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.markets) {
+              // Add category info to each market
+              data.markets.forEach((m: any) => {
+                m.category = category;
+                m.series_name = name;
+              });
+              allMarkets = allMarkets.concat(data.markets);
+            }
+          }
+        } catch (e) {
+          console.log(`Failed to fetch ${series}:`, e);
+        }
+      }
+      
+      // Also fetch general markets as fallback
+      const generalResponse = await fetch(`${KALSHI_PROXY_URL}?action=markets`);
+      if (generalResponse.ok) {
+        const generalData = await generalResponse.json();
+        if (generalData.markets) {
+          // Filter general markets for crypto/weather/politics only
+          const filteredGeneral = generalData.markets.filter((m: any) => {
+            const cat = (m.category || '').toLowerCase();
+            return ['crypto', 'weather', 'politics', 'economics'].includes(cat);
+          });
+          allMarkets = allMarkets.concat(filteredGeneral);
+        }
+      }
+      
+      if (allMarkets.length > 0) {
+        // Process markets: filter cheap ones, sort by potential
+        const processedTrades: KalshiTrade[] = allMarkets
           .filter((m: any) => {
-            // Filter for interesting markets: low price, high multiplier potential
             const price = m.yes_ask || m.yes_price || m.last_price || 50;
-            return price < 30; // Focus on cheap YES contracts
+            return price >= 1 && price <= 25; // Cheap but not too cheap
           })
-          .slice(0, 10) // Limit to 10 markets
+          .sort((a: any, b: any) => {
+            // Sort by multiplier (payout potential)
+            const priceA = a.yes_ask || a.yes_price || a.last_price || 50;
+            const priceB = b.yes_ask || b.yes_price || b.last_price || 50;
+            return (100 / priceB) - (100 / priceA);
+          })
+          .slice(0, 10) // Top 10
           .map((m: any, idx: number) => {
             const price = m.yes_ask || m.yes_price || m.last_price || 50;
-            // Clean up title - remove "yes " prefixes and format better
-            let cleanTitle = m.title || m.ticker;
-            if (cleanTitle.includes('yes ')) {
-              cleanTitle = cleanTitle.replace(/yes /g, '').replace(/,yes /g, ' + ').replace(/,no /g, ' / ');
-            }
-            // Truncate long titles
-            cleanTitle = cleanTitle.substring(0, 70);
+            const multiplier = parseFloat((100 / price).toFixed(1));
             
-            // Build correct Kalshi URL
-            // Use series ticker (event_ticker) for the URL, not full market ticker
-            const urlTicker = (m.event_ticker || m.series_ticker || m.ticker).toLowerCase();
+            // Clean title
+            let title = m.title || `${m.series_name || m.ticker} Market`;
+            title = title.replace(/yes /gi, '').replace(/,yes /gi, ' + ').replace(/,no /gi, ' / ');
+            if (title.length > 60) title = title.substring(0, 60) + '...';
+            
+            // Build URL using event_ticker (series) format
+            const eventTicker = m.event_ticker || m.ticker;
             
             return {
               id: `live-${idx}`,
               ticker: m.ticker,
-              title: cleanTitle,
+              title: title,
               category: (m.category?.toLowerCase() || 'economics') as KalshiTrade['category'],
               yesPrice: price,
               noPrice: 100 - price,
               volume: m.volume || m.trade_volume || 0,
               expiration: m.settlement_date || m.expiration || '2026-12-31',
-              kalshiUrl: `https://kalshi.com/markets/${urlTicker}`,
+              kalshiUrl: `https://kalshi.com/markets/${eventTicker.toLowerCase()}`,
               priceHistory: [price],
               research: {
-                trueProbability: Math.round(price * 1.2), // Estimate 20% edge for low-priced
-                edge: Math.round(price * 0.2),
-                confidence: price < 15 ? 'high' : price < 25 ? 'medium' : 'low',
-                catalyst: 'Live market from Kalshi API',
+                trueProbability: Math.min(Math.round(price * 1.5), 95), // Conservative estimate
+                edge: Math.round(price * 0.3),
+                confidence: price < 10 ? 'high' : price < 20 ? 'medium' : 'low',
+                catalyst: `${m.series_name || m.category} market with ${multiplier}x payout potential`,
                 sources: ['Kalshi']
               },
               payout: {
                 buyPrice: price,
                 potentialReturn: 100,
-                multiplier: parseFloat((100 / price).toFixed(1))
+                multiplier: multiplier
               }
             };
           });
         
-        if (liveTrades.length > 0) {
-          setTrades(liveTrades);
+        if (processedTrades.length > 0) {
+          setTrades(processedTrades);
           setLastUpdated(new Date());
         }
       }
