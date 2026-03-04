@@ -341,12 +341,53 @@ export function TradesView() {
   const [selectedCategory, setSelectedCategory] = useState<KalshiTrade['category'] | 'all'>('all');
   const [sortBy, setSortBy] = useState<'edge' | 'multiplier'>('edge');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [trades] = useState<KalshiTrade[]>(RESEARCHED_TRADES);
+  const [trades, setTrades] = useState<KalshiTrade[]>(RESEARCHED_TRADES);
   const [showEducation, setShowEducation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Note: Live data fetching disabled due to CORS restrictions
-  // Kalshi API requires server-side proxy or authenticated requests
-  // For now, using static data with calculated metrics (R-Score, Kelly)
+  // Fetch live data via Vercel proxy (avoids CORS)
+  const fetchLiveData = async () => {
+    setIsLoading(true);
+    try {
+      // Use Vercel API route as proxy
+      const response = await fetch('/api/kalshi?action=markets');
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      
+      if (data.markets && data.markets.length > 0) {
+        setTrades(prevTrades => prevTrades.map(trade => {
+          const liveMarket = data.markets.find((m: any) => m.ticker === trade.ticker);
+          if (liveMarket) {
+            const newPrice = liveMarket.yes_ask || liveMarket.yes_price || liveMarket.last_price || trade.yesPrice;
+            return {
+              ...trade,
+              yesPrice: newPrice,
+              volume: liveMarket.volume || liveMarket.trade_volume || trade.volume,
+              payout: {
+                buyPrice: newPrice,
+                potentialReturn: 100,
+                multiplier: parseFloat((100 / newPrice).toFixed(1))
+              }
+            };
+          }
+          return trade;
+        }));
+        setLastUpdated(new Date());
+      }
+    } catch (error) {
+      console.error('Failed to fetch live data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Auto-fetch on mount
+  useEffect(() => {
+    fetchLiveData();
+    const interval = setInterval(fetchLiveData, 300000); // 5 minutes
+    return () => clearInterval(interval);
+  }, []);
 
   const filteredTrades = useMemo(() => {
     let result = selectedCategory === 'all' ? trades : trades.filter(t => t.category === selectedCategory);
@@ -420,10 +461,18 @@ export function TradesView() {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold truncate">Kalshi Trades</h1>
           <p className="text-sm text-gray-400 truncate">
-            Static data with R-Score analysis
+            {hasLiveData ? '✓ Live data' : 'Static data'} {lastUpdated && `• Updated ${lastUpdated.toLocaleTimeString()}`}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button 
+            onClick={fetchLiveData} 
+            disabled={isLoading}
+            className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Updating...' : 'Refresh'}
+          </button>
           <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0">
             <BookOpen className="h-4 w-4" /> {showEducation ? 'Hide' : 'Learn'}
           </button>
@@ -496,6 +545,7 @@ export function TradesView() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-400">
         <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-success" /> R-Score &gt;1.5 (+EV)</span>
         <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-warning" /> R-Score 1.0-1.5</span>
+        <span className="ml-auto flex items-center gap-1 shrink-0">{lastUpdated && <><RefreshCw className="h-3 w-3" /> {lastUpdated.toLocaleTimeString()}</>}</span>
       </div>
 
       {/* Trade Cards - Mobile: Compact / Desktop: Detailed */}
