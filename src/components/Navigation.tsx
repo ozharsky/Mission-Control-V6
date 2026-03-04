@@ -35,7 +35,7 @@ const navItems: NavItem[] = [
 ];
 
 // Primary items for bottom nav (most used)
-const primaryNavItems = ['dashboard', 'tasks', 'agents', 'projects', 'settings'];
+const primaryNavItems = ['dashboard', 'tasks', 'trades', 'projects', 'settings'];
 
 export function Navigation({ activeSection, onSectionChange }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
