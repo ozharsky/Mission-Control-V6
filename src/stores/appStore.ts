@@ -465,6 +465,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const jobWithMeta = {
         ...job,
+        requirements: job.requirements || [],
+        tags: job.tags || [],
+        notes: job.notes || '',
         addedAt: new Date().toISOString(),
       };
       await pushData('v6/jobs', jobWithMeta);

@@ -516,7 +516,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                           <p className="text-sm">{job.description || 'No description'}</p>
                         </div>
 
-                        {job.requirements.length > 0 && (
+                        {(job.requirements || []).length > 0 && (
                           <div>
                             <h4 className="text-sm font-medium text-gray-400 mb-2">Requirements</h4>
                             <ul className="list-disc list-inside text-sm space-y-1">
@@ -569,7 +569,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                           </div>
                         )}
 
-                        {job.tags.length > 0 && (
+                        {(job.tags || []).length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {job.tags.map(tag => (
                               <span key={tag} className="rounded-full bg-surface-hover px-2 py-1 text-xs text-gray-400">
