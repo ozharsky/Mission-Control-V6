@@ -45,6 +45,10 @@ export class DiscordNotificationService {
   /**
    * Queue notification for agent's Discord channel
    */
+  /**
+   * Send Discord message immediately via webhook server
+   * Falls back to queuing if server is unavailable
+   */
   async notifyAgentOfTask(task: AgentTask, previousOutput?: string): Promise<void> {
     const channelId = AGENT_CHANNELS[task.assignee];
     const agentDiscordId = AGENT_DISCORD_IDS[task.assignee];
@@ -56,13 +60,11 @@ export class DiscordNotificationService {
     const agentName = AGENT_NAMES[task.assignee];
     const agentEmoji = AGENT_EMOJIS[task.assignee];
     
-    // Include mention so bot responds (with allowBots: true and requireMention: true)
     const mention = agentDiscordId ? `<@${agentDiscordId}>` : '';
     
     let message = `${mention} ${agentEmoji} **New Task for ${agentName}**\n\n` +
       `**${task.title}**\n`;
     
-    // Add previous agent's output if available
     if (previousOutput) {
       message += `\n📋 **Previous Agent's Output:**\n` +
         `\`\`\`\n${previousOutput.substring(0, 1500)}${previousOutput.length > 1500 ? '...' : ''}\n\`\`\`\n`;
@@ -74,6 +76,23 @@ export class DiscordNotificationService {
       `🆔 Task ID: \`${task.id}\`\n\n` +
       `✏️ Type your response to complete this task.`;
 
+    // Try to send via webhook server first
+    try {
+      const response = await fetch('http://localhost:3001/send-discord', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId, message })
+      });
+      
+      if (response.ok) {
+        console.log(`[DISCORD SENT] ${task.assignee}: ${task.title}`);
+        return;
+      }
+    } catch (error) {
+      console.log('[WEBHOOK] Server unavailable, falling back to queue');
+    }
+    
+    // Fallback: queue to Firebase
     await this.queueNotification(channelId, message, task.id);
   }
 

@@ -10,6 +10,8 @@
     "init-v6": "tsx scripts/init-v6.ts"
   },
   "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "firebase": "^10.8.0",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",
