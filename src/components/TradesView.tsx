@@ -164,18 +164,18 @@ export function TradesView() {
         { series: 'KXSOL', category: 'crypto', name: 'Solana' },
         { series: 'KXADA', category: 'crypto', name: 'Cardano' },
         { series: 'KXDOT', category: 'crypto', name: 'Polkadot' },
-        // Politics (5)
-        { series: 'KXTRUMP', category: 'politics', name: 'Trump' },
-        { series: 'KXTRUTHSOCIAL', category: 'politics', name: 'Trump Social' },
-        { series: 'KX538APPROVE', category: 'politics', name: 'Approval Ratings' },
+        // Politics (5) - CORRECTED tickers
+        { series: 'KXTRUTHSOCIAL', category: 'politics', name: 'Trump Truth Social' },
+        { series: 'KXVOTEHUBTRUMPUPDOWN', category: 'politics', name: 'Trump Approval' },
         { series: 'KXTRUMPZELENSKYY', category: 'politics', name: 'Trump-Zelenskyy' },
         { series: 'KXTRUMPMEET', category: 'politics', name: 'Trump Meetings' },
-        // Economics (5)
-        { series: 'KXFED', category: 'economics', name: 'Fed Policy' },
+        { series: 'KXTRUMPOUT', category: 'politics', name: 'Trump Out' },
+        // Economics (5) - CORRECTED tickers
+        { series: 'FED', category: 'economics', name: 'Fed Funds Rate' },
         { series: 'KXCPI', category: 'economics', name: 'CPI Inflation' },
-        { series: 'KXJOBS', category: 'economics', name: 'Jobs Report' },
-        { series: 'KXGDP', category: 'economics', name: 'GDP Growth' },
-        { series: 'KXIR', category: 'economics', name: 'Interest Rates' }
+        { series: 'GDP', category: 'economics', name: 'GDP Growth' },
+        { series: 'FRM', category: 'economics', name: 'Mortgage Rate' },
+        { series: 'PAYROLLS', category: 'economics', name: 'Jobs Report' }
       ];
       
       let allMarkets: any[] = [];
@@ -245,12 +245,14 @@ export function TradesView() {
             // Detect category from ticker prefix
             const tickerPrefix = m.ticker.split('-')[0].toUpperCase();
             let detectedCategory: KalshiTrade['category'] = 'economics';
-            if (['KXHIGHTSEA', 'KXHIGHNY', 'KXHIGHCHI', 'KXHIGHMIA', 'KXHIGHTPHX', 'KXRAINSEA'].includes(tickerPrefix)) {
+            if (['KXHIGHTSEA', 'KXHIGHNY', 'KXHIGHCHI', 'KXHIGHMIA', 'KXHIGHTPHX', 'KXRAINSEA', 'KXRAINSFO', 'KXSNOW NYC'].includes(tickerPrefix)) {
               detectedCategory = 'weather';
             } else if (['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
               detectedCategory = 'crypto';
-            } else if (['KXTRUMP', 'KXTRUTHSOCIAL', 'KX538APPROVE', 'KXTRUMPZELENSKYY', 'KXTRUMPMEET'].includes(tickerPrefix)) {
+            } else if (['KXTRUTHSOCIAL', 'KXVOTEHUBTRUMPUPDOWN', 'KXTRUMPZELENSKYY', 'KXTRUMPMEET', 'KXTRUMPOUT', 'KXTRUMPSAY', 'KXTRUMPFAV', 'KXTRUMPAPPROVALYEAR'].includes(tickerPrefix)) {
               detectedCategory = 'politics';
+            } else if (['FED', 'KXCPI', 'GDP', 'FRM', 'PAYROLLS', 'CPI', 'NGDP', 'KXGDP', 'KXJOBS', 'KXIR'].includes(tickerPrefix)) {
+              detectedCategory = 'economics';
             }
             
             return {
