@@ -423,7 +423,6 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                     tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
                     width={35}
                   />
-                  />
                   <Tooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
