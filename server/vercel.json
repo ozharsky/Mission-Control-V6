@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "name": "mission-control-discord-webhook",
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/health",
+      "dest": "/api/health.js"
+    },
+    {
+      "src": "/send-discord",
+      "dest": "/api/send-discord.js"
+    },
+    {
+      "src": "/send-batch",
+      "dest": "/api/send-batch.js"
+    }
+  ],
+  "env": {
+    "OPENCLAW_TOKEN": "@openclaw-token"
+  }
+}
