@@ -315,8 +315,8 @@ export function JobsView({ jobs }: JobsViewProps) {
 
       {/* Search and Filters */}
       <div className="rounded-xl border border-surface-hover bg-surface p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex-1 min-w-[200px]">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+          <div className="flex-1 min-w-0 w-full sm:min-w-[200px]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
@@ -329,31 +329,33 @@ export function JobsView({ jobs }: JobsViewProps) {
             </div>
           </div>
 
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex min-h-[44px] items-center gap-2 rounded-lg px-4 py-2 ${showFilters ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-          </button>
-
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Add Job
-          </button>
-
-          {jobs.length === 0 && (
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={handleImportFoundJobs}
-              className="flex min-h-[44px] items-center gap-2 rounded-lg border border-primary px-4 py-2 text-primary hover:bg-primary hover:text-white"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex min-h-[44px] items-center gap-2 rounded-lg px-4 py-2 shrink-0 ${showFilters ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
             >
-              <Bot className="h-4 w-4" />
-              Import Found Jobs
+              <Filter className="h-4 w-4" />
+              Filters
             </button>
-          )}
+
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              Add Job
+            </button>
+
+            {jobs.length === 0 && (
+              <button
+                onClick={handleImportFoundJobs}
+                className="flex min-h-[44px] items-center gap-2 rounded-lg border border-primary px-4 py-2 text-primary hover:bg-primary hover:text-white shrink-0"
+              >
+                <Bot className="h-4 w-4" />
+                Import Found Jobs
+              </button>
+            )}
+          </div>
         </div>
 
         {showFilters && (

@@ -281,8 +281,8 @@ export function InventoryView({ items }: InventoryViewProps) {
 
       {/* Filters and Actions */}
       <div className="rounded-xl border border-surface-hover bg-surface p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex-1 min-w-[200px]">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+          <div className="flex-1 min-w-0 w-full sm:min-w-[200px]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
@@ -295,40 +295,40 @@ export function InventoryView({ items }: InventoryViewProps) {
             </div>
           </div>
 
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value as InventoryCategory | 'all')}
-            className="rounded-lg border border-surface-hover bg-background px-3 py-2 text-white"
-          >
-            <option value="all">All Categories</option>
-            {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value as InventoryCategory | 'all')}
+              className="rounded-lg border border-surface-hover bg-background px-3 py-2 text-white shrink-0"
+            >
+              <option value="all">All Categories</option>
+              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
 
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as InventoryStatus | 'all')}
-            className="rounded-lg border border-surface-hover bg-background px-3 py-2 text-white"
-          >
-            <option value="all">All Status</option>
-            {Object.entries(STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as InventoryStatus | 'all')}
+              className="rounded-lg border border-surface-hover bg-background px-3 py-2 text-white shrink-0"
+            >
+              <option value="all">All Status</option>
+              {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
 
-          <button
-            onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-            className={`flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2 ${showLowStockOnly ? 'bg-warning text-white' : 'border border-surface-hover text-gray-400'}`}
-          >
-            <AlertTriangle className="h-4 w-4" />
-            Low Stock
-          </button>
+            <button
+              onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+              className={`flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2 shrink-0 ${showLowStockOnly ? 'bg-warning text-white' : 'border border-surface-hover text-gray-400'}`}
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Low Stock
+            </button>
 
-          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleExport}
-              className="flex min-h-[44px] items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-gray-400 hover:bg-surface-hover"
+              className="flex min-h-[44px] items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-gray-400 hover:bg-surface-hover shrink-0"
             >
               <Download className="h-4 w-4" />
               Export
@@ -336,7 +336,7 @@ export function InventoryView({ items }: InventoryViewProps) {
 
             <button
               onClick={() => setShowImportModal(true)}
-              className="flex min-h-[44px] items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-gray-400 hover:bg-surface-hover"
+              className="flex min-h-[44px] items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-gray-400 hover:bg-surface-hover shrink-0"
             >
               <Upload className="h-4 w-4" />
               Import
@@ -344,7 +344,7 @@ export function InventoryView({ items }: InventoryViewProps) {
 
             <button
               onClick={() => setShowForm(true)}
-              className="flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
+              className="flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white shrink-0"
             >
               <Plus className="h-4 w-4" />
               Add Item
