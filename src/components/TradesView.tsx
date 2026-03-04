@@ -220,8 +220,8 @@ export function TradesView() {
             title = title.replace(/yes /gi, '').replace(/,yes /gi, ' + ').replace(/,no /gi, ' / ');
             if (title.length > 60) title = title.substring(0, 60) + '...';
             
-            // Build URL using event_ticker (series) format
-            const eventTicker = m.event_ticker || m.ticker;
+            // Build URL using the market ticker (full ticker with strike)
+            const urlTicker = m.ticker.toLowerCase();
             
             return {
               id: `live-${idx}`,
@@ -232,7 +232,7 @@ export function TradesView() {
               noPrice: 100 - price,
               volume: m.volume || m.trade_volume || 0,
               expiration: m.settlement_date || m.expiration || '2026-12-31',
-              kalshiUrl: `https://kalshi.com/markets/${eventTicker.toLowerCase()}`,
+              kalshiUrl: `https://kalshi.com/markets/${urlTicker}`,
               priceHistory: [price],
               research: {
                 trueProbability: Math.min(Math.round(price * 1.5), 95), // Conservative estimate
