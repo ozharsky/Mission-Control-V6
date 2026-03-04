@@ -1,523 +1,327 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { 
-  FileText, Plus, Calendar, TrendingUp, CheckCircle, 
-  Package, DollarSign, Briefcase, Clock, Download, 
-  Mail, Settings, ChevronRight, BarChart3, PieChart,
-  X, RefreshCw, Send, Trash2, Edit2
+  TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, 
+  Calendar, Target, BarChart3, PieChart, ArrowUpRight, ArrowDownRight,
+  Printer, CheckCircle2, Clock
 } from 'lucide-react';
-import { useAppStore } from '../stores/appStore';
-import type { Report, ReportSchedule, ReportType } from '../types/reports';
-import { REPORT_TYPE_LABELS, WEEKDAYS } from '../types/reports';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 interface ReportsViewProps {
-  reports: Report[];
+  revenue: any;
+  tasks: { pending: any[]; inProgress: any[]; completed: any[] };
+  projects: any[];
+  inventory: any[];
+  printers: any[];
 }
 
-export function ReportsView({ reports }: ReportsViewProps) {
-  const { generateReport, deleteReport, addReportSchedule, updateReportSchedule, deleteReportSchedule, reportSchedules } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'reports' | 'schedules' | 'generate'>('reports');
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-  // Generate form state
-  const [generateForm, setGenerateForm] = useState({
-    title: '',
-    type: 'weekly' as ReportType,
-    startDate: '',
-    endDate: '',
-    sections: ['revenue', 'tasks', 'projects', 'inventory'],
-  });
+export function ReportsView({ revenue, tasks, projects, inventory, printers }: ReportsViewProps) {
+  // Revenue Analytics
+  const revenueData = useMemo(() => {
+    if (!revenue) return [];
+    return Object.entries(revenue)
+      .filter(([month, r]: [string, any]) => month && r && typeof r === 'object')
+      .map(([month, r]: [string, any]) => ({ month, value: r?.value || 0, orders: r?.orders || 0 }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  }, [revenue]);
 
-  // Schedule form state
-  const [scheduleForm, setScheduleForm] = useState<Partial<ReportSchedule>>({
-    name: '',
-    type: 'weekly',
-    enabled: true,
-    dayOfWeek: 1, // Monday
-    dayOfMonth: 1,
-    recipients: [],
-    sections: ['revenue', 'tasks', 'projects', 'inventory'],
-  });
-
-  const [newRecipient, setNewRecipient] = useState('');
-
-  // Use reportSchedules from store
-  const schedules = reportSchedules || [];
-
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await generateReport({
-      title: generateForm.title || `${REPORT_TYPE_LABELS[generateForm.type]} - ${new Date().toLocaleDateString()}`,
-      type: generateForm.type,
-      dateRange: {
-        start: generateForm.startDate,
-        end: generateForm.endDate,
-      },
-      sections: generateForm.sections,
-    });
-    setShowGenerateModal(false);
-    setActiveTab('reports');
-  };
-
-  const handleCreateSchedule = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!scheduleForm.name) return;
+  const revenueStats = useMemo(() => {
+    if (revenueData.length === 0) return null;
+    const total = revenueData.reduce((sum, d) => sum + d.value, 0);
+    const avg = total / revenueData.length;
+    const lastMonth = revenueData[revenueData.length - 1]?.value || 0;
+    const prevMonth = revenueData[revenueData.length - 2]?.value || 0;
+    const growth = prevMonth > 0 ? ((lastMonth - prevMonth) / prevMonth) * 100 : 0;
+    const totalOrders = revenueData.reduce((sum, d) => sum + d.orders, 0);
+    const avgOrderValue = totalOrders > 0 ? total / totalOrders : 0;
     
-    await addReportSchedule({
-      name: scheduleForm.name,
-      type: scheduleForm.type as ReportType,
-      enabled: scheduleForm.enabled ?? true,
-      dayOfWeek: scheduleForm.dayOfWeek,
-      dayOfMonth: scheduleForm.dayOfMonth,
-      recipients: scheduleForm.recipients || [],
-      sections: scheduleForm.sections || [],
-    });
-    setShowScheduleModal(false);
-  };
+    return { total, avg, growth, totalOrders, avgOrderValue, months: revenueData.length };
+  }, [revenueData]);
+
+  // Task Analytics
+  const taskStats = useMemo(() => {
+    const total = tasks.pending.length + tasks.inProgress.length + tasks.completed.length;
+    const completionRate = total > 0 ? Math.round((tasks.completed.length / total) * 100) : 0;
+    const urgent = tasks.pending.filter(t => t.priority === 'high').length;
+    const overdue = tasks.pending.filter(t => t.dueDate && new Date(t.dueDate) < new Date()).length;
+    
+    const byStatus = [
+      { name: 'Pending', value: tasks.pending.length, color: COLORS[3] },
+      { name: 'In Progress', value: tasks.inProgress.length, color: COLORS[0] },
+      { name: 'Completed', value: tasks.completed.length, color: COLORS[1] },
+    ].filter(s => s.value > 0);
+    
+    return { total, completionRate, urgent, overdue, byStatus };
+  }, [tasks]);
+
+  // Project Analytics
+  const projectStats = useMemo(() => {
+    const active = projects.filter(p => p.status !== 'done');
+    const completed = projects.filter(p => p.status === 'done');
+    const avgProgress = active.length > 0 
+      ? Math.round(active.reduce((sum, p) => sum + (p.progress || 0), 0) / active.length)
+      : 0;
+    
+    const byStatus = [
+      { name: 'Active', value: active.length, color: COLORS[0] },
+      { name: 'Completed', value: completed.length, color: COLORS[1] },
+    ].filter(s => s.value > 0);
+    
+    return { total: projects.length, active: active.length, completed: completed.length, avgProgress, byStatus };
+  }, [projects]);
+
+  // Inventory Analytics
+  const inventoryStats = useMemo(() => {
+    const totalValue = inventory.reduce((sum, i) => sum + (i.quantity * i.unitCost), 0);
+    const lowStock = inventory.filter(i => i.quantity <= i.minStock).length;
+    const outOfStock = inventory.filter(i => i.quantity === 0).length;
+    
+    return { totalItems: inventory.length, totalValue, lowStock, outOfStock };
+  }, [inventory]);
+
+  // Printer Analytics
+  const printerStats = useMemo(() => {
+    const online = printers.filter(p => p.status === 'operational' || p.status === 'printing').length;
+    const printing = printers.filter(p => p.status === 'printing').length;
+    const offline = printers.filter(p => p.status === 'offline').length;
+    
+    return { total: printers.length, online, printing, offline };
+  }, [printers]);
 
   const formatCurrency = (value: number) => 
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-
-  const formatDate = (dateStr: string) => 
-    new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-2xl border border-surface-hover bg-surface p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <BarChart3 className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Reports</h2>
-              <p className="text-sm text-gray-400">{reports.length} generated • {schedules.length} scheduled</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setActiveTab('reports')}
-              className={`min-h-[44px] rounded-lg px-4 py-2 ${activeTab === 'reports' ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
-            >
-              Reports
-            </button>
-            <button
-              onClick={() => setActiveTab('schedules')}
-              className={`min-h-[44px] rounded-lg px-4 py-2 ${activeTab === 'schedules' ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
-            >
-              Schedules
-            </button>
-            <button
-              onClick={() => setShowGenerateModal(true)}
-              className="flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
-            >
-              <Plus className="h-4 w-4" />
-              Generate
-            </button>
-          </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Reports & Analytics</h1>
+          <p className="text-sm text-gray-400">Business insights and performance metrics</p>
         </div>
       </div>
 
-      {/* Reports List */}
-      {activeTab === 'reports' && (
-        <div className="space-y-4">
-          {reports.length === 0 ? (
-            <div className="rounded-xl border border-surface-hover bg-surface p-12 text-center">
-              <FileText className="mx-auto mb-4 h-12 w-12 text-gray-500" />
-              <p className="text-gray-400">No reports yet</p>
-              <p className="text-sm text-gray-500">Generate your first report to see insights</p>
-              <button
-                onClick={() => setShowGenerateModal(true)}
-                className="mt-4 rounded-lg bg-primary px-4 py-2 text-white"
-              >
-                Generate Report
-              </button>
+      {/* Revenue Section */}
+      {revenueStats && (
+        <div className="rounded-2xl border border-surface-hover bg-surface p-6">
+          <div className="mb-6 flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10">
+              <DollarSign className="h-5 w-5 text-success" />
             </div>
-          ) : (
-            reports.map(report => (
-              <div
-                key={report.id}
-                onClick={() => setSelectedReport(report)}
-                className="cursor-pointer rounded-xl border border-surface-hover bg-surface p-4 transition-all hover:border-primary"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">{report.title}</h3>
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                        {REPORT_TYPE_LABELS[report.type]}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-400">
-                      {formatDate(report.dateRange.start)} - {formatDate(report.dateRange.end)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); }}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg p-2 text-gray-400 hover:bg-surface-hover"
-                    >
-                      <Download className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteReport(report.id); }}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg p-2 text-gray-400 hover:bg-danger/10 hover:text-danger"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
+            <h2 className="text-xl font-semibold">Revenue Analytics</h2>
+          </div>
 
-                {/* Summary Stats */}
-                {report.summary && (
-                  <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
-                    <div className="rounded-lg bg-surface-hover p-3">
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <DollarSign className="h-3 w-3" /> Revenue
-                      </div>
-                      <div className="text-lg font-semibold">{formatCurrency(report.summary.revenue.total)}</div>
-                    </div>
-                    <div className="rounded-lg bg-surface-hover p-3">
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <CheckCircle className="h-3 w-3" /> Tasks Done
-                      </div>
-                      <div className="text-lg font-semibold">{report.summary.tasks.completed}</div>
-                    </div>
-                    <div className="rounded-lg bg-surface-hover p-3">
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <Briefcase className="h-3 w-3" /> Projects
-                      </div>
-                      <div className="text-lg font-semibold">{report.summary.projects.completed}</div>
-                    </div>
-                    <div className="rounded-lg bg-surface-hover p-3">
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <Package className="h-3 w-3" /> Low Stock
-                      </div>
-                      <div className="text-lg font-semibold">{report.summary.inventory.lowStock}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard 
+              title="Total Revenue" 
+              value={formatCurrency(revenueStats.total)} 
+              icon={DollarSign}
+              trend={revenueStats.growth}
+            />
+            <StatCard 
+              title="Monthly Average" 
+              value={formatCurrency(revenueStats.avg)} 
+              icon={Calendar}
+            />
+            <StatCard 
+              title="Total Orders" 
+              value={revenueStats.totalOrders.toString()} 
+              icon={ShoppingCart}
+            />
+            <StatCard 
+              title="Avg Order Value" 
+              value={formatCurrency(revenueStats.avgOrderValue)} 
+              icon={Target}
+            />
+          </div>
+
+          {revenueData.length > 1 && (
+            <div className="mt-6 h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={revenueData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="month" tick={{ fill: '#9ca3af', fontSize: 11 }} />
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
+                    formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                  />
+                  <Line type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e' }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
       )}
 
-      {/* Schedules Tab */}
-      {activeTab === 'schedules' && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              onClick={() => setShowScheduleModal(true)}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
-            >
-              <Plus className="h-4 w-4" />
-              Add Schedule
-            </button>
+      {/* Task & Project Section */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Task Analytics */}
+        <div className="rounded-2xl border border-surface-hover bg-surface p-6">
+          <div className="mb-6 flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+            </div>
+            <h2 className="text-xl font-semibold">Task Analytics</h2>
           </div>
 
-          {schedules.length === 0 ? (
-            <div className="rounded-xl border border-surface-hover bg-surface p-12 text-center">
-              <Clock className="mx-auto mb-4 h-12 w-12 text-gray-500" />
-              <p className="text-gray-400">No scheduled reports</p>
-              <p className="text-sm text-gray-500">Set up automatic report generation</p>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-primary">{taskStats.total}</div>
+              <div className="text-sm text-gray-500">Total Tasks</div>
             </div>
-          ) : (
-            schedules.map(schedule => (
-              <div key={schedule.id} className="rounded-xl border border-surface-hover bg-surface p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold">{schedule.name}</h3>
-                    <p className="text-sm text-gray-400">
-                      {REPORT_TYPE_LABELS[schedule.type]} • 
-                      {schedule.type === 'weekly' ? WEEKDAYS[schedule.dayOfWeek || 0] 
-                        : `Day ${schedule.dayOfMonth} of month`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-2 py-1 text-xs ${schedule.enabled ? 'bg-success/20 text-success' : 'bg-gray-700 text-gray-400'}`}>
-                      {schedule.enabled ? 'Active' : 'Paused'}
-                    </span>
-                    <button className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover">
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
+            <div className="text-center">
+              <div className="text-3xl font-bold text-success">{taskStats.completionRate}%</div>
+              <div className="text-sm text-gray-500">Completion</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-danger">{taskStats.urgent}</div>
+              <div className="text-sm text-gray-500">Urgent</div>
+            </div>
+          </div>
+
+          {taskStats.byStatus.length > 0 && (
+            <div className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <RePieChart>
+                  <Pie
+                    data={taskStats.byStatus}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {taskStats.byStatus.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }} />
+                </RePieChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
-      )}
 
-      {/* Generate Modal */}
-      {showGenerateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-surface-hover bg-surface p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xl font-semibold">Generate Report</h3>
-              <button onClick={() => setShowGenerateModal(false)} className="text-gray-400 hover:text-white">
-                <X className="h-5 w-5" />
-              </button>
+        {/* Project Analytics */}
+        <div className="rounded-2xl border border-surface-hover bg-surface p-6">
+          <div className="mb-6 flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10">
+              <BarChart3 className="h-5 w-5 text-warning" />
             </div>
-
-            <form onSubmit={handleGenerate} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm text-gray-400">Report Title</label>
-                <input
-                  type="text"
-                  value={generateForm.title}
-                  onChange={(e) => setGenerateForm({ ...generateForm, title: e.target.value })}
-                  placeholder={`${REPORT_TYPE_LABELS[generateForm.type]} - ${new Date().toLocaleDateString()}`}
-                  className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm text-gray-400">Report Type</label>
-                <select
-                  value={generateForm.type}
-                  onChange={(e) => setGenerateForm({ ...generateForm, type: e.target.value as ReportType })}
-                  className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white"
-                >
-                  {Object.entries(REPORT_TYPE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm text-gray-400">Start Date</label>
-                  <input
-                    type="date"
-                    value={generateForm.startDate}
-                    onChange={(e) => setGenerateForm({ ...generateForm, startDate: e.target.value })}
-                    className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm text-gray-400">End Date</label>
-                  <input
-                    type="date"
-                    value={generateForm.endDate}
-                    onChange={(e) => setGenerateForm({ ...generateForm, endDate: e.target.value })}
-                    className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-gray-400">Include Sections</label>
-                <div className="flex flex-wrap gap-2">
-                  {['revenue', 'tasks', 'projects', 'inventory', 'jobs'].map(section => (
-                    <button
-                      key={section}
-                      type="button"
-                      onClick={() => {
-                        const sections = generateForm.sections.includes(section)
-                          ? generateForm.sections.filter(s => s !== section)
-                          : [...generateForm.sections, section];
-                        setGenerateForm({ ...generateForm, sections });
-                      }}
-                      className={`rounded-lg px-3 py-2 text-sm capitalize ${
-                        generateForm.sections.includes(section)
-                          ? 'bg-primary text-white'
-                          : 'border border-surface-hover text-gray-400'
-                      }`}
-                    >
-                      {section}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowGenerateModal(false)}
-                  className="flex-1 rounded-lg border border-surface-hover py-2 text-gray-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 rounded-lg bg-primary py-2 font-medium text-white"
-                >
-                  Generate Report
-                </button>
-              </div>
-            </form>
+            <h2 className="text-xl font-semibold">Project Analytics</h2>
           </div>
+
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-primary">{projectStats.total}</div>
+              <div className="text-sm text-gray-500">Total</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-warning">{projectStats.active}</div>
+              <div className="text-sm text-gray-500">Active</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-success">{projectStats.avgProgress}%</div>
+              <div className="text-sm text-gray-500">Avg Progress</div>
+            </div>
+          </div>
+
+          {projectStats.byStatus.length > 0 && (
+            <div className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={projectStats.byStatus} layout="vertical" margin={{ left: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" tick={{ fill: '#9ca3af', fontSize: 12 }} width={80} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }} />
+                  <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Report Detail Modal */}
-      {selectedReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-surface-hover bg-surface p-6">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold">{selectedReport.title}</h3>
-                <p className="text-sm text-gray-400">
-                  {formatDate(selectedReport.dateRange?.start)} - {formatDate(selectedReport.dateRange?.end)}
-                </p>
-              </div>
-              <button 
-                onClick={() => setSelectedReport(null)}
-                className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      {/* Inventory & Printer Section */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Inventory Summary */}
+        <div className="rounded-2xl border border-surface-hover bg-surface p-6">
+          <div className="mb-6 flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-info/10">
+              <Package className="h-5 w-5 text-info" />
             </div>
+            <h2 className="text-xl font-semibold">Inventory Summary</h2>
+          </div>
 
-            {/* Summary */}
-            {selectedReport.summary && (
-              <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-                <div className="rounded-lg bg-surface-hover p-3">
-                  <div className="flex items-center gap-1 text-xs text-gray-400">
-                    <DollarSign className="h-3 w-3" /> Revenue
-                  </div>
-                  <div className="text-lg font-semibold">{formatCurrency(selectedReport.summary.revenue?.total || 0)}</div>
-                </div>
-                <div className="rounded-lg bg-surface-hover p-3">
-                  <div className="flex items-center gap-1 text-xs text-gray-400">
-                    <CheckCircle className="h-3 w-3" /> Tasks Done
-                  </div>
-                  <div className="text-lg font-semibold">{selectedReport.summary.tasks?.completed || 0}</div>
-                </div>
-                <div className="rounded-lg bg-surface-hover p-3">
-                  <div className="flex items-center gap-1 text-xs text-gray-400">
-                    <Briefcase className="h-3 w-3" /> Projects
-                  </div>
-                  <div className="text-lg font-semibold">{selectedReport.summary.projects?.completed || 0}</div>
-                </div>
-                <div className="rounded-lg bg-surface-hover p-3">
-                  <div className="flex items-center gap-1 text-xs text-gray-400">
-                    <Package className="h-3 w-3" /> Low Stock
-                  </div>
-                  <div className="text-lg font-semibold">{selectedReport.summary.inventory?.lowStock || 0}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Sections */}
-            <div className="space-y-6">
-              {selectedReport.sections?.map((section: any) => (
-                <div key={section.id} className="rounded-xl border border-surface-hover bg-background p-4">
-                  <h4 className="mb-3 font-semibold capitalize">{section.title}</h4>
-                  
-                  {/* Insights */}
-                  {section.insights?.length > 0 && (
-                    <div className="mb-4 space-y-1">
-                      {section.insights.map((insight: string, idx: number) => (
-                        <div key={idx} className="flex items-start gap-2 text-sm text-gray-400">
-                          <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-                          {insight}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Section-specific data display */}
-                  {section.type === 'revenue' && section.data?.monthlyData?.length > 0 && (
-                    <div className="mt-4">
-                      <div className="text-sm text-gray-500 mb-2">Monthly Revenue</div>
-                      <div className="space-y-2">
-                        {section.data.monthlyData.slice(-6).map((item: any) => (
-                          <div key={item.month} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-400">{item.month}</span>
-                            <span className="font-medium">${item.value?.toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {section.type === 'tasks' && (
-                    <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-lg bg-surface-hover p-2">
-                        <div className="text-lg font-semibold text-success">{section.data?.completed || 0}</div>
-                        <div className="text-xs text-gray-500">Completed</div>
-                      </div>
-                      <div className="rounded-lg bg-surface-hover p-2">
-                        <div className="text-lg font-semibold text-primary">{section.data?.inProgress || 0}</div>
-                        <div className="text-xs text-gray-500">In Progress</div>
-                      </div>
-                      <div className="rounded-lg bg-surface-hover p-2">
-                        <div className="text-lg font-semibold text-warning">{section.data?.pending || 0}</div>
-                        <div className="text-xs text-gray-500">Pending</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {section.type === 'inventory' && (
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-gray-400">Total Value</span>
-                        <span className="font-medium">${section.data?.totalValue?.toLocaleString()}</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                        <div className="rounded bg-success/10 p-2 text-success">
-                          {section.data?.inStock || 0} In Stock
-                        </div>
-                        <div className="rounded bg-warning/10 p-2 text-warning">
-                          {section.data?.lowStock || 0} Low
-                        </div>
-                        <div className="rounded bg-danger/10 p-2 text-danger">
-                          {section.data?.outOfStock || 0} Out
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {section.type === 'jobs' && (
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="rounded-lg bg-surface-hover p-2 text-center">
-                        <div className="text-lg font-semibold">{section.data?.new || 0}</div>
-                        <div className="text-xs text-gray-500">New Opportunities</div>
-                      </div>
-                      <div className="rounded-lg bg-surface-hover p-2 text-center">
-                        <div className="text-lg font-semibold">{section.data?.applied || 0}</div>
-                        <div className="text-xs text-gray-500">Applied</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl bg-surface-hover/50 p-4">
+              <div className="text-sm text-gray-500 mb-1">Total Items</div>
+              <div className="text-2xl font-bold">{inventoryStats.totalItems}</div>
             </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setSelectedReport(null)}
-                className="flex-1 rounded-lg border border-surface-hover py-2 text-gray-400"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  // Export report as JSON
-                  const dataStr = JSON.stringify(selectedReport, null, 2);
-                  const blob = new Blob([dataStr], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `report-${selectedReport.title?.replace(/\s+/g, '-').toLowerCase()}.json`;
-                  a.click();
-                }}
-                className="flex-1 rounded-lg bg-primary py-2 font-medium text-white"
-              >
-                Export Report
-              </button>
+            <div className="rounded-xl bg-surface-hover/50 p-4">
+              <div className="text-sm text-gray-500 mb-1">Inventory Value</div>
+              <div className="text-2xl font-bold text-success">{formatCurrency(inventoryStats.totalValue)}</div>
+            </div>
+            <div className="rounded-xl bg-warning/10 p-4">
+              <div className="text-sm text-warning mb-1">Low Stock</div>
+              <div className="text-2xl font-bold text-warning">{inventoryStats.lowStock}</div>
+            </div>
+            <div className="rounded-xl bg-danger/10 p-4">
+              <div className="text-sm text-danger mb-1">Out of Stock</div>
+              <div className="text-2xl font-bold text-danger">{inventoryStats.outOfStock}</div>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Printer Status */}
+        <div className="rounded-2xl border border-surface-hover bg-surface p-6">
+          <div className="mb-6 flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10">
+              <Printer className="h-5 w-5 text-secondary" />
+            </div>
+            <h2 className="text-xl font-semibold">Printer Status</h2>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center rounded-xl bg-success/10 p-4">
+              <div className="text-3xl font-bold text-success">{printerStats.online}</div>
+              <div className="text-sm text-gray-500 mt-1">Online</div>
+            </div>
+            <div className="text-center rounded-xl bg-primary/10 p-4">
+              <div className="text-3xl font-bold text-primary">{printerStats.printing}</div>
+              <div className="text-sm text-gray-500 mt-1">Printing</div>
+            </div>
+            <div className="text-center rounded-xl bg-gray-500/10 p-4">
+              <div className="text-3xl font-bold text-gray-400">{printerStats.offline}</div>
+              <div className="text-sm text-gray-500 mt-1">Offline</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Stat Card Component
+function StatCard({ title, value, icon: Icon, trend }: { title: string; value: string; icon: any; trend?: number }) {
+  return (
+    <div className="rounded-xl bg-surface-hover/50 p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className="h-4 w-4 text-gray-400" />
+        <span className="text-sm text-gray-500">{title}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xl font-bold">{value}</span>
+        {trend !== undefined && trend !== 0 && (
+          <span className={`flex items-center text-xs ${trend >= 0 ? 'text-success' : 'text-danger'}`}>
+            {trend >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+            {Math.abs(trend).toFixed(0)}%
+          </span>
+        )}
+      </div>
     </div>
   );
 }

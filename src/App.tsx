@@ -228,7 +228,7 @@ function App() {
         return <InventoryView items={inventory} />;
 
       case 'reports':
-        return <ReportsView reports={reports} />;
+        return <ReportsView revenue={revenue} tasks={tasks} projects={projects} inventory={inventory} printers={printers} />;
 
       case 'calendar':
         return <CalendarView events={[]} projects={projects} tasks={tasks} />;
