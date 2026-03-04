@@ -1,12 +1,6 @@
 /**
- * Agent Task Service - FIXED VERSION
- * Mission Control V6
- * 
- * ISSUES FOUND AND FIXED:
- * 1. Missing AGENT_EMOJIS, AGENT_NAMES, AGENT_DISCORD_IDS imports
- * 2. notifyAgent function had template literal issues
- * 3. completeWorkflowTask wasn't handling errors properly
- * 4. Missing transaction safety for workflow updates
+ * Agent Task Service
+ * Mission Control V6 - Firebase Operations (Modular API v9+)
  */
 
 import { 
@@ -16,7 +10,8 @@ import {
   get, 
   update as firebaseUpdate, 
   remove,
-  runTransaction
+  child,
+  onValue
 } from 'firebase/database';
 import {
   AgentTask,
@@ -28,25 +23,8 @@ import {
   AgentId,
   TaskStatus
 } from '../types/agentTask';
-import { 
-  AGENTS, 
-  WORKFLOW_TEMPLATES,
-  AGENT_EMOJIS,
-  AGENT_NAMES 
-} from '../constants/agents';
+import { AGENTS, WORKFLOW_TEMPLATES } from '../constants/agents';
 import { DiscordNotificationService } from './discordNotificationService';
-
-// Agent Discord user IDs for mentions
-const AGENT_DISCORD_IDS: Record<AgentId, string> = {
-  planner: '1478495012416131193',
-  ideator: '1478496025328091269',
-  critic: '1478496289036697890',
-  scout: '1478496531496698036',
-  coder: '1478496764658061312',
-  writer: '1478496947202691103',
-  reviewer: '1478497225918255114',
-  surveyor: '1478497423654649907'
-};
 
 export class AgentTaskService {
   private db: Database;
@@ -64,6 +42,7 @@ export class AgentTaskService {
   async createAgentTask(taskData: Partial<AgentTask>): Promise<AgentTask> {
     const taskId = this.generateTaskId();
     
+    // Build task object, only including defined values
     const task: any = {
       id: taskId,
       type: taskData.type || 'custom',
@@ -91,6 +70,7 @@ export class AgentTaskService {
       priority: taskData.priority || 'medium'
     };
 
+    // Only add optional fields if they have values
     if (taskData.parentTaskId !== undefined) task.parentTaskId = taskData.parentTaskId;
     if (taskData.workflowId !== undefined) task.workflowId = taskData.workflowId;
     if (taskData.previousAgentTaskId !== undefined) task.previousAgentTaskId = taskData.previousAgentTaskId;
@@ -112,20 +92,51 @@ export class AgentTaskService {
     await firebaseUpdate(ref(this.db, `${this.basePath}/${taskId}`), updates);
   }
 
+  async deleteAgentTask(taskId: string): Promise<void> {
+    await remove(ref(this.db, `${this.basePath}/${taskId}`));
+  }
+
   async listAgentTasks(filters: TaskFilters = {}): Promise<AgentTask[]> {
     const snapshot = await get(ref(this.db, `${this.basePath}`));
     const tasks: AgentTask[] = [];
 
     snapshot.forEach((child) => {
       const task = child.val() as AgentTask;
+
+      // Apply filters
       if (filters.status && task.status !== filters.status) return;
       if (filters.assignee && task.assignee !== filters.assignee) return;
       if (filters.workflowId && task.workflowId !== filters.workflowId) return;
       if (filters.priority && task.priority !== filters.priority) return;
+      if (filters.projectId && task.projectId !== filters.projectId) return;
+      if (filters.tags && !filters.tags.every(tag => task.tags?.includes(tag))) return;
+
       tasks.push(task);
     });
 
     return tasks.sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  async addActivityEntry(
+    taskId: string,
+    agent: string,
+    action: ActivityEntry['action'],
+    message: string,
+    data?: any
+  ): Promise<void> {
+    const entry: ActivityEntry = {
+      timestamp: Date.now(),
+      agent,
+      action,
+      message,
+      data
+    };
+
+    const task = await this.getAgentTask(taskId);
+    if (!task) throw new Error('Task not found');
+
+    const activityLog = [...(task.activityLog || []), entry];
+    await this.updateAgentTask(taskId, { activityLog });
   }
 
   async transitionTaskState(
@@ -156,6 +167,15 @@ export class AgentTaskService {
     }
 
     await this.updateAgentTask(taskId, updates);
+
+    await this.addActivityEntry(
+      taskId,
+      triggeredBy,
+      'state_change',
+      `State changed from ${oldState} to ${newState}`,
+      { from: oldState, to: newState }
+    );
+
     return { ...task, ...updates };
   }
 
@@ -182,6 +202,7 @@ export class AgentTaskService {
       output: null
     };
 
+    // Create tasks for each step
     const tasks: AgentTask[] = [];
     let previousTaskId: string | null = null;
 
@@ -199,6 +220,7 @@ export class AgentTaskService {
       });
 
       if (previousTaskId) {
+        // Update previous task's next pointer
         await this.updateAgentTask(previousTaskId, { nextAgentTaskId: task.id });
       }
 
@@ -209,11 +231,22 @@ export class AgentTaskService {
     workflow.tasks = tasks.map(t => t.id);
     workflow.currentTaskId = tasks[0]?.id || null;
 
+    // Save workflow
     await set(ref(this.db, `${this.workflowPath}/${workflow.id}`), workflow);
 
+    // Activate first task
     if (tasks[0]) {
       await this.transitionTaskState(tasks[0].id, 'started', 'system');
+      
+      // Notify first agent via Discord
       await this.discord.notifyAgentOfTask(tasks[0]);
+      
+      // Notify coordination channel
+      await this.discord.notifyWorkflowStarted(
+        workflow.name,
+        tasks[0].assignee,
+        input?.topic || 'New workflow'
+      );
     }
 
     return { workflow, tasks };
@@ -224,58 +257,127 @@ export class AgentTaskService {
     return snapshot.val();
   }
 
-  /**
-   * FIXED: completeWorkflowTask with better error handling and transaction safety
-   */
+  async updateWorkflow(workflowId: string, updates: Partial<AgentWorkflow>): Promise<void> {
+    await firebaseUpdate(ref(this.db, `${this.workflowPath}/${workflowId}`), updates);
+  }
+
   async completeWorkflowTask(taskId: string, output: any): Promise<AgentTask> {
     const task = await this.getAgentTask(taskId);
     if (!task) throw new Error('Task not found');
-    if (!task.workflowId) throw new Error('Task not part of a workflow');
 
     // Complete current task
     await this.transitionTaskState(taskId, 'completed', task.assignee);
     await this.updateAgentTask(taskId, { output });
 
-    const workflow = await this.getWorkflow(task.workflowId);
-    if (!workflow) {
-      console.error(`Workflow ${task.workflowId} not found`);
-      return { ...task, output };
-    }
+    const workflow = await this.getWorkflow(task.workflowId || '');
+    if (!workflow) return { ...task, output };
 
-    // Check for next task
+    // Check if there's a next task
     if (task.nextAgentTaskId) {
-      try {
-        // Activate next task
-        await this.transitionTaskState(task.nextAgentTaskId, 'started', 'system');
-        await this.updateAgentTask(task.nextAgentTaskId, { input: output });
-        
-        // Update workflow current task
-        await firebaseUpdate(ref(this.db, `${this.workflowPath}/${workflow.id}`), {
-          currentTaskId: task.nextAgentTaskId
-        });
+      // Activate next task
+      await this.transitionTaskState(task.nextAgentTaskId, 'started', 'system');
+      await this.updateAgentTask(task.nextAgentTaskId, { input: output });
+      await this.updateWorkflow(workflow.id, { currentTaskId: task.nextAgentTaskId });
 
-        // Notify next agent
-        const nextTask = await this.getAgentTask(task.nextAgentTaskId);
-        if (nextTask) {
-          const previousOutput = typeof output === 'string' ? output : output?.result;
-          await this.discord.notifyAgentOfTask(nextTask, previousOutput);
-          console.log(`[WORKFLOW] Notified ${nextTask.assignee} of new task`);
-        }
-      } catch (error) {
-        console.error('[WORKFLOW] Error advancing workflow:', error);
-        throw error;
+      // Notify next agent with previous output
+      const nextTask = await this.getAgentTask(task.nextAgentTaskId);
+      if (nextTask) {
+        const previousOutput = typeof output === 'string' ? output : output?.result;
+        await this.discord.notifyAgentOfTask(nextTask, previousOutput);
       }
     } else {
       // Workflow complete
-      await firebaseUpdate(ref(this.db, `${this.workflowPath}/${workflow.id}`), {
-        status: 'complete',
-        output,
-        currentTaskId: null
-      });
-      console.log(`[WORKFLOW] Workflow ${workflow.id} completed`);
+      await this.updateWorkflow(workflow.id, { status: 'complete', output });
     }
 
     return { ...task, output };
+  }
+
+  // ==================== DISCORD INTEGRATION ====================
+
+  async notifyAgent(agentId: AgentId, task: AgentTask): Promise<void> {
+    const agentEmoji = AGENT_EMOJIS[agentId];
+    const agentName = AGENT_NAMES[agentId];
+    const channelId = AGENT_CHANNELS[agentId];
+    
+    if (!channelId) {
+      console.error(`No channel configured for agent: ${agentId}`);
+      return;
+    }
+
+    // Queue notification for Discord
+    const notification = {
+      id: `discord-notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      channelId,
+      message: `<@${AGENT_DISCORD_IDS[agentId]}> ${agentEmoji} **New Task for ${agentName}**\n\n` +
+        `**${task.title}**\n` +
+        (task.input?.topic ? `Prompt: "${task.input.topic}"\n` : '') +
+        `\nPriority: ${task.priority} | Status: ${task.status}\n` +
+        `Task ID: \`${task.id}\`\n\n` +
+        `Type your response to complete this task.`,
+      referenceId: task.id,
+      status: 'pending',
+      createdAt: Date.now()
+    };
+
+    await set(ref(this.db, `v6/discordNotifications/${notification.id}`), notification);
+    console.log(`[NOTIFY QUEUED] ${agentId}: ${task.title}`);
+  }
+
+  async linkDiscordThread(taskId: string, threadId: string, channelId: string): Promise<void> {
+    await this.updateAgentTask(taskId, {
+      discordThreadId: threadId,
+      discordChannelId: channelId
+    });
+  }
+
+  // ==================== STATS ====================
+
+  async getAgentStats(agentId: AgentId, days = 7): Promise<AgentStats> {
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    const tasks = await this.listAgentTasks({ assignee: agentId });
+
+    const recentTasks = tasks.filter(t => t.createdAt >= cutoff);
+    const completedTasks = recentTasks.filter(t => t.status === 'complete');
+
+    const totalDuration = completedTasks.reduce((sum, t) => {
+      if (t.startedAt && t.completedAt) {
+        return sum + (t.completedAt - t.startedAt);
+      }
+      return sum;
+    }, 0);
+
+    return {
+      agent: agentId,
+      totalTasks: recentTasks.length,
+      completedTasks: completedTasks.length,
+      pendingTasks: recentTasks.filter(t => t.status === 'pending').length,
+      activeTasks: recentTasks.filter(t => t.status === 'active').length,
+      averageDuration: completedTasks.length > 0 ? totalDuration / completedTasks.length / 60000 : 0,
+      lastActive: recentTasks.length > 0 ? Math.max(...recentTasks.map(t => t.updatedAt || t.createdAt)) : null
+    };
+  }
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    const tasks = await this.listAgentTasks();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTimestamp = today.getTime();
+
+    const byAgent = Object.values(AGENTS).reduce((acc, agent) => {
+      acc[agent] = tasks.filter(t => t.assignee === agent).length;
+      return acc;
+    }, {} as Record<AgentId, number>);
+
+    return {
+      totalTasks: tasks.length,
+      activeTasks: tasks.filter(t => t.status === 'active').length,
+      pendingTasks: tasks.filter(t => t.status === 'pending').length,
+      completedToday: tasks.filter(t => t.status === 'complete' && (t.completedAt || 0) >= todayTimestamp).length,
+      byAgent,
+      byType: {} // TODO: Group by type
+    };
   }
 
   // ==================== HELPERS ====================
