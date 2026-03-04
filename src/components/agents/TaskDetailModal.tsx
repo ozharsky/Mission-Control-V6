@@ -235,7 +235,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             {task?.output && (
               <div className="rounded-lg bg-green-500/5 border border-green-500/20 p-4">
                 <h4 className="text-sm font-medium text-green-400 mb-2">Output</h4>
-                <pre className="text-sm whitespace-pre-wrap">{typeof task.output === 'string' ? task.output : JSON.stringify(task.output, null, 2)}</pre>
+                <div className="text-sm whitespace-pre-wrap font-mono bg-surface p-3 rounded">
+                  {typeof task.output === 'string' 
+                    ? task.output 
+                    : task.output?.result 
+                      ? String(task.output.result).replace(/\\n/g, '\n')
+                      : JSON.stringify(task.output, null, 2)}
+                </div>
               </div>
             )}
 
