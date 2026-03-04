@@ -411,69 +411,81 @@ function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (
     ((data[data.length - 1].value - data[data.length - 2].value) / data[data.length - 2].value) * 100 : 0;
   
   return (
-    <div className="rounded-xl border border-surface-hover bg-surface p-4">
+    <div className="rounded-2xl border border-surface-hover bg-gradient-to-br from-surface to-surface/50 p-5">
+      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-success" />
-          <span className="font-semibold">Revenue</span>
-          {trend !== 0 && (
-            <span className={`text-xs font-medium ${trend >= 0 ? 'text-success' : 'text-danger'}`}>
-              {trend >= 0 ? '↑' : '↓'} {Math.abs(trend).toFixed(0)}%
-            </span>
-          )}
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10">
+            <TrendingUp className="h-5 w-5 text-success" />
+          </div>
+          <div>
+            <span className="font-semibold">Revenue</span>
+            {trend !== 0 && (
+              <span className={`ml-2 text-xs font-medium ${trend >= 0 ? 'text-success' : 'text-danger'}`}>
+                {trend >= 0 ? '↑' : '↓'} {Math.abs(trend).toFixed(0)}%
+              </span>
+            )}
+          </div>
         </div>
         <button 
           onClick={() => onNavigate('revenue')}
           className="text-sm text-primary hover:underline"
         >
-          View All
+          View Details →
         </button>
       </div>
-      
-      <div className="mb-4 overflow-x-auto pb-2">
-        <div className="flex items-end gap-2 min-w-max px-2" style={{ height: '140px' }}>
-          {data.map((d, i) => {
-            const heightPercent = Math.max((d.value / max) * 100, 8);
+
+      {/* Key Metrics - At a Glance */}
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <div className="rounded-xl bg-surface-hover/50 p-3 text-center">
+          <div className="mb-1 text-xs text-gray-500">This Month</div>
+          <div className="text-lg font-bold text-success">
+            ${(current?.value || 0) >= 1000 
+              ? ((current?.value || 0) / 1000).toFixed(1) + 'k'
+              : Math.round(current?.value || 0)}
+          </div>
+          <div className="text-[10px] text-gray-500">{current?.orders || 0} orders</div>
+        </div>
+        <div className="rounded-xl bg-surface-hover/50 p-3 text-center">
+          <div className="mb-1 text-xs text-gray-500">{data.length} Month Avg</div>
+          <div className="text-lg font-bold text-primary">
+            ${avg >= 1000 ? (avg / 1000).toFixed(1) + 'k' : Math.round(avg)}
+          </div>
+          <div className="text-[10px] text-gray-500">per month</div>
+        </div>
+        <div className="rounded-xl bg-surface-hover/50 p-3 text-center">
+          <div className="mb-1 text-xs text-gray-500">Total Revenue</div>
+          <div className="text-lg font-bold text-warning">
+            ${total >= 1000 ? (total / 1000).toFixed(1) + 'k' : total}
+          </div>
+          <div className="text-[10px] text-gray-500">all time</div>
+        </div>
+      </div>
+    
+      {/* Mini Bar Chart */}
+      <div className="overflow-x-auto pb-2">
+        <div className="flex items-end gap-1.5 min-w-max" style={{ height: '80px' }}>
+          {data.slice(-6).map((d, i) => {
+            const heightPercent = Math.max((d.value / max) * 100, 10);
             const isCurrent = d.month === currentMonth;
-            const formattedValue = d.value >= 1000 
-              ? `$${(d.value / 1000).toFixed(1)}k`
-              : `$${Math.round(d.value)}`;
             
             return (
-              <div key={i} className="flex flex-col items-center justify-end" style={{ width: '45px', height: '100%' }}>
-                <div className="text-[10px] text-gray-400 mb-1 whitespace-nowrap transform -rotate-45 origin-bottom-left translate-x-2">
-                  {formattedValue}
-                </div>
-                <div className="w-full flex items-end justify-center" style={{ height: '90px' }}>
+              <div key={i} className="flex flex-col items-center" style={{ width: '32px' }}>
+                <div className="w-full flex items-end justify-center" style={{ height: '60px' }}>
                   <div
-                    className={`w-full max-w-[28px] rounded-t-md transition-all duration-500 ${
-                      isCurrent ? 'bg-success shadow-lg shadow-success/20' : 'bg-success/40 hover:bg-success/60'
+                    className={`w-5 rounded-t-md transition-all duration-500 ${
+                      isCurrent ? 'bg-success shadow-lg shadow-success/20' : 'bg-success/30 hover:bg-success/50'
                     }`}
                     style={{ height: `${heightPercent}%`, minHeight: '4px' }}
-                    title={`${d.month}: $${d.value.toLocaleString()} (${d.orders} orders)`}
+                    title={`${d.month}: $${d.value.toLocaleString()}`}
                   />
                 </div>
-                <div className={`text-xs mt-2 font-medium ${isCurrent ? 'text-success' : 'text-gray-500'}`}>
+                <div className={`text-[10px] mt-1 ${isCurrent ? 'text-success font-medium' : 'text-gray-500'}`}>
                   {d.month.slice(5)}
                 </div>
               </div>
             );
           })}
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-surface-hover">
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">This Month</div>
-          <div className="font-bold text-success">${(current?.value || 0).toLocaleString()}</div>
-        </div>
-        <div className="text-center border-x border-surface-hover">
-          <div className="text-xs text-gray-500 mb-1">{data.length} Month Avg</div>
-          <div className="font-bold">${Math.round(avg).toLocaleString()}</div>
-        </div>
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">All Time Total</div>
-          <div className="font-bold">${total.toLocaleString()}</div>
         </div>
       </div>
     </div>
