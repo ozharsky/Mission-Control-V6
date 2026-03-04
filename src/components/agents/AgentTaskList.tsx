@@ -196,6 +196,16 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
         >
           Workflows ({workflows.length})
         </button>
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`pb-2 text-sm font-medium transition-colors ${
+            activeTab === 'documents' 
+              ? 'text-primary border-b-2 border-primary' 
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          Documents
+        </button>
       </div>
       {/* Tabs Content */}
       {activeTab === 'tasks' ? (
@@ -353,7 +363,9 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
             ))
           )}
         </div>
-      )}
+      ) : activeTab === 'documents' ? (
+        <AgentDocuments firebaseDb={firebaseDb} />
+      ) : null}
 
       <NewWorkflowModal
         firebaseDb={firebaseDb}
