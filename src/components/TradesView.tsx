@@ -151,31 +151,29 @@ export function TradesView() {
       const KALSHI_PROXY_URL = 'https://mission-control-v6-kappa.vercel.app/api/kalshi';
       
       // Fetch specific series: crypto, weather, politics, economics
+      // NOTE: Politics and Economics series exist but have no active markets currently
       const seriesToFetch = [
-        // Weather (5)
+        // Weather (5) - These have active markets
         { series: 'KXHIGHTSEA', category: 'weather', name: 'Seattle Weather' },
         { series: 'KXHIGHNY', category: 'weather', name: 'NYC Weather' },
         { series: 'KXHIGHCHI', category: 'weather', name: 'Chicago Weather' },
         { series: 'KXHIGHMIA', category: 'weather', name: 'Miami Weather' },
         { series: 'KXHIGHTPHX', category: 'weather', name: 'Phoenix Weather' },
-        // Crypto (5)
+        // Crypto (5) - These exist but may not have cheap liquid markets
         { series: 'KXBTC', category: 'crypto', name: 'Bitcoin' },
         { series: 'KXETH', category: 'crypto', name: 'Ethereum' },
         { series: 'KXSOL', category: 'crypto', name: 'Solana' },
         { series: 'KXADA', category: 'crypto', name: 'Cardano' },
         { series: 'KXDOT', category: 'crypto', name: 'Polkadot' },
-        // Politics (5) - CORRECTED tickers
-        { series: 'KXTRUTHSOCIAL', category: 'politics', name: 'Trump Truth Social' },
-        { series: 'KXVOTEHUBTRUMPUPDOWN', category: 'politics', name: 'Trump Approval' },
-        { series: 'KXTRUMPZELENSKYY', category: 'politics', name: 'Trump-Zelenskyy' },
-        { series: 'KXTRUMPMEET', category: 'politics', name: 'Trump Meetings' },
-        { series: 'KXTRUMPOUT', category: 'politics', name: 'Trump Out' },
-        // Economics (5) - CORRECTED tickers
-        { series: 'FED', category: 'economics', name: 'Fed Funds Rate' },
-        { series: 'KXCPI', category: 'economics', name: 'CPI Inflation' },
-        { series: 'GDP', category: 'economics', name: 'GDP Growth' },
-        { series: 'FRM', category: 'economics', name: 'Mortgage Rate' },
-        { series: 'PAYROLLS', category: 'economics', name: 'Jobs Report' }
+        // Politics (5) - Series exist but NO ACTIVE MARKETS currently (markets settled)
+        // { series: 'KXTRUTHSOCIAL', category: 'politics', name: 'Trump Truth Social' },
+        // { series: 'KXVOTEHUBTRUMPUPDOWN', category: 'politics', name: 'Trump Approval' },
+        // { series: 'KXTRUMPMEET', category: 'politics', name: 'Trump Meetings' },
+        // { series: 'KXTRUMPOUT', category: 'politics', name: 'Trump Out' },
+        // Economics (5) - Series exist but NO ACTIVE MARKETS currently (markets settled)
+        // { series: 'CPI', category: 'economics', name: 'CPI Inflation' },
+        // { series: 'FRM', category: 'economics', name: 'Mortgage Rate' },
+        // { series: 'GDP', category: 'economics', name: 'GDP Growth' },
       ];
       
       let allMarkets: any[] = [];
