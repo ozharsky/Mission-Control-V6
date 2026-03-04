@@ -6,9 +6,9 @@
  * Run: node server/discord-webhook.js
  */
 
-const express = require('express');
-const cors = require('cors');
-const { exec } = require('child_process');
+import express from 'express';
+import cors from 'cors';
+import { exec } from 'child_process';
 
 const app = express();
 const PORT = process.env.DISCORD_WEBHOOK_PORT || 3001;
@@ -34,7 +34,7 @@ app.post('/send-discord', async (req, res) => {
   
   try {
     // Use openclaw CLI to send message
-    const cmd = `openclaw message send --channel discord --target ${channelId} "${message.replace(/"/g, '\\"')}"`;
+    const cmd = `openclaw message send --channel discord --target ${channelId} -m "${message.replace(/"/g, '\\"')}"`;
     
     exec(cmd, (error, stdout, stderr) => {
       if (error) {
@@ -68,7 +68,7 @@ app.post('/send-batch', async (req, res) => {
     const { channelId, message, id } = notif;
     
     try {
-      const cmd = `openclaw message send --channel discord --target ${channelId} "${message.replace(/"/g, '\\"')}"`;
+      const cmd = `openclaw message send --channel discord --target ${channelId} -m "${message.replace(/"/g, '\\"')}"`;
       
       await new Promise((resolve, reject) => {
         exec(cmd, (error) => {
