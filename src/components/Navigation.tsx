@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { id: 'trades', label: 'Trades', icon: TrendingUp },
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+  { id: 'agents', label: 'Agent Tasks', icon: Bot },
   { id: 'jobs', label: 'Jobs', icon: Briefcase },
   { id: 'inventory', label: 'Inventory', icon: Package },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
@@ -35,7 +36,7 @@ const navItems: NavItem[] = [
 ];
 
 // Primary items for bottom nav (most used)
-const primaryNavItems = ['dashboard', 'tasks', 'trades', 'projects', 'settings'];
+const primaryNavItems = ['dashboard', 'tasks', 'agents', 'projects', 'settings'];
 
 export function Navigation({ activeSection, onSectionChange }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

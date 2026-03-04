@@ -19,6 +19,8 @@ import { JobsView } from './components/JobsView';
 import { InventoryView } from './components/InventoryView';
 import { ReportsView } from './components/ReportsView';
 import { TradesView } from './components/TradesView';
+import { AgentTaskList } from './components/agents/AgentTaskList';
+import { AgentDocuments } from './components/agents/AgentDocuments';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
 import { SkeletonCard, SkeletonList } from './components/Loading';
