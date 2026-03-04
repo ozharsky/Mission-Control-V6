@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { 
-  TrendingUp, TrendingDown, DollarSign, ShoppingCart, Calendar, 
+  TrendingUp, DollarSign, ShoppingCart, Calendar, 
   BarChart3, Table, Plus, X, Upload, Download, Target, Award, Activity
 } from 'lucide-react';
 import { setData } from '../lib/firebase';
@@ -15,41 +15,6 @@ interface RevenueData {
 interface RevenueChartProps {
   data: RevenueData[];
   goal: number;
-}
-
-function StatCard({ title, value, icon: Icon, trend, color, subtext }: { 
-  title: string; 
-  value: string; 
-  icon: any; 
-  trend?: number; 
-  color: 'success' | 'primary' | 'warning' | 'info';
-  subtext?: string;
-}) {
-  const colorClasses = {
-    success: 'bg-success/10 text-success border-success/20',
-    primary: 'bg-primary/10 text-primary border-primary/20',
-    warning: 'bg-warning/10 text-warning border-warning/20',
-    info: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  };
-
-  return (
-    <div className={`rounded-xl border border-surface-hover bg-surface p-4 ${colorClasses[color]}`}>
-      <div className="flex items-start justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-white/10`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        {trend !== undefined && (
-          <div className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${trend >= 0 ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
-            {trend >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {Math.abs(trend)}%
-          </div>
-        )}
-      </div>
-      <p className="mt-3 text-sm opacity-80">{title}</p>
-      <p className="text-2xl font-bold">{value}</p>
-      {subtext && <p className="text-xs opacity-60">{subtext}</p>}
-    </div>
-  );
 }
 
 function LineChart({ data, color = 'primary' }: { data: number[]; color?: string }) {
@@ -297,46 +262,103 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard title="Total Revenue" value={formatCurrency(stats.total)} icon={DollarSign} color="success" />
-        <StatCard title="Total Orders" value={stats.orders.toString()} icon={ShoppingCart} color="primary" />
-        <StatCard title="Avg/Month" value={formatCurrency(stats.avg)} icon={Calendar} color="info" subtext={`Best: ${formatMonthLabel(stats.bestMonth?.month || '')}`} />
-        <StatCard title="Avg Order" value={formatCurrency(stats.avgOrderValue)} icon={TrendingUp} trend={stats.trend} color="warning" />
-      </div>
-
-      {/* Goal Progress */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            <span className="font-medium">Goal Progress</span>
+      {/* Summary Dashboard - At a Glance */}
+      <div className="rounded-2xl border border-surface-hover bg-gradient-to-br from-surface to-surface/50 p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Revenue Overview</h2>
+            <p className="text-sm text-gray-400">{filteredData.length} months tracked • Goal: {formatCurrency(goal)}/mo</p>
           </div>
-          <span className="text-sm text-gray-400">{stats.monthsAtGoal}/{filteredData.length} months at goal ({stats.goalRate.toFixed(0)}%)</span>
+          <div className="flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2">
+            <Target className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">{stats.goalRate.toFixed(0)}% on track</span>
+          </div>
         </div>
-        <div className="h-3 overflow-hidden rounded-full bg-surface-hover">
-          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(stats.goalRate, 100)}%` }} />
+
+        {/* Key Metrics Grid */}
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {/* Total Revenue */}
+          <div className="rounded-xl bg-surface-hover/50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-gray-400">
+              <DollarSign className="h-4 w-4" />
+              Total Revenue
+            </div>
+            <div className="text-2xl font-bold text-success">{formatCurrency(stats.total)}</div>
+            <div className="mt-1 text-xs text-gray-500">All time</div>
+          </div>
+
+          {/* This Month */}
+          <div className="rounded-xl bg-surface-hover/50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-gray-400">
+              <Calendar className="h-4 w-4" />
+              This Month
+            </div>
+            <div className="text-2xl font-bold text-primary">
+              {formatCurrency(filteredData[filteredData.length - 1]?.value || 0)}
+            </div>
+            <div className={`mt-1 text-xs ${stats.trend >= 0 ? 'text-success' : 'text-danger'}`}>
+              {stats.trend >= 0 ? '↑' : '↓'} {Math.abs(stats.trend)}% vs avg
+            </div>
+          </div>
+
+          {/* Total Orders */}
+          <div className="rounded-xl bg-surface-hover/50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-gray-400">
+              <ShoppingCart className="h-4 w-4" />
+              Total Orders
+            </div>
+            <div className="text-2xl font-bold text-info">{stats.orders}</div>
+            <div className="mt-1 text-xs text-gray-500">{formatCurrency(stats.avgOrderValue)} avg</div>
+          </div>
+
+          {/* Best Month */}
+          <div className="rounded-xl bg-surface-hover/50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-gray-400">
+              <Award className="h-4 w-4" />
+              Best Month
+            </div>
+            <div className="text-2xl font-bold text-warning">{formatCurrency(stats.bestMonth?.value || 0)}</div>
+            <div className="mt-1 text-xs text-gray-500">{formatMonthLabel(stats.bestMonth?.month || '')}</div>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mt-6">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="text-gray-400">Goal Progress</span>
+            <span className="text-gray-400">{stats.monthsAtGoal} of {filteredData.length} months hit ${goal} goal</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-surface-hover">
+            <div 
+              className="h-full rounded-full bg-gradient-to-r from-primary to-success transition-all duration-500" 
+              style={{ width: `${Math.min(stats.goalRate, 100)}%` }} 
+            />
+          </div>
         </div>
       </div>
 
-      {/* Mini Charts */}
+      {/* Quick Trend Charts */}
       {filteredData.length > 1 && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-surface-hover bg-surface p-4">
-            <div className="mb-2 flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /><span className="text-sm font-medium">Revenue Trend</span></div>
-            <div className="h-16"><LineChart data={filteredData.map(d => d.value)} color="primary" /></div>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                <span className="font-medium">Revenue Trend</span>
+              </div>
+              <span className="text-xs text-gray-500">{filteredData.length} months</span>
+            </div>
+            <div className="h-24"><LineChart data={filteredData.map(d => d.value)} color="primary" /></div>
           </div>
           <div className="rounded-xl border border-surface-hover bg-surface p-4">
-            <div className="mb-2 flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-success" /><span className="text-sm font-medium">Orders Trend</span></div>
-            <div className="h-16"><LineChart data={filteredData.map(d => d.orders)} color="success" /></div>
-          </div>
-          <div className="rounded-xl border border-surface-hover bg-surface p-4">
-            <div className="mb-2 flex items-center gap-2"><Award className="h-4 w-4 text-warning" /><span className="text-sm font-medium">Best Month</span></div>
-            {stats.bestMonth?.value > 0 ? (
-              <div><div className="text-2xl font-bold">{formatCurrency(stats.bestMonth.value)}</div><div className="text-sm text-gray-400">{formatMonthLabel(stats.bestMonth.month)}</div></div>
-            ) : (
-              <div className="text-sm text-gray-500">No data</div>
-            )}
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-success" />
+                <span className="font-medium">Monthly Average</span>
+              </div>
+              <span className="text-lg font-bold text-success">{formatCurrency(stats.avg)}</span>
+            </div>
+            <div className="h-24"><LineChart data={filteredData.map(d => d.value)} color="success" /></div>
           </div>
         </div>
       )}
