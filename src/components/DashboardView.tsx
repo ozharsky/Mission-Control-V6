@@ -6,6 +6,7 @@ import {
   Activity, Award, BarChart3, Plus
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
+import { RevenueMiniChart } from './RevenueMiniChart';
 import type { Task, Project, Job, InventoryItem, Printer } from '../types';
 
 // AI Insights Card Component
@@ -360,140 +361,9 @@ function AIInsightsCard({
   );
 }
 
-// Revenue Mini Chart Component
-function RevenueMiniChart({ revenue, onNavigate }: { revenue: any; onNavigate: (s: string) => void }) {
-  const data = useMemo(() => {
-    if (!revenue || Object.keys(revenue).length === 0) {
-      return [];
-    }
-    
-    return Object.entries(revenue)
-      .filter(([month, r]: [string, any]) => month && r && typeof r === 'object')
-      .map(([month, r]: [string, any]) => ({ 
-        month, 
-        value: r?.value || 0,
-        orders: r?.orders || 0
-      }))
-      .sort((a, b) => a.month.localeCompare(b.month));
-  }, [revenue]);
-  
-  if (data.length === 0) {
-    return (
-      <div className="rounded-xl border border-surface-hover bg-surface p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-success" />
-            <span className="font-semibold">Revenue</span>
-          </div>
-          <button 
-            onClick={() => onNavigate('revenue')}
-            className="text-sm text-primary hover:underline"
-          >
-            View All
-          </button>
-        </div>
-        <div className="rounded-lg bg-background py-12 text-center">
-          <DollarSign className="mx-auto mb-3 h-12 w-12 text-gray-600" />
-          <p className="text-sm text-gray-500 mb-1">No revenue data yet</p>
-          <p className="text-xs text-gray-600">Add revenue in the Revenue section</p>
-        </div>
-      </div>
-    );
-  }
-  
-  const max = Math.max(...data.map(d => d.value), 1);
-  const total = data.reduce((sum, d) => sum + d.value, 0);
-  const avg = data.length > 0 ? total / data.length : 0;
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const current = data.find(d => d.month === currentMonth);
-  
-  const trend = data.length >= 2 ? 
-    ((data[data.length - 1].value - data[data.length - 2].value) / data[data.length - 2].value) * 100 : 0;
-  
-  return (
-    <div className="rounded-2xl border border-surface-hover bg-gradient-to-br from-surface to-surface/50 p-5">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10">
-            <TrendingUp className="h-5 w-5 text-success" />
-          </div>
-          <div>
-            <span className="font-semibold">Revenue</span>
-            {trend !== 0 && (
-              <span className={`ml-2 text-xs font-medium ${trend >= 0 ? 'text-success' : 'text-danger'}`}>
-                {trend >= 0 ? '↑' : '↓'} {Math.abs(trend).toFixed(0)}%
-              </span>
-            )}
-          </div>
-        </div>
-        <button 
-          onClick={() => onNavigate('revenue')}
-          className="text-sm text-primary hover:underline"
-        >
-          View Details →
-        </button>
-      </div>
-
-      {/* Key Metrics - At a Glance */}
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <div className="rounded-xl bg-surface-hover/50 p-3 text-center">
-          <div className="mb-1 text-xs text-gray-500">This Month</div>
-          <div className="text-lg font-bold text-success">
-            ${(current?.value || 0) >= 1000 
-              ? ((current?.value || 0) / 1000).toFixed(1) + 'k'
-              : Math.round(current?.value || 0)}
-          </div>
-          <div className="text-[10px] text-gray-500">{current?.orders || 0} orders</div>
-        </div>
-        <div className="rounded-xl bg-surface-hover/50 p-3 text-center">
-          <div className="mb-1 text-xs text-gray-500">{data.length} Month Avg</div>
-          <div className="text-lg font-bold text-primary">
-            ${avg >= 1000 ? (avg / 1000).toFixed(1) + 'k' : Math.round(avg)}
-          </div>
-          <div className="text-[10px] text-gray-500">per month</div>
-        </div>
-        <div className="rounded-xl bg-surface-hover/50 p-3 text-center">
-          <div className="mb-1 text-xs text-gray-500">Total Revenue</div>
-          <div className="text-lg font-bold text-warning">
-            ${total >= 1000 ? (total / 1000).toFixed(1) + 'k' : total}
-          </div>
-          <div className="text-[10px] text-gray-500">all time</div>
-        </div>
-      </div>
-    
-      {/* Mini Bar Chart */}
-      <div className="overflow-x-auto pb-2">
-        <div className="flex items-end gap-1.5 min-w-max" style={{ height: '80px' }}>
-          {data.slice(-6).map((d, i) => {
-            const heightPercent = Math.max((d.value / max) * 100, 10);
-            const isCurrent = d.month === currentMonth;
-            
-            return (
-              <div key={i} className="flex flex-col items-center" style={{ width: '32px' }}>
-                <div className="w-full flex items-end justify-center" style={{ height: '60px' }}>
-                  <div
-                    className={`w-5 rounded-t-md transition-all duration-500 ${
-                      isCurrent ? 'bg-success shadow-lg shadow-success/20' : 'bg-success/30 hover:bg-success/50'
-                    }`}
-                    style={{ height: `${heightPercent}%`, minHeight: '4px' }}
-                    title={`${d.month}: $${d.value.toLocaleString()}`}
-                  />
-                </div>
-                <div className={`text-[10px] mt-1 ${isCurrent ? 'text-success font-medium' : 'text-gray-500'}`}>
-                  {d.month.slice(5)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 interface DashboardViewProps {
   onNavigate: (section: string) => void;
+}
 }
 
 export function DashboardView({ onNavigate }: DashboardViewProps) {
