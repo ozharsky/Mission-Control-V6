@@ -215,22 +215,55 @@ export function TradesView() {
       }
       
       if (allMarkets.length > 0) {
-        // Process markets: filter cheap ones with volume, sort by potential
-        const processedTrades: KalshiTrade[] = allMarkets
-          .filter((m: any) => {
-            const price = m.yes_ask || m.yes_price || m.last_price || 50;
-            const volume = m.volume || m.trade_volume || 0;
-            return price >= 1 && price <= 25 && volume > 100; // Cheap + liquid
-          })
-          .sort((a: any, b: any) => {
-            // Sort by multiplier (payout potential)
+        // Process markets: filter cheap ones with volume
+        const filteredMarkets = allMarkets.filter((m: any) => {
+          const price = m.yes_ask || m.yes_price || m.last_price || 50;
+          const volume = m.volume || m.trade_volume || 0;
+          return price >= 1 && price <= 25 && volume > 100; // Cheap + liquid
+        });
+        
+        // Sort by multiplier within each category, then interleave for diversity
+        const byCategory: Record<string, any[]> = {
+          weather: [],
+          crypto: [],
+          politics: [],
+          economics: []
+        };
+        
+        filteredMarkets.forEach((m: any) => {
+          const tickerPrefix = m.ticker.split('-')[0].toUpperCase();
+          let cat = 'economics';
+          if (['KXHIGHTSEA', 'KXHIGHNY', 'KXHIGHCHI', 'KXHIGHMIA', 'KXHIGHTPHX', 'KXRAINSEA'].includes(tickerPrefix)) {
+            cat = 'weather';
+          } else if (['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
+            cat = 'crypto';
+          } else if (['KXTRUTHSOCIAL', 'KXVOTEHUBTRUMPUPDOWN', 'KXTRUMPZELENSKYY', 'KXTRUMPMEET', 'KXTRUMPOUT'].includes(tickerPrefix)) {
+            cat = 'politics';
+          } else if (['FED', 'KXCPI', 'GDP', 'FRM', 'PAYROLLS', 'CPI'].includes(tickerPrefix)) {
+            cat = 'economics';
+          }
+          byCategory[cat].push(m);
+        });
+        
+        // Sort each category by multiplier (best deals first)
+        Object.keys(byCategory).forEach(cat => {
+          byCategory[cat].sort((a: any, b: any) => {
             const priceA = a.yes_ask || a.yes_price || a.last_price || 50;
             const priceB = b.yes_ask || b.yes_price || b.last_price || 50;
             return (100 / priceB) - (100 / priceA);
-          })
-          .slice(0, 40) // Top 40 (10 per category approx)
-          .map((m: any, idx: number) => {
-            const price = m.yes_ask || m.yes_price || m.last_price || 50;
+          });
+        });
+        
+        // Take top 15 from each category for balanced view
+        const balancedTrades = [
+          ...byCategory.weather.slice(0, 15),
+          ...byCategory.crypto.slice(0, 15),
+          ...byCategory.politics.slice(0, 15),
+          ...byCategory.economics.slice(0, 15)
+        ];
+        
+        // Process the balanced trades
+        const processedTrades: KalshiTrade[] = balancedTrades.map((m: any, idx: number) => {
             const multiplier = parseFloat((100 / price).toFixed(1));
             
             // Clean title
