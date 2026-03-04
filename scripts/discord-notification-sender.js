@@ -188,11 +188,27 @@ async function triggerAgent(notification) {
       return false;
     }
     
-    // Get task details
-    const taskSnapshot = await get(ref(db, `v6/tasks/${notification.referenceId}`));
-    if (!taskSnapshot.exists()) {
-      console.log(`   ⚠️ Task not found: ${notification.referenceId}`);
-      return false;
+    // Get task details - try both task- and workflow- prefixes
+    let taskSnapshot = null;
+    let taskPath = null;
+    
+    if (notification.referenceId) {
+      // Try tasks first
+      taskSnapshot = await get(ref(db, `v6/tasks/${notification.referenceId}`));
+      taskPath = `v6/tasks/${notification.referenceId}`;
+      
+      // If not found, try workflows
+      if (!taskSnapshot.exists()) {
+        taskSnapshot = await get(ref(db, `v6/workflows/${notification.referenceId}`));
+        taskPath = `v6/workflows/${notification.referenceId}`;
+      }
+    }
+    
+    if (!taskSnapshot || !taskSnapshot.exists()) {
+      console.log(`   ⚠️ Task/Workflow not found: ${notification.referenceId}`);
+      // Still create agent trigger so it can be picked up later
+      await createAgentTrigger(agentId, notification);
+      return true;
     }
     
     const task = taskSnapshot.val();
@@ -204,19 +220,20 @@ async function triggerAgent(notification) {
     }
     
     // Build agent prompt
-    const prompt = buildAgentPrompt(task, agentId);
+    const prompt = buildAgentPrompt(task, agentId, notification);
     
-    // Create agent trigger record
-    await set(ref(db, `v6/agentTriggers/${task.id}`), {
+    // Create agent trigger record for the OpenClaw system to pick up
+    await set(ref(db, `v6/agentTriggers/${task.id || notification.referenceId}`), {
       agentId: agentId,
-      taskId: task.id,
+      taskId: task.id || notification.referenceId,
       channelId: channelId,
       prompt: prompt,
       status: 'pending',
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      notificationId: notification.id
     });
     
-    console.log(`   🚀 Triggered ${agentId} agent for task ${task.id}`);
+    console.log(`   🚀 Triggered ${agentId} agent for task ${task.id || notification.referenceId}`);
     return true;
     
   } catch (error) {
@@ -225,13 +242,37 @@ async function triggerAgent(notification) {
   }
 }
 
-function buildAgentPrompt(task, agentId) {
+async function createAgentTrigger(agentId, notification) {
+  // Create a minimal trigger even without task details
+  const triggerId = `trigger-${Date.now()}`;
+  await set(ref(db, `v6/agentTriggers/${triggerId}`), {
+    agentId: agentId,
+    taskId: notification.referenceId,
+    channelId: AGENT_CHANNELS[agentId],
+    prompt: `You have been assigned a new task.
+
+**Notification:** ${notification.message}
+**Reference:** ${notification.referenceId}
+
+Please review and begin work on this task.`,
+    status: 'pending',
+    createdAt: Date.now(),
+    notificationId: notification.id
+  });
+}
+
+function buildAgentPrompt(task, agentId, notification) {
+  const taskId = task.id || notification?.referenceId || 'unknown';
+  const taskTitle = task.title || 'Untitled Task';
+  const taskPriority = task.priority || 'medium';
+  const taskStatus = task.status || 'pending';
+  
   const basePrompt = `You have been assigned a new task in Mission Control V6.
 
-**Task ID:** ${task.id}
-**Title:** ${task.title}
-**Priority:** ${task.priority}
-**Status:** ${task.status}`;
+**Task ID:** ${taskId}
+**Title:** ${taskTitle}
+**Priority:** ${taskPriority}
+**Status:** ${taskStatus}`;
 
   const agentPrompts = {
     surveyor: `${basePrompt}
@@ -245,7 +286,7 @@ Your role as the Researcher/Surveyor is to gather comprehensive information on t
 4. Focus on facts, statistics, and credible sources
 5. Return your findings in a clear, organized format
 
-**Task Input:** ${JSON.stringify(task.input || {})}
+**Task Input:** ${JSON.stringify(task.input || task.data || {})}
 
 Please begin your research and provide comprehensive findings.`,
 
@@ -260,7 +301,7 @@ Your role as the Strategist/Planner is to create a detailed action plan based on
 4. Set measurable milestones
 5. Consider resources and constraints
 
-**Task Input:** ${JSON.stringify(task.input || {})}
+**Task Input:** ${JSON.stringify(task.input || task.data || {})}
 
 Please create a comprehensive strategic plan.`,
 
@@ -275,7 +316,7 @@ Your role as the Inventor/Ideator is to generate creative ideas and solutions.
 4. Prioritize ideas by impact and feasibility
 5. Present 3-5 strong concepts with rationale
 
-**Task Input:** ${JSON.stringify(task.input || {})}
+**Task Input:** ${JSON.stringify(task.input || task.data || {})}
 
 Please generate creative ideas for this task.`,
 
@@ -290,7 +331,7 @@ Your role as the Architect/Coder is to implement technical solutions.
 4. Test your implementation
 5. Provide usage examples
 
-**Task Input:** ${JSON.stringify(task.input || {})}
+**Task Input:** ${JSON.stringify(task.input || task.data || {})}
 
 Please implement the technical solution.`,
 
@@ -305,7 +346,7 @@ Your role as the Wordsmith/Writer is to create compelling written content.
 4. Edit for clarity and impact
 5. Deliver polished, publication-ready text
 
-**Task Input:** ${JSON.stringify(task.input || {})}
+**Task Input:** ${JSON.stringify(task.input || task.data || {})}
 
 Please create the requested written content.`,
 
@@ -320,7 +361,7 @@ Your role as the Editor/Reviewer is to quality-check and refine work.
 4. Provide constructive feedback
 5. Suggest specific edits or revisions
 
-**Task Input:** ${JSON.stringify(task.input || {})}
+**Task Input:** ${JSON.stringify(task.input || task.data || {})}
 
 Please review and provide feedback.`,
 
@@ -335,7 +376,7 @@ Your role as the Analyst/Critic is to evaluate and provide critical assessment.
 4. Provide balanced, constructive criticism
 5. Suggest improvements or alternatives
 
-**Task Input:** ${JSON.stringify(task.input || {})}
+**Task Input:** ${JSON.stringify(task.input || task.data || {})}
 
 Please provide your critical analysis.`,
 
@@ -350,7 +391,7 @@ Your role as the Scout is to monitor trends and gather market intelligence.
 4. Gather relevant market data
 5. Provide actionable intelligence
 
-**Task Input:** ${JSON.stringify(task.input || {})}
+**Task Input:** ${JSON.stringify(task.input || task.data || {})}
 
 Please gather and report on relevant trends and intelligence.`
   };
