@@ -4,7 +4,7 @@ import {
   DollarSign, Percent, Calendar, ExternalLink,
   CloudRain, Zap, BarChart3, Activity,
   RefreshCw, BookOpen, Filter, ChevronDown, ChevronUp,
-  HelpCircle, X, ArrowUpRight
+  HelpCircle, X, ArrowUpRight, Info
 } from 'lucide-react';
 
 // Educational tooltip component
@@ -444,7 +444,7 @@ export function TradesView() {
         <span className="ml-auto flex items-center gap-1"><RefreshCw className="h-3 w-3" /> {lastUpdated.toLocaleTimeString()}</span>
       </div>
 
-      {/* Trade Cards - Mobile Optimized */}
+      {/* Trade Cards - Mobile: Compact / Desktop: Detailed */}
       <div className="grid gap-3">
         {filteredTrades.map((trade, index) => {
           const Icon = CATEGORY_ICONS[trade.category];
@@ -452,51 +452,137 @@ export function TradesView() {
           const isStrongBuy = edge > 20;
           
           return (
-            <div key={trade.id} className={`rounded-xl border p-3 transition-all hover:border-primary/50 ${isStrongBuy ? 'border-success/30 bg-success/5' : 'border-surface-hover bg-surface'}`}>
-              {/* Row 1: Icon, Title, Trade Button */}
-              <div className="flex items-center gap-2">
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
-                  <Icon className="h-4 w-4" />
+            <div key={trade.id} className={`rounded-xl border p-3 lg:p-4 transition-all hover:border-primary/50 ${isStrongBuy ? 'border-success/30 bg-success/5' : 'border-surface-hover bg-surface'}`}>
+              
+              {/* MOBILE LAYOUT (default) */}
+              <div className="lg:hidden">
+                {/* Row 1: Icon, Title, Trade Button */}
+                <div className="flex items-center gap-2">
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-medium text-sm leading-tight truncate">{trade.title}</h3>
+                    <div className="flex items-center gap-1 text-xs text-gray-400 truncate">
+                      <span className="truncate max-w-[120px]">{trade.ticker}</span>
+                      <span>•</span>
+                      <span>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
+                      {isStrongBuy && <span className="text-success ml-1">🔥#{index+1}</span>}
+                    </div>
+                  </div>
+                  
+                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 ml-2"
+                    title="Trade on Kalshi"
+                  >
+                    <ArrowUpRight className="h-4 w-4" />
+                  </a>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-medium text-sm leading-tight truncate">{trade.title}</h3>
-                  <div className="flex items-center gap-1 text-xs text-gray-400 truncate">
-                    <span className="truncate max-w-[120px]">{trade.ticker}</span>
-                    <span>•</span>
-                    <span>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
-                    {isStrongBuy && <span className="text-success ml-1">🔥#{index+1}</span>}
+
+                {/* Row 2: Price, Edge, Confidence, Multiplier */}
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold">{trade.yesPrice}¢</span>
+                    <span className={`text-sm ${edge > 0 ? 'text-success' : 'text-danger'}`}>+{edge}%</span>
+                    <ConfidenceBadge level={trade.research.confidence} />
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-success">{trade.payout.multiplier}x</div>
                   </div>
                 </div>
-                
-                <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 ml-2"
-                  title="Trade on Kalshi"
-                >
-                  <ArrowUpRight className="h-4 w-4" />
-                </a>
-              </div>
 
-              {/* Row 2: Price, Edge, Confidence, Multiplier */}
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold">{trade.yesPrice}¢</span>
-                  <span className={`text-sm ${edge > 0 ? 'text-success' : 'text-danger'}`}>+{edge}%</span>
-                  <ConfidenceBadge level={trade.research.confidence} />
+                {/* Row 3: Prediction Meter (hidden on very small screens) */}
+                <div className="mt-2 hidden sm:block">
+                  <PredictionMeter probability={trade.research.trueProbability} marketPrice={trade.yesPrice} />
                 </div>
-                
-                <div className="text-right">
-                  <div className="text-lg font-bold text-success">{trade.payout.multiplier}x</div>
+
+                {/* Row 4: Research note */}
+                <div className="mt-2 text-xs text-gray-400 line-clamp-1">
+                  {trade.research.catalyst}
                 </div>
               </div>
 
-              {/* Row 3: Prediction Meter (hidden on very small screens) */}
-              <div className="mt-2 hidden sm:block">
-                <PredictionMeter probability={trade.research.trueProbability} marketPrice={trade.yesPrice} />
-              </div>
+              {/* DESKTOP LAYOUT (lg+) */}
+              <div className="hidden lg:block">
+                <div className="flex items-center gap-4">
+                  
+                  {/* Left: Icon + Title */}
+                  <div className="flex items-center gap-3 w-[280px] shrink-0">
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${CATEGORY_COLORS[trade.category]}`}>
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm truncate">{trade.title}</h3>
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                        <span>{trade.ticker}</span>
+                        <span>•</span>
+                        <span>{new Date(trade.expiration).toLocaleDateString()}</span>
+                        {isStrongBuy && <span className="text-success font-medium">🔥 Top Pick #{index+1}</span>}
+                      </div>
+                    </div>
+                  </div>
 
-              {/* Row 4: Research note */}
-              <div className="mt-2 text-xs text-gray-400 line-clamp-1">
-                {trade.research.catalyst}
+                  {/* Middle: Chart + Meter */}
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <div className="flex items-center gap-3">
+                      <Sparkline data={trade.priceHistory || [trade.yesPrice]} />
+                      <span className="text-xl font-bold">{trade.yesPrice}¢</span>
+                      <ConfidenceBadge level={trade.research.confidence} />
+                    </div>
+                    <PredictionMeter probability={trade.research.trueProbability} marketPrice={trade.yesPrice} />
+                  </div>
+
+                  {/* Right: Payout Card */}
+                  <div className="w-[220px] shrink-0">
+                    <div className="rounded-xl bg-surface-hover p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-success">{trade.payout.multiplier}x</div>
+                          <div className="text-xs text-gray-400">Multiplier</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-success">+${trade.payout.potentialReturn - trade.payout.buyPrice}</div>
+                          <div className="text-xs text-gray-400">Profit if Win</div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Buy YES:</span>
+                          <span className="font-medium">{trade.yesPrice}¢</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">If Win:</span>
+                          <span className="font-medium text-success">${trade.payout.potentialReturn}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Volume:</span>
+                          <span>{trade.volume.toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
+                        className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-primary py-2 text-sm font-medium text-white hover:bg-primary/90"
+                      >
+                        Trade on Kalshi <ArrowUpRight className="h-4 w-4" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Research Note */}
+                <div className="mt-3 rounded-lg bg-surface-hover/50 p-3">
+                  <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
+                    <Info className="h-4 w-4" /> Why This Trade?
+                  </div>
+                  <p className="text-sm">{trade.research.catalyst}</p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {trade.research.sources.map(source => (
+                      <span key={source} className="rounded bg-surface-hover px-2 py-0.5 text-xs text-gray-400">{source}</span>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           );
