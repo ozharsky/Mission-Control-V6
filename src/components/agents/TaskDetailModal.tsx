@@ -151,10 +151,23 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </div>
 
             {/* Input / Prompt */}
-            {task.input?.topic && (
+            {task.input && (
               <div className="rounded-lg bg-surface-hover p-4">
-                <h4 className="text-sm font-medium text-gray-400 mb-2">Prompt</h4>
-                <p className="text-sm italic">"{task.input.topic}"</p>
+                <h4 className="text-sm font-medium text-gray-400 mb-2">
+                  {task.previousAgentTaskId ? 'Input from Previous Agent' : 'Prompt'}
+                </h4>
+                <div className="text-sm">
+                  {task.input.topic ? (
+                    <p className="italic">"{task.input.topic}"</p>
+                  ) : task.input.result ? (
+                    <div className="whitespace-pre-wrap font-mono text-xs bg-surface p-2 rounded max-h-40 overflow-y-auto">
+                      {String(task.input.result).substring(0, 500)}
+                      {String(task.input.result).length > 500 && '...'}
+                    </div>
+                  ) : (
+                    <pre className="text-xs">{JSON.stringify(task.input, null, 2)}</pre>
+                  )}
+                </div>
               </div>
             )}
 
@@ -193,10 +206,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             )}
 
             {/* Output */}
-            {task.output && (
+            {task?.output && (
               <div className="rounded-lg bg-green-500/5 border border-green-500/20 p-4">
                 <h4 className="text-sm font-medium text-green-400 mb-2">Output</h4>
-                <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(task.output, null, 2)}</pre>
+                <div className="text-sm whitespace-pre-wrap font-mono bg-surface p-3 rounded max-h-60 overflow-y-auto">
+                  {typeof task.output === 'string' 
+                    ? task.output 
+                    : task.output?.result 
+                      ? String(task.output.result)
+                      : JSON.stringify(task.output, null, 2)}
+                </div>
               </div>
             )}
 
