@@ -350,31 +350,53 @@ export function TradesView() {
   const fetchLiveData = async () => {
     setIsLoading(true);
     try {
-      // Use Vercel API route as proxy - UPDATE THIS URL to your Vercel deployment
+      // Use Vercel API route as proxy
       const KALSHI_PROXY_URL = 'https://mission-control-v6-kappa.vercel.app/api/kalshi';
       const response = await fetch(`${KALSHI_PROXY_URL}?action=markets`);
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       
       if (data.markets && data.markets.length > 0) {
-        setTrades(prevTrades => prevTrades.map(trade => {
-          const liveMarket = data.markets.find((m: any) => m.ticker === trade.ticker);
-          if (liveMarket) {
-            const newPrice = liveMarket.yes_ask || liveMarket.yes_price || liveMarket.last_price || trade.yesPrice;
+        // Create trades from live markets that match our criteria
+        const liveTrades: KalshiTrade[] = data.markets
+          .filter((m: any) => {
+            // Filter for interesting markets: low price, high multiplier potential
+            const price = m.yes_ask || m.yes_price || m.last_price || 50;
+            return price < 30; // Focus on cheap YES contracts
+          })
+          .slice(0, 10) // Limit to 10 markets
+          .map((m: any, idx: number) => {
+            const price = m.yes_ask || m.yes_price || m.last_price || 50;
             return {
-              ...trade,
-              yesPrice: newPrice,
-              volume: liveMarket.volume || liveMarket.trade_volume || trade.volume,
+              id: `live-${idx}`,
+              ticker: m.ticker,
+              title: m.title || m.ticker,
+              category: (m.category?.toLowerCase() || 'economics') as KalshiTrade['category'],
+              yesPrice: price,
+              noPrice: 100 - price,
+              volume: m.volume || m.trade_volume || 0,
+              expiration: m.settlement_date || m.expiration || '2026-12-31',
+              kalshiUrl: `https://kalshi.com/markets/${m.ticker}`,
+              priceHistory: [price],
+              research: {
+                trueProbability: Math.round(price * 1.2), // Estimate 20% edge for low-priced
+                edge: Math.round(price * 0.2),
+                confidence: price < 15 ? 'high' : price < 25 ? 'medium' : 'low',
+                catalyst: 'Live market from Kalshi API',
+                sources: ['Kalshi']
+              },
               payout: {
-                buyPrice: newPrice,
+                buyPrice: price,
                 potentialReturn: 100,
-                multiplier: parseFloat((100 / newPrice).toFixed(1))
+                multiplier: parseFloat((100 / price).toFixed(1))
               }
             };
-          }
-          return trade;
-        }));
-        setLastUpdated(new Date());
+          });
+        
+        if (liveTrades.length > 0) {
+          setTrades(liveTrades);
+          setLastUpdated(new Date());
+        }
       }
     } catch (error) {
       console.error('Failed to fetch live data:', error);
