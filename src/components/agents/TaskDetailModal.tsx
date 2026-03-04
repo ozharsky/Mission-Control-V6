@@ -62,8 +62,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setCompleteError(null);
     
     try {
-      // Use the response text entered by user, or default
-      const output = responseText.trim() || 'Task completed';
+      // Sanitize response text - remove problematic characters
+      const sanitizedResponse = responseText
+        .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '') // Remove control characters
+        .substring(0, 10000); // Limit to 10k chars
+      
+      const output = sanitizedResponse.trim() || 'Task completed';
       
       // Complete the task and trigger next agent
       await service.completeWorkflowTask(taskId, { result: output });
