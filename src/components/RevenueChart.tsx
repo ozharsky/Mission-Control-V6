@@ -366,7 +366,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
 
       {/* Main Chart */}
       <div className="rounded-xl border border-surface-hover bg-surface p-4">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10"><BarChart3 className="h-5 w-5 text-primary" /></div>
             <div><h2 className="text-lg font-semibold">Revenue Overview</h2><p className="text-sm text-gray-400">Goal: {formatCurrency(goal)}/month</p></div>
@@ -378,7 +378,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
 
             <div className="flex rounded-lg border border-surface-hover">
               {(['3m', '6m', '12m', 'all'] as const).map((range) => (
-                <button key={range} onClick={() => setTimeRange(range)} className={`min-h-[44px] px-3 py-2 text-sm ${timeRange === range ? 'bg-primary text-white' : 'hover:bg-surface-hover'}`}>
+                <button key={range} onClick={() => setTimeRange(range)} className={`min-h-[44px] px-2 sm:px-3 py-2 text-xs sm:text-sm ${timeRange === range ? 'bg-primary text-white' : 'hover:bg-surface-hover'}`}>
                   {range === 'all' ? 'All' : range}
                 </button>
               ))}
@@ -393,7 +393,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
 
         {viewMode === 'chart' ? (
           filteredData.length > 0 ? (
-            <div style={{ height: '300px' }}>
+            <div className="h-[250px] md:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={filteredData.map(d => ({
@@ -403,23 +403,26 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                     orders: d.orders,
                     goal: goal
                   }))}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 30 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                   <XAxis
                     dataKey="month"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    tick={{ fill: '#9ca3af', fontSize: 9 }}
                     angle={-45}
                     textAnchor="end"
-                    height={50}
+                    height={40}
+                    interval={0}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
                     tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
+                    width={35}
+                  />
                   />
                   <Tooltip
                     content={({ active, payload }) => {
