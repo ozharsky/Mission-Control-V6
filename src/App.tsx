@@ -18,8 +18,7 @@ import { ThemeToggleSimple } from './components/ThemeToggle';
 import { JobsView } from './components/JobsView';
 import { InventoryView } from './components/InventoryView';
 import { ReportsView } from './components/ReportsView';
-import { AgentTaskList } from './components/agents/AgentTaskList';
-import { AgentDocuments } from './components/agents/AgentDocuments';
+import { TradesView } from './components/TradesView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
 import { SkeletonCard, SkeletonList } from './components/Loading';
@@ -166,6 +165,9 @@ function App() {
 
       case 'printers':
         return <PrinterStatus printers={printers} />;
+
+      case 'trades':
+        return <TradesView />;
 
       case 'revenue':
         return (
