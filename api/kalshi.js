@@ -1,73 +1,58 @@
-// Vercel Serverless Function - Kalshi Proxy
-const https = require('https');
-
-module.exports = async (req, res) => {
+module.exports = (req, res) => {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
-  try {
-    const { action, ticker, series } = req.query;
+  const https = require('https');
+  const { action, series, ticker } = req.query;
+  
+  let path = '/trade-api/v2/markets?status=open&limit=100';
+  
+  if (action === 'series' && series) {
+    path = `/trade-api/v2/series/${series}/markets?status=open`;
+  } else if (action === 'market' && ticker) {
+    path = `/trade-api/v2/markets/${ticker}`;
+  }
 
-    // Kalshi API base URL
-    const KALSHI_API = 'api.elections.kalshi.com';
-
-    let path;
-    
-    switch (action) {
-      case 'markets':
-        path = '/trade-api/v2/markets?status=open&limit=100';
-        break;
-      case 'series':
-        path = `/trade-api/v2/series/${series}/markets?status=open`;
-        break;
-      case 'market':
-        path = `/trade-api/v2/markets/${ticker}`;
-        break;
-      default:
-        path = '/trade-api/v2/markets?status=open&limit=100';
+  const options = {
+    hostname: 'api.elections.kalshi.com',
+    path: path,
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json'
     }
+  };
 
-    // Use Node.js https module instead of fetch
-    const data = await new Promise((resolve, reject) => {
-      const request = https.get({
-        hostname: KALSHI_API,
-        path: path,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      }, (response) => {
-        let data = '';
-        response.on('data', chunk => data += chunk);
-        response.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            reject(new Error('Invalid JSON response'));
-          }
-        });
-      });
-      
-      request.on('error', reject);
-      request.setTimeout(10000, () => {
-        request.destroy();
-        reject(new Error('Request timeout'));
-      });
+  const request = https.request(options, (response) => {
+    let data = '';
+    
+    response.on('data', (chunk) => {
+      data += chunk;
     });
     
-    res.status(200).json(data);
-  } catch (error) {
-    console.error('Kalshi proxy error:', error);
-    res.status(500).json({ 
-      error: error.message,
-      markets: [] 
+    response.on('end', () => {
+      try {
+        const jsonData = JSON.parse(data);
+        res.status(200).json(jsonData);
+      } catch (e) {
+        res.status(500).json({ error: 'Invalid response from Kalshi', raw: data });
+      }
     });
-  }
+  });
+
+  request.on('error', (error) => {
+    res.status(500).json({ error: error.message });
+  });
+
+  request.setTimeout(10000, () => {
+    request.destroy();
+    res.status(500).json({ error: 'Request timeout' });
+  });
+
+  request.end();
 };
