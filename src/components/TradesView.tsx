@@ -341,82 +341,12 @@ export function TradesView() {
   const [selectedCategory, setSelectedCategory] = useState<KalshiTrade['category'] | 'all'>('all');
   const [sortBy, setSortBy] = useState<'edge' | 'multiplier'>('edge');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [trades, setTrades] = useState<KalshiTrade[]>(RESEARCHED_TRADES);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [trades] = useState<KalshiTrade[]>(RESEARCHED_TRADES);
   const [showEducation, setShowEducation] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch live data from Kalshi public API
-  const fetchLiveData = async () => {
-    setIsLoading(true);
-    try {
-      // Try multiple endpoints for Kalshi public API
-      let data = null;
-
-      // Try the series endpoint for specific markets
-      const seriesResponse = await fetch('https://api.elections.kalshi.com/trade-api/v2/series/kxhighsea/markets?status=open');
-      if (seriesResponse.ok) {
-        const seriesData = await seriesResponse.json();
-        data = { markets: seriesData.markets || [] };
-      } else {
-        // Fallback to general markets endpoint
-        const response = await fetch('https://api.elections.kalshi.com/trade-api/v2/markets?status=open&limit=100');
-        if (response.ok) {
-          data = await response.json();
-        }
-      }
-
-      // Update trades with live prices where available
-      if (data && data.markets && data.markets.length > 0) {
-        setTrades(prevTrades => {
-          const updatedTrades = prevTrades.map(trade => {
-            // Try to find by ticker
-            let liveMarket = data.markets.find((m: any) => m.ticker === trade.ticker);
-
-            // If not found by ticker, try by title similarity
-            if (!liveMarket) {
-              liveMarket = data.markets.find((m: any) =>
-                m.title && trade.title &&
-                (m.title.toLowerCase().includes(trade.title.toLowerCase().split(' ')[0]) ||
-                 trade.title.toLowerCase().includes(m.title.toLowerCase().split(' ')[0]))
-              );
-            }
-
-            if (liveMarket) {
-              const newPrice = liveMarket.yes_ask || liveMarket.yes_price || liveMarket.last_price || trade.yesPrice;
-              const newVolume = liveMarket.volume || liveMarket.trade_volume || trade.volume;
-
-              return {
-                ...trade,
-                yesPrice: newPrice,
-                volume: newVolume,
-                // Recalculate payout based on new price
-                payout: {
-                  buyPrice: newPrice,
-                  potentialReturn: 100,
-                  multiplier: parseFloat((100 / newPrice).toFixed(1))
-                }
-              };
-            }
-            return trade;
-          });
-          return updatedTrades;
-        });
-        setLastUpdated(new Date());
-      }
-    } catch (error) {
-      console.error('Failed to fetch live data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Auto-refresh every 5 minutes
-  useEffect(() => {
-    fetchLiveData(); // Initial fetch
-    const interval = setInterval(fetchLiveData, 300000); // 5 minutes
-    return () => clearInterval(interval);
-  }, []);
+  // Note: Live data fetching disabled due to CORS restrictions
+  // Kalshi API requires server-side proxy or authenticated requests
+  // For now, using static data with calculated metrics (R-Score, Kelly)
 
   const filteredTrades = useMemo(() => {
     let result = selectedCategory === 'all' ? trades : trades.filter(t => t.category === selectedCategory);
@@ -490,18 +420,10 @@ export function TradesView() {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold truncate">Kalshi Trades</h1>
           <p className="text-sm text-gray-400 truncate">
-            {hasLiveData ? '✓ Live data' : 'Static data'} • Updated {lastUpdated.toLocaleTimeString()}
+            Static data with R-Score analysis
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={fetchLiveData}
-            disabled={isLoading}
-            className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            {isLoading ? 'Updating...' : 'Refresh'}
-          </button>
           <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0">
             <BookOpen className="h-4 w-4" /> {showEducation ? 'Hide' : 'Learn'}
           </button>
@@ -574,7 +496,6 @@ export function TradesView() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-400">
         <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-success" /> R-Score &gt;1.5 (+EV)</span>
         <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-warning" /> R-Score 1.0-1.5</span>
-        <span className="ml-auto flex items-center gap-1 shrink-0"><RefreshCw className="h-3 w-3" /> {lastUpdated.toLocaleTimeString()}</span>
       </div>
 
       {/* Trade Cards - Mobile: Compact / Desktop: Detailed */}
