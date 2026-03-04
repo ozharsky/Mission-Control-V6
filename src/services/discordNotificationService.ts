@@ -33,6 +33,8 @@ const AGENT_DISCORD_IDS: Record<AgentId, string> = {
   surveyor: '1478497423654649907'      // @researcher
 };
 
+const COORDINATION_CHANNEL = '1478488567020785867'; // #🎯-agent-coordination
+
 export class DiscordNotificationService {
   private db: Database;
 
@@ -111,7 +113,6 @@ export class DiscordNotificationService {
       console.log(`[DISCORD QUEUED → ${channelId}]: ${message.substring(0, 100)}...`);
     } catch (error) {
       console.error('Failed to queue Discord notification:', error);
-      // Still log so we know what should have been sent
       console.log(`[DISCORD FAILED → ${channelId}]: ${message}`);
     }
   }
