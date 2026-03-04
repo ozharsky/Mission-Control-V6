@@ -45,7 +45,7 @@ export class DiscordNotificationService {
   /**
    * Queue notification for agent's Discord channel
    */
-  async notifyAgentOfTask(task: AgentTask): Promise<void> {
+  async notifyAgentOfTask(task: AgentTask, previousOutput?: string): Promise<void> {
     const channelId = AGENT_CHANNELS[task.assignee];
     const agentDiscordId = AGENT_DISCORD_IDS[task.assignee];
     if (!channelId) {
@@ -59,14 +59,20 @@ export class DiscordNotificationService {
     // Include mention so bot responds (with allowBots: true and requireMention: true)
     const mention = agentDiscordId ? `<@${agentDiscordId}>` : '';
     
-    const message = `${mention} ${agentEmoji} **New Task for ${agentName}**\n\n` +
-      `**${task.title}**\n` +
-      (task.input?.topic ? `Prompt: "${task.input.topic}"\n` : '') +
-      `\nPriority: ${this.getPriorityEmoji(task.priority)} ${task.priority} | Status: ${task.status}\n` +
-      `Task ID: \`${task.id}\`\n\n` +
-      `Type your response to complete this task.`;
-      `Task ID: \`${task.id}\`\n\n` +
-      `Type your response to complete this task.`;
+    let message = `${mention} ${agentEmoji} **New Task for ${agentName}**\n\n` +
+      `**${task.title}**\n`;
+    
+    // Add previous agent's output if available
+    if (previousOutput) {
+      message += `\n📋 **Previous Agent's Output:**\n` +
+        `\`\`\`\n${previousOutput.substring(0, 1500)}${previousOutput.length > 1500 ? '...' : ''}\n\`\`\`\n`;
+    } else if (task.input?.topic) {
+      message += `\n📝 **Prompt:** "${task.input.topic}"\n`;
+    }
+    
+    message += `\n⚡ Priority: ${this.getPriorityEmoji(task.priority)} ${task.priority} | Status: ${task.status}\n` +
+      `🆔 Task ID: \`${task.id}\`\n\n` +
+      `✏️ Type your response to complete this task.`;
 
     await this.queueNotification(channelId, message, task.id);
   }

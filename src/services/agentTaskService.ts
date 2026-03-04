@@ -279,10 +279,11 @@ export class AgentTaskService {
       await this.updateAgentTask(task.nextAgentTaskId, { input: output });
       await this.updateWorkflow(workflow.id, { currentTaskId: task.nextAgentTaskId });
 
-      // Notify next agent
+      // Notify next agent with previous output
       const nextTask = await this.getAgentTask(task.nextAgentTaskId);
       if (nextTask) {
-        await this.notifyAgent(nextTask.assignee, nextTask);
+        const previousOutput = typeof output === 'string' ? output : output?.result;
+        await this.discord.notifyAgentOfTask(nextTask, previousOutput);
       }
     } else {
       // Workflow complete
