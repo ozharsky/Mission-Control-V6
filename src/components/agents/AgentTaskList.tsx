@@ -9,6 +9,7 @@ import { AgentTaskService } from '../../services/agentTaskService';
 import { AgentTask, TaskFilters, AgentId } from '../../types/agentTask';
 import { AGENT_EMOJIS, AGENT_NAMES, TASK_STATUS } from '../../constants/agents';
 import { NewWorkflowModal } from './NewWorkflowModal';
+import { TaskDetailModal } from './TaskDetailModal';
 import { Bot, Plus, Filter } from 'lucide-react';
 
 interface AgentTaskListProps {
@@ -39,6 +40,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
   const [filters, setFilters] = useState<TaskFilters>({});
   const [stats, setStats] = useState({ total: 0, active: 0, pending: 0 });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const service = new AgentTaskService(firebaseDb);
 
@@ -220,28 +222,33 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
           tasks.map(task => (
             <div
               key={task.id}
-              className="rounded-xl border border-surface-hover bg-surface p-4 hover:border-primary/50 cursor-pointer transition-colors"
-              onClick={() => onTaskSelect?.(task.id)}
+              className="rounded-xl border border-surface-hover bg-surface p-3 sm:p-4 hover:border-primary/50 cursor-pointer transition-colors"
+              onClick={() => setSelectedTaskId(task.id)}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl" title={AGENT_NAMES[task.assignee]}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <span className="text-xl sm:text-2xl flex-shrink-0" title={AGENT_NAMES[task.assignee]}>
                     {AGENT_EMOJIS[task.assignee]}
                   </span>
-                  <div>
-                    <h4 className="font-medium">{task.title}</h4>
-                    <p className="text-sm text-gray-400 line-clamp-1">
+                  <div className="min-w-0">
+                    <h4 className="font-medium text-sm sm:text-base truncate">{task.title}</h4>
+                    {task.input?.topic && (
+                      <p className="text-xs sm:text-sm text-gray-400 line-clamp-1">
+                        "{task.input.topic}"
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 line-clamp-1 hidden sm:block">
                       {task.description}
                     </p>
                   </div>
                 </div>
-                <span title={`${task.priority} priority`}>
+                <span className="flex-shrink-0" title={`${task.priority} priority`}>
                   {priorityIcons[task.priority]}
                 </span>
               </div>
 
-              <div className="flex items-center gap-3 mt-3">
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${statusColors[task.status]}`}>
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${statusColors[task.status]}`}>
                   {task.status}
                 </span>
                 <span className="text-xs text-gray-400">{task.type}</span>
@@ -260,6 +267,13 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onWorkflowCreated={loadTasks}
+      />
+
+      <TaskDetailModal
+        firebaseDb={firebaseDb}
+        taskId={selectedTaskId}
+        isOpen={!!selectedTaskId}
+        onClose={() => setSelectedTaskId(null)}
       />
     </div>
   );
