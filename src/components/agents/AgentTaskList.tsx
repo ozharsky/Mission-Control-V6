@@ -10,7 +10,8 @@ import { AgentTask, TaskFilters, AgentId, AgentWorkflow } from '../../types/agen
 import { AGENT_EMOJIS, AGENT_NAMES, TASK_STATUS } from '../../constants/agents';
 import { NewWorkflowModal } from './NewWorkflowModal';
 import { TaskDetailModal } from './TaskDetailModal';
-import { Bot, Plus, Filter, Trash2 } from 'lucide-react';
+import { AgentDocuments } from './AgentDocuments';
+import { Bot, Plus, Filter, Trash2, FileText } from 'lucide-react';
 
 interface AgentTaskListProps {
   firebaseDb: Database;
@@ -42,7 +43,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
   const [stats, setStats] = useState({ total: 0, active: 0, pending: 0 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'tasks' | 'workflows'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'workflows' | 'documents'>('tasks');
   const [deletingWorkflow, setDeletingWorkflow] = useState<string | null>(null);
 
   const service = new AgentTaskService(firebaseDb);

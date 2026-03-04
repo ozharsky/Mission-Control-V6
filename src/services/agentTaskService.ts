@@ -277,13 +277,25 @@ export class AgentTaskService {
         throw error;
       }
     } else {
-      // Workflow complete
+      // Workflow complete - compile final document
       await firebaseUpdate(ref(this.db, `${this.workflowPath}/${workflow.id}`), {
         status: 'complete',
         output,
         currentTaskId: null
       });
       console.log(`[WORKFLOW] Workflow ${workflow.id} completed`);
+      
+      // Compile and save final document
+      try {
+        const { WorkflowCompletionService } = await import('./workflowCompletionService');
+        const completionService = new WorkflowCompletionService(this.db);
+        const document = await completionService.compileWorkflowDocument(workflow.id);
+        if (document) {
+          console.log(`[WORKFLOW] Final document compiled: ${document.id}`);
+        }
+      } catch (compileError) {
+        console.error('[WORKFLOW] Failed to compile final document:', compileError);
+      }
     }
 
     return { ...task, output };

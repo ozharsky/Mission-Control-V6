@@ -72,7 +72,8 @@ export const WORKFLOW_TEMPLATES: Record<string, WorkflowTemplate> = {
       { agent: 'surveyor', type: 'research', label: 'Market Research' },
       { agent: 'ideator', type: 'ideation', label: 'Generate Ideas' },
       { agent: 'critic', type: 'analysis', label: 'Feasibility Check' },
-      { agent: 'planner', type: 'planning', label: 'Create Strategy' }
+      { agent: 'planner', type: 'planning', label: 'Create Strategy' },
+      { agent: 'architect', type: 'compilation', label: 'Compile & Save Report' }
     ]
   },
 
@@ -82,7 +83,8 @@ export const WORKFLOW_TEMPLATES: Record<string, WorkflowTemplate> = {
       { agent: 'ideator', type: 'ideation', label: 'Product Concept' },
       { agent: 'writer', type: 'writing', label: 'Write Description' },
       { agent: 'reviewer', type: 'review', label: 'Edit & Polish' },
-      { agent: 'planner', type: 'planning', label: 'Final Approval' }
+      { agent: 'planner', type: 'planning', label: 'Final Approval' },
+      { agent: 'architect', type: 'compilation', label: 'Save to Files' }
     ]
   },
 
