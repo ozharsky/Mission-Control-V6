@@ -27,7 +27,7 @@ function Tooltip({ children, text }: { children: React.ReactNode; text: string }
 
 // Simple sparkline chart
 function Sparkline({ data, color = '#22c55e' }: { data: number[]; color?: string }) {
-  if (data.length < 2) return <div className="h-6 w-16 bg-surface-hover rounded" />;
+  if (data.length < 2) return <div className="h-6 w-16 bg-surface-hover rounded shrink-0" />;
   const max = Math.max(...data, 1);
   const min = Math.min(...data, 0);
   const range = max - min || 1;
@@ -38,7 +38,7 @@ function Sparkline({ data, color = '#22c55e' }: { data: number[]; color?: string
   }).join(' ');
 
   return (
-    <svg viewBox="0 0 100 100" className="h-6 w-16" preserveAspectRatio="none">
+    <svg viewBox="0 0 100 100" className="h-6 w-16 shrink-0" preserveAspectRatio="none">
       <polyline fill="none" stroke={color} strokeWidth="4" points={points} />
     </svg>
   );
@@ -299,16 +299,16 @@ const EDUCATION_CONTENT = {
 function PredictionMeter({ probability, marketPrice }: { probability: number; marketPrice: number }) {
   const edge = probability - marketPrice;
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 w-full min-w-0">
       <div className="relative h-2 rounded-full bg-surface-hover overflow-hidden">
         <div className="absolute top-0 bottom-0 w-0.5 bg-white z-10" style={{ left: `${marketPrice}%` }} />
         <div className={`h-full rounded-full ${edge > 15 ? 'bg-success' : edge > 5 ? 'bg-warning' : 'bg-danger'}`}
           style={{ width: `${Math.min(probability, 100)}%` }} />
       </div>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-400">Market: {marketPrice}¢</span>
-        <span className={edge > 0 ? 'text-success font-medium' : 'text-danger'}>Edge: {edge > 0 ? '+' : ''}{edge}%</span>
-        <span className="text-gray-400">Model: {probability}%</span>
+        <span className="text-gray-400">M:{marketPrice}¢</span>
+        <span className={edge > 0 ? 'text-success font-medium' : 'text-danger'}>E:{edge > 0 ? '+' : ''}{edge}%</span>
+        <span className="text-gray-400">Mod:{probability}%</span>
       </div>
     </div>
   );
@@ -322,7 +322,7 @@ function ConfidenceBadge({ level }: { level: 'high' | 'medium' | 'low' }) {
   };
   return (
     <Tooltip text={EDUCATION_CONTENT.confidence}>
-      <span className={`rounded-full px-2 py-0.5 text-xs cursor-help ${colors[level]}`}>
+      <span className={`rounded-full px-2 py-0.5 text-xs cursor-help shrink-0 ${colors[level]}`}>
         {level === 'high' ? 'High' : level === 'medium' ? 'Med' : 'Low'}
       </span>
     </Tooltip>
@@ -361,18 +361,18 @@ export function TradesView() {
   }), [trades]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0">
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Kalshi Trades</h1>
-          <p className="text-sm text-gray-400">Researched +EV opportunities</p>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold truncate">Kalshi Trades</h1>
+          <p className="text-sm text-gray-400 truncate">Researched +EV opportunities</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover">
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0">
             <BookOpen className="h-4 w-4" /> {showEducation ? 'Hide' : 'Learn'}
           </button>
-          <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20">
+          <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 shrink-0">
             Kalshi <ExternalLink className="h-4 w-4" />
           </a>
         </div>
@@ -395,7 +395,7 @@ export function TradesView() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl border border-surface-hover bg-surface p-3">
           <div className="text-xs text-gray-400">Trades</div><div className="text-xl font-bold">{stats.total}</div>
         </div>
@@ -426,7 +426,7 @@ export function TradesView() {
           })}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm">
             <option value="edge">Sort: Edge</option>
             <option value="multiplier">Sort: Multiplier</option>
@@ -444,7 +444,7 @@ export function TradesView() {
         <span className="ml-auto flex items-center gap-1"><RefreshCw className="h-3 w-3" /> {lastUpdated.toLocaleTimeString()}</span>
       </div>
 
-      {/* Trade Cards - Compact Desktop Layout */}
+      {/* Trade Cards - Mobile Optimized */}
       <div className="grid gap-3">
         {filteredTrades.map((trade, index) => {
           const Icon = CATEGORY_ICONS[trade.category];
@@ -453,60 +453,49 @@ export function TradesView() {
           
           return (
             <div key={trade.id} className={`rounded-xl border p-3 transition-all hover:border-primary/50 ${isStrongBuy ? 'border-success/30 bg-success/5' : 'border-surface-hover bg-surface'}`}>
-              {/* Desktop: Single row */}
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              {/* Row 1: Icon, Title, Trade Button */}
+              <div className="flex items-center gap-2">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium text-sm leading-tight truncate">{trade.title}</h3>
+                  <div className="flex items-center gap-1 text-xs text-gray-400 truncate">
+                    <span className="truncate max-w-[120px]">{trade.ticker}</span>
+                    <span>•</span>
+                    <span>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
+                    {isStrongBuy && <span className="text-success ml-1">🔥#{index+1}</span>}
+                  </div>
+                </div>
                 
-                {/* Icon + Title */}
-                <div className="flex items-center gap-3 lg:w-[260px] lg:shrink-0">
-                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-medium text-sm truncate">{trade.title}</h3>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                      <span>{trade.ticker}</span>
-                      <span>•</span>
-                      <span>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
-                      {isStrongBuy && <span className="text-success">🔥#{index+1}</span>}
-                    </div>
-                  </div>
-                </div>
+                <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 ml-2"
+                  title="Trade on Kalshi"
+                >
+                  <ArrowUpRight className="h-4 w-4" />
+                </a>
+              </div>
 
-                {/* Chart + Meter */}
-                <div className="flex-1 space-y-2 lg:max-w-[280px]">
-                  <div className="flex items-center gap-2">
-                    <Sparkline data={trade.priceHistory || [trade.yesPrice]} />
-                    <span className="text-lg font-bold">{trade.yesPrice}¢</span>
-                    <ConfidenceBadge level={trade.research.confidence} />
-                  </div>
-                  <PredictionMeter probability={trade.research.trueProbability} marketPrice={trade.yesPrice} />
+              {/* Row 2: Price, Edge, Confidence, Multiplier */}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold">{trade.yesPrice}¢</span>
+                  <span className={`text-sm ${edge > 0 ? 'text-success' : 'text-danger'}`}>+{edge}%</span>
+                  <ConfidenceBadge level={trade.research.confidence} />
                 </div>
-
-                {/* Payout */}
-                <div className="flex items-center gap-3 lg:w-[200px] lg:shrink-0">
-                  <div className="flex-1 rounded-lg bg-surface-hover p-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-xl font-bold text-success">{trade.payout.multiplier}x</div>
-                        <div className="text-xs text-gray-400">Mult</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-success">+${trade.payout.potentialReturn - trade.payout.buyPrice}</div>
-                        <div className="text-xs text-gray-400">Profit</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90"
-                    title="Trade on Kalshi"
-                  >
-                    <ArrowUpRight className="h-5 w-5" />
-                  </a>
+                
+                <div className="text-right">
+                  <div className="text-lg font-bold text-success">{trade.payout.multiplier}x</div>
                 </div>
               </div>
 
-              {/* Research - compact */}
-              <div className="mt-2 text-sm text-gray-400 truncate">
+              {/* Row 3: Prediction Meter (hidden on very small screens) */}
+              <div className="mt-2 hidden sm:block">
+                <PredictionMeter probability={trade.research.trueProbability} marketPrice={trade.yesPrice} />
+              </div>
+
+              {/* Row 4: Research note */}
+              <div className="mt-2 text-xs text-gray-400 line-clamp-1">
                 {trade.research.catalyst}
               </div>
             </div>
