@@ -263,7 +263,7 @@ export function TradesView() {
               yesPrice: price,
               noPrice: 100 - price,
               volume: m.volume || m.trade_volume || 0,
-              expiration: m.settlement_date || m.expiration || '2026-12-31',
+              expiration: m.close_time || m.settlement_date || m.expiration || '2026-03-05',
               kalshiUrl: `https://kalshi.com/markets/${urlTicker}`,
               priceHistory: [price],
               research: {
