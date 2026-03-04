@@ -364,7 +364,6 @@ function AIInsightsCard({
 interface DashboardViewProps {
   onNavigate: (section: string) => void;
 }
-}
 
 export function DashboardView({ onNavigate }: DashboardViewProps) {
   const { tasks, projects, jobs, inventory, printers, revenue } = useAppStore();
