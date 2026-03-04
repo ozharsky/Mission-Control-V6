@@ -1,11 +1,12 @@
 {
   "version": 2,
-  "buildCommand": null,
-  "outputDirectory": "dist",
-  "framework": null,
+  "functions": {
+    "api/kalshi.mjs": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "rewrites": [
-    { "source": "/api/kalshi", "destination": "/api/kalshi.js" },
-    { "source": "/api/test", "destination": "/api/test.js" },
+    { "source": "/api/kalshi", "destination": "/api/kalshi.mjs" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
