@@ -154,7 +154,7 @@ export function TradesView() {
       const seriesToFetch = [
         { series: 'KXBTC', category: 'crypto', name: 'Bitcoin' },
         { series: 'KXETH', category: 'crypto', name: 'Ethereum' },
-        { series: 'KXHIGHSEA', category: 'weather', name: 'Seattle Weather' },
+        { series: 'KXHIGHTSEA', category: 'weather', name: 'Seattle Weather' },
         { series: 'KXHIGHNY', category: 'weather', name: 'NYC Weather' },
         { series: 'KXRAINSEA', category: 'weather', name: 'Seattle Rain' },
         { series: 'TRUMP', category: 'politics', name: 'Trump' },
