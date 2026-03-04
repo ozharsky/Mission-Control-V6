@@ -117,7 +117,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <span className="text-2xl">{task && AGENT_EMOJIS[task.assignee]}</span>
             <div>
               <h3 className="font-semibold">{task?.title || 'Loading...'}</h3>
-              <span className="text-xs text-gray-400">{task?.id}</span>
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span>{task?.id}</span>
+                {task && (
+                  <span className={`px-2 py-0.5 rounded text-xs ${
+                    task.status === 'active' ? 'bg-blue-500/20 text-blue-400' :
+                    task.status === 'complete' ? 'bg-green-500/20 text-green-400' :
+                    'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {task.status}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button
