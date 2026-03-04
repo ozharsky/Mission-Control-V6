@@ -305,10 +305,10 @@ function PredictionMeter({ probability, marketPrice }: { probability: number; ma
         <div className={`h-full rounded-full ${edge > 15 ? 'bg-success' : edge > 5 ? 'bg-warning' : 'bg-danger'}`}
           style={{ width: `${Math.min(probability, 100)}%` }} />
       </div>
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-400">M:{marketPrice}¢</span>
-        <span className={edge > 0 ? 'text-success font-medium' : 'text-danger'}>E:{edge > 0 ? '+' : ''}{edge}%</span>
-        <span className="text-gray-400">Mod:{probability}%</span>
+      <div className="flex items-center justify-between text-xs min-w-0">
+        <span className="text-gray-400 truncate">M:{marketPrice}¢</span>
+        <span className={edge > 0 ? 'text-success font-medium truncate' : 'text-danger truncate'}>E:{edge > 0 ? '+' : ''}{edge}%</span>
+        <span className="text-gray-400 truncate">Mod:{probability}%</span>
       </div>
     </div>
   );
@@ -411,13 +411,13 @@ export function TradesView() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           {(['all', 'weather', 'crypto', 'economics'] as const).map(cat => {
             const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
             return (
               <button key={cat} onClick={() => setSelectedCategory(cat)}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${selectedCategory === cat ? 'bg-primary text-white' : 'border border-surface-hover hover:bg-surface-hover'}`}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm shrink-0 ${selectedCategory === cat ? 'bg-primary text-white' : 'border border-surface-hover hover:bg-surface-hover'}`}
               >
                 {Icon && <Icon className="h-4 w-4" />}
                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -438,10 +438,10 @@ export function TradesView() {
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
-        <span className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-success" /> Strong Buy (&gt;20%)</span>
-        <span className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-warning" /> Good (10-20%)</span>
-        <span className="ml-auto flex items-center gap-1"><RefreshCw className="h-3 w-3" /> {lastUpdated.toLocaleTimeString()}</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-400">
+        <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-success" /> Strong Buy (&gt;20%)</span>
+        <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-warning" /> Good (10-20%)</span>
+        <span className="ml-auto flex items-center gap-1 shrink-0"><RefreshCw className="h-3 w-3" /> {lastUpdated.toLocaleTimeString()}</span>
       </div>
 
       {/* Trade Cards - Mobile: Compact / Desktop: Detailed */}
