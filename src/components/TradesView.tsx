@@ -160,24 +160,33 @@ export function TradesView() {
           .filter((m: any) => {
             // Filter for interesting markets: low price, high multiplier potential
             const price = m.yes_ask || m.yes_price || m.last_price || 50;
-            const cat = (m.category || '').toLowerCase();
-            // Skip sports - only crypto, weather, economics, politics
-            const isAllowed = ['crypto', 'weather', 'economics', 'politics'].includes(cat);
-            return price < 30 && isAllowed;
+            return price < 30; // Focus on cheap YES contracts
           })
           .slice(0, 10) // Limit to 10 markets
           .map((m: any, idx: number) => {
             const price = m.yes_ask || m.yes_price || m.last_price || 50;
+            // Clean up title - remove "yes " prefixes and format better
+            let cleanTitle = m.title || m.ticker;
+            if (cleanTitle.includes('yes ')) {
+              cleanTitle = cleanTitle.replace(/yes /g, '').replace(/,yes /g, ' + ').replace(/,no /g, ' / ');
+            }
+            // Truncate long titles
+            cleanTitle = cleanTitle.substring(0, 70);
+            
+            // Build correct Kalshi URL
+            // Use series ticker (event_ticker) for the URL, not full market ticker
+            const urlTicker = (m.event_ticker || m.series_ticker || m.ticker).toLowerCase();
+            
             return {
               id: `live-${idx}`,
               ticker: m.ticker,
-              title: m.title ? m.title.replace(/yes /g, '').replace(/,yes /g, ' + ').replace(/,no /g, ' / ').substring(0, 60) : m.ticker,
+              title: cleanTitle,
               category: (m.category?.toLowerCase() || 'economics') as KalshiTrade['category'],
               yesPrice: price,
               noPrice: 100 - price,
               volume: m.volume || m.trade_volume || 0,
               expiration: m.settlement_date || m.expiration || '2026-12-31',
-              kalshiUrl: `https://kalshi.com/markets/${(m.event_ticker || m.ticker).toLowerCase()}`,
+              kalshiUrl: `https://kalshi.com/markets/${urlTicker}`,
               priceHistory: [price],
               research: {
                 trueProbability: Math.round(price * 1.2), // Estimate 20% edge for low-priced
