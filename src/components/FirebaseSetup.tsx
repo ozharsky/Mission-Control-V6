@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Rocket } from 'lucide-react';
 
 interface FirebaseSetupProps {
   onConfigured: () => void;
@@ -36,7 +37,7 @@ export function FirebaseSetup({ onConfigured }: FirebaseSetupProps) {
       <div className="w-full max-w-md rounded-xl border border-surface-hover bg-surface p-8">
         <div className="mb-6 text-center">
           <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-            🚀
+            <Rocket className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold">Mission Control V6</h1>
           <p className="mt-2 text-gray-400">Configure Firebase to get started</p>
@@ -91,7 +92,7 @@ export function FirebaseSetup({ onConfigured }: FirebaseSetupProps) {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-primary py-3 font-medium text-white hover:bg-primary-hover"
+            className="min-h-[44px] w-full rounded-lg bg-primary py-3 font-medium text-white hover:bg-primary-hover"
           >
             Connect to Firebase
           </button>
