@@ -144,11 +144,11 @@ export class AgentTaskService {
     const task = await this.getAgentTask(taskId);
     if (!task) throw new Error('Task not found');
 
-    const oldState = task.state.current;
+    const oldState = task.state?.current || 'unknown';
     const state = {
       current: newState,
       history: [
-        ...task.state.history,
+        ...(task.state?.history || []),
         { from: oldState, to: newState, timestamp: Date.now(), triggeredBy }
       ]
     };

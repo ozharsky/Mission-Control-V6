@@ -123,10 +123,10 @@ export function JobsView({ jobs }: JobsViewProps) {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(job => 
-        job.title.toLowerCase().includes(query) ||
-        job.company.toLowerCase().includes(query) ||
-        job.description.toLowerCase().includes(query) ||
-        job.tags.some(tag => tag.toLowerCase().includes(query))
+        job.title?.toLowerCase().includes(query) ||
+        job.company?.toLowerCase().includes(query) ||
+        job.description?.toLowerCase().includes(query) ||
+        (job.tags || []).some(tag => tag?.toLowerCase().includes(query))
       );
     }
 
