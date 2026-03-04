@@ -228,7 +228,7 @@ export function TradesView() {
             const priceB = b.yes_ask || b.yes_price || b.last_price || 50;
             return (100 / priceB) - (100 / priceA);
           })
-          .slice(0, 10) // Top 10
+          .slice(0, 40) // Top 40 (10 per category approx)
           .map((m: any, idx: number) => {
             const price = m.yes_ask || m.yes_price || m.last_price || 50;
             const multiplier = parseFloat((100 / price).toFixed(1));
@@ -242,11 +242,22 @@ export function TradesView() {
             const seriesTicker = m.ticker.split('-')[0].toLowerCase();
             const urlTicker = seriesTicker;
             
+            // Detect category from ticker prefix
+            const tickerPrefix = m.ticker.split('-')[0].toUpperCase();
+            let detectedCategory: KalshiTrade['category'] = 'economics';
+            if (['KXHIGHTSEA', 'KXHIGHNY', 'KXHIGHCHI', 'KXHIGHMIA', 'KXHIGHTPHX', 'KXRAINSEA'].includes(tickerPrefix)) {
+              detectedCategory = 'weather';
+            } else if (['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
+              detectedCategory = 'crypto';
+            } else if (['KXTRUMP', 'KXTRUTHSOCIAL', 'KX538APPROVE', 'KXTRUMPZELENSKYY', 'KXTRUMPMEET'].includes(tickerPrefix)) {
+              detectedCategory = 'politics';
+            }
+            
             return {
               id: `live-${idx}`,
               ticker: m.ticker,
               title: title,
-              category: (m.category?.toLowerCase() || 'economics') as KalshiTrade['category'],
+              category: detectedCategory,
               yesPrice: price,
               noPrice: 100 - price,
               volume: m.volume || m.trade_volume || 0,
