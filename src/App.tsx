@@ -19,6 +19,7 @@ import { JobsView } from './components/JobsView';
 import { InventoryView } from './components/InventoryView';
 import { ReportsView } from './components/ReportsView';
 import { AgentTaskList } from './components/agents/AgentTaskList';
+import { AgentDocuments } from './components/agents/AgentDocuments';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
 import { SkeletonCard, SkeletonList } from './components/Loading';
@@ -39,6 +40,7 @@ function App() {
   } = useAppStore();
 
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [activeAgentTab, setActiveAgentTab] = useState<'tasks' | 'documents'>('tasks');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -183,7 +185,41 @@ function App() {
         return <TaskBoard tasks={tasks} projects={projects.map(p => ({ id: p.id, name: p.name }))} />;
 
       case 'agents':
-        return db ? <AgentTaskList firebaseDb={db} onTaskSelect={(id) => console.log('Selected:', id)} /> : <div>Firebase not configured</div>;
+        return db ? (
+          <div className="space-y-4">
+            {/* Agent Tabs */}
+            <div className="flex gap-4 border-b border-surface-hover">
+              <button
+                onClick={() => setActiveAgentTab('tasks')}
+                className={`pb-2 text-sm font-medium transition-colors ${
+                  activeAgentTab === 'tasks'
+                    ? 'text-primary border-b-2 border-primary'
+                    : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                Tasks
+              </button>
+              <button
+                onClick={() => setActiveAgentTab('documents')}
+                className={`pb-2 text-sm font-medium transition-colors ${
+                  activeAgentTab === 'documents'
+                    ? 'text-primary border-b-2 border-primary'
+                    : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                Documents
+              </button>
+            </div>
+            
+            {activeAgentTab === 'tasks' ? (
+              <AgentTaskList firebaseDb={db} onTaskSelect={(id) => console.log('Selected:', id)} />
+            ) : (
+              <AgentDocuments firebaseDb={db} />
+            )}
+          </div>
+        ) : (
+          <div>Firebase not configured</div>
+        );
 
       case 'jobs':
         return <JobsView jobs={jobs} />;
