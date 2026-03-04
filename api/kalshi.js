@@ -1,4 +1,7 @@
-module.exports = (req, res) => {
+// Vercel Serverless Function - Kalshi Proxy (ES Module)
+import https from 'https';
+
+export default function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -8,7 +11,6 @@ module.exports = (req, res) => {
     return res.status(200).end();
   }
 
-  const https = require('https');
   const { action, series, ticker } = req.query;
   
   let path = '/trade-api/v2/markets?status=open&limit=100';
@@ -55,4 +57,4 @@ module.exports = (req, res) => {
   });
 
   request.end();
-};
+}
