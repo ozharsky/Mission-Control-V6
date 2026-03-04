@@ -503,84 +503,129 @@ export function TradesView() {
                 </div>
               </div>
 
-              {/* DESKTOP LAYOUT (lg+) */}
-              <div className="hidden lg:block">
-                <div className="flex items-center gap-4">
-                  
-                  {/* Left: Icon + Title */}
-                  <div className="flex items-center gap-3 w-[280px] shrink-0">
+              {/* DESKTOP LAYOUT (lg+) - Two Column Grid */}
+              <div className="hidden lg:grid lg:grid-cols-12 lg:gap-4">
+                
+                {/* Left Column: Trade Info (7 cols) */}
+                <div className="lg:col-span-7 space-y-3">
+                  {/* Header Row */}
+                  <div className="flex items-start gap-3">
                     <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${CATEGORY_COLORS[trade.category]}`}>
                       <Icon className="h-6 w-6" />
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-sm truncate">{trade.title}</h3>
-                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                        <span>{trade.ticker}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-base">{trade.title}</h3>
+                        {isStrongBuy && <span className="text-success text-sm font-medium">🔥 Top Pick #{index+1}</span>}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-gray-400 mt-1">
+                        <span className="font-mono bg-surface-hover px-2 py-0.5 rounded">{trade.ticker}</span>
                         <span>•</span>
-                        <span>{new Date(trade.expiration).toLocaleDateString()}</span>
-                        {isStrongBuy && <span className="text-success font-medium">🔥 Top Pick #{index+1}</span>}
+                        <span>Expires {new Date(trade.expiration).toLocaleDateString(undefined, {month:'long', day:'numeric', year:'numeric'})}</span>
+                        <span>•</span>
+                        <span>Vol: {trade.volume.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Middle: Chart + Meter */}
-                  <div className="flex-1 space-y-2 min-w-0">
+                  {/* Price Row */}
+                  <div className="flex items-center gap-4 bg-surface-hover/50 rounded-lg p-3">
                     <div className="flex items-center gap-3">
                       <Sparkline data={trade.priceHistory || [trade.yesPrice]} />
-                      <span className="text-xl font-bold">{trade.yesPrice}¢</span>
-                      <ConfidenceBadge level={trade.research.confidence} />
+                      <div>
+                        <div className="text-2xl font-bold">{trade.yesPrice}¢</div>
+                        <div className="text-xs text-gray-400">Current Price</div>
+                      </div>
+                    </div>
+                    
+                    <div className="h-10 w-px bg-surface-hover" />
+                    
+                    <div>
+                      <div className="text-2xl font-bold text-success">+{edge}%</div>
+                      <div className="text-xs text-gray-400">Edge</div>
+                    </div>
+                    
+                    <div className="h-10 w-px bg-surface-hover" />
+                    
+                    <div>
+                      <div className="text-2xl font-bold text-primary">{trade.research.trueProbability}%</div>
+                      <div className="text-xs text-gray-400">True Prob</div>
+                    </div>
+                    
+                    <div className="h-10 w-px bg-surface-hover" />
+                    
+                    <ConfidenceBadge level={trade.research.confidence} />
+                  </div>
+
+                  {/* Prediction Meter */}
+                  <div className="bg-surface-hover/30 rounded-lg p-3">
+                    <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                      <span>Market Price vs Model Prediction</span>
+                      <span className={edge > 0 ? 'text-success' : 'text-danger'}>{edge > 0 ? 'Undervalued' : 'Overvalued'}</span>
                     </div>
                     <PredictionMeter probability={trade.research.trueProbability} marketPrice={trade.yesPrice} />
                   </div>
 
-                  {/* Right: Payout Card */}
-                  <div className="w-[220px] shrink-0">
-                    <div className="rounded-xl bg-surface-hover p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-success">{trade.payout.multiplier}x</div>
-                          <div className="text-xs text-gray-400">Multiplier</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-medium text-success">+${trade.payout.potentialReturn - trade.payout.buyPrice}</div>
-                          <div className="text-xs text-gray-400">Profit if Win</div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Buy YES:</span>
-                          <span className="font-medium">{trade.yesPrice}¢</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">If Win:</span>
-                          <span className="font-medium text-success">${trade.payout.potentialReturn}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Volume:</span>
-                          <span>{trade.volume.toLocaleString()}</span>
-                        </div>
-                      </div>
-
-                      <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
-                        className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-primary py-2 text-sm font-medium text-white hover:bg-primary/90"
-                      >
-                        Trade on Kalshi <ArrowUpRight className="h-4 w-4" />
-                      </a>
+                  {/* Research */}
+                  <div className="bg-surface-hover/30 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+                      <Info className="h-4 w-4" /> Why This Trade?
+                    </div>
+                    <p className="text-sm mb-2">{trade.research.catalyst}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {trade.research.sources.map(source => (
+                        <span key={source} className="rounded bg-surface-hover px-2 py-0.5 text-xs text-gray-400">{source}</span>
+                      ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Research Note */}
-                <div className="mt-3 rounded-lg bg-surface-hover/50 p-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
-                    <Info className="h-4 w-4" /> Why This Trade?
-                  </div>
-                  <p className="text-sm">{trade.research.catalyst}</p>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {trade.research.sources.map(source => (
-                      <span key={source} className="rounded bg-surface-hover px-2 py-0.5 text-xs text-gray-400">{source}</span>
-                    ))}
+                {/* Right Column: Payout Card (5 cols) */}
+                <div className="lg:col-span-5">
+                  <div className="rounded-xl bg-surface-hover p-4 h-full flex flex-col">
+                    <div className="text-sm text-gray-400 mb-3">Payout Analysis</div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="text-center p-3 bg-surface rounded-lg">
+                        <div className="text-3xl font-bold text-success">{trade.payout.multiplier}x</div>
+                        <div className="text-xs text-gray-400">Multiplier</div>
+                      </div>
+                      
+                      <div className="text-center p-3 bg-surface rounded-lg">
+                        <div className="text-3xl font-bold text-success">+${trade.payout.potentialReturn - trade.payout.buyPrice}</div>
+                        <div className="text-xs text-gray-400">Net Profit</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-sm mb-4">
+                      <div className="flex justify-between items-center py-2 border-b border-surface">
+                        <span className="text-gray-400">Contract Price</span>
+                        <span className="font-medium">{trade.yesPrice}¢ (${(trade.yesPrice/100).toFixed(2)})</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center py-2 border-b border-surface">
+                        <span className="text-gray-400">Potential Return</span>
+                        <span className="font-medium text-success">${trade.payout.potentialReturn}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center py-2 border-b border-surface">
+                        <span className="text-gray-400">Break-even Probability</span>
+                        <span className="font-medium">{trade.yesPrice}%</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-400">Expected Value (per $1)</span>
+                        <span className={`font-medium ${(trade.research.trueProbability/100 * trade.payout.multiplier) > 1 ? 'text-success' : 'text-danger'}`}>
+                          ${((trade.research.trueProbability/100 * trade.payout.multiplier)).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
+                      className="mt-auto flex items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-medium text-white hover:bg-primary/90"
+                    >
+                      Trade on Kalshi <ArrowUpRight className="h-4 w-4" />
+                    </a>
                   </div>
                 </div>
               </div>
