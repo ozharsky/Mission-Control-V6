@@ -342,30 +342,58 @@ export function TradesView() {
   const fetchLiveData = async () => {
     setIsLoading(true);
     try {
-      // Fetch markets from Kalshi public API
-      const response = await fetch('https://api.elections.kalshi.com/trade-api/v2/markets?limit=100&status=open');
-      if (!response.ok) throw new Error('Failed to fetch');
-      const data = await response.json();
+      // Try multiple endpoints for Kalshi public API
+      let data = null;
+      
+      // Try the series endpoint for specific markets
+      const seriesResponse = await fetch('https://api.elections.kalshi.com/trade-api/v2/series/kxhighsea/markets?status=open');
+      if (seriesResponse.ok) {
+        const seriesData = await seriesResponse.json();
+        data = { markets: seriesData.markets || [] };
+      } else {
+        // Fallback to general markets endpoint
+        const response = await fetch('https://api.elections.kalshi.com/trade-api/v2/markets?status=open&limit=100');
+        if (response.ok) {
+          data = await response.json();
+        }
+      }
       
       // Update trades with live prices where available
-      if (data.markets) {
-        setTrades(prevTrades => prevTrades.map(trade => {
-          const liveMarket = data.markets.find((m: any) => m.ticker === trade.ticker);
-          if (liveMarket) {
-            return {
-              ...trade,
-              yesPrice: liveMarket.yes_ask || liveMarket.yes_price || trade.yesPrice,
-              volume: liveMarket.volume || trade.volume,
-              // Recalculate payout based on new price
-              payout: {
-                buyPrice: liveMarket.yes_ask || liveMarket.yes_price || trade.yesPrice,
-                potentialReturn: 100,
-                multiplier: parseFloat((100 / (liveMarket.yes_ask || liveMarket.yes_price || trade.yesPrice)).toFixed(1))
-              }
-            };
-          }
-          return trade;
-        }));
+      if (data && data.markets && data.markets.length > 0) {
+        setTrades(prevTrades => {
+          const updatedTrades = prevTrades.map(trade => {
+            // Try to find by ticker
+            let liveMarket = data.markets.find((m: any) => m.ticker === trade.ticker);
+            
+            // If not found by ticker, try by title similarity
+            if (!liveMarket) {
+              liveMarket = data.markets.find((m: any) => 
+                m.title && trade.title && 
+                (m.title.toLowerCase().includes(trade.title.toLowerCase().split(' ')[0]) ||
+                 trade.title.toLowerCase().includes(m.title.toLowerCase().split(' ')[0]))
+              );
+            }
+            
+            if (liveMarket) {
+              const newPrice = liveMarket.yes_ask || liveMarket.yes_price || liveMarket.last_price || trade.yesPrice;
+              const newVolume = liveMarket.volume || liveMarket.trade_volume || trade.volume;
+              
+              return {
+                ...trade,
+                yesPrice: newPrice,
+                volume: newVolume,
+                // Recalculate payout based on new price
+                payout: {
+                  buyPrice: newPrice,
+                  potentialReturn: 100,
+                  multiplier: parseFloat((100 / newPrice).toFixed(1))
+                }
+              };
+            }
+            return trade;
+          });
+          return updatedTrades;
+        });
         setLastUpdated(new Date());
       }
     } catch (error) {
@@ -400,13 +428,23 @@ export function TradesView() {
     strongBuyCount: trades.filter(t => t.research.edge > 20).length
   }), [trades]);
 
+  // Debug: Check if any prices have changed from original
+  const hasLiveData = useMemo(() => {
+    return trades.some((trade, idx) => {
+      const original = RESEARCHED_TRADES[idx];
+      return original && trade.yesPrice !== original.yesPrice;
+    });
+  }, [trades]);
+
   return (
     <div className="space-y-4 w-full min-w-0">
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold truncate">Kalshi Trades</h1>
-          <p className="text-sm text-gray-400 truncate">Researched +EV opportunities</p>
+          <p className="text-sm text-gray-400 truncate">
+            {hasLiveData ? '✓ Live data' : 'Static data'} • Updated {lastUpdated.toLocaleTimeString()}
+          </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button 
