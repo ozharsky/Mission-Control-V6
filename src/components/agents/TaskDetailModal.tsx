@@ -65,7 +65,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       // Sanitize response text - remove problematic characters
       const sanitizedResponse = responseText
         .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '') // Remove control characters
-        .substring(0, 10000); // Limit to 10k chars
+        .substring(0, 50000); // Limit to 50k chars (increased from 10k)
       
       const output = sanitizedResponse.trim() || 'Task completed';
       

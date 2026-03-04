@@ -69,8 +69,12 @@ export class DiscordNotificationService {
       `**${task.title}**\n`;
     
     if (previousOutput) {
+      const truncated = previousOutput.length > 1500;
       message += `\n📋 **Previous Agent's Output:**\n` +
-        `\`\`\`\n${previousOutput.substring(0, 1500)}${previousOutput.length > 1500 ? '...' : ''}\n\`\`\`\n`;
+        `\`\`\`\n${previousOutput.substring(0, 1500)}${truncated ? '...' : ''}\n\`\`\`\n`;
+      if (truncated) {
+        message += `\n⚠️ **Output truncated.** Full content available in Mission Control task details.\n`;
+      }
     } else if (task.input?.topic) {
       message += `\n📝 **Prompt:** "${task.input.topic}"\n`;
     }
