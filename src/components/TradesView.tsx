@@ -87,7 +87,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 96,
     volume: 1247,
     expiration: '2026-03-10',
-    kalshiUrl: 'https://kalshi.com/markets/kxhighsea/26MAR10-T54',
+    kalshiUrl: 'https://kalshi.com/markets/KXHIGHSEA-26MAR10-T54',
     priceHistory: [2, 3, 3, 4, 4, 5, 4, 4],
     research: {
       trueProbability: 35,
@@ -107,7 +107,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 88,
     volume: 8934,
     expiration: '2026-03-15',
-    kalshiUrl: 'https://kalshi.com/markets/kxbtc/26MAR15-T92000',
+    kalshiUrl: 'https://kalshi.com/markets/KXBTC-26MAR15-T92000',
     priceHistory: [8, 9, 10, 11, 12, 11, 12, 12],
     research: {
       trueProbability: 28,
@@ -127,7 +127,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 82,
     volume: 5621,
     expiration: '2026-03-07',
-    kalshiUrl: 'https://kalshi.com/markets/kxunemp/26MAR07-T4.2',
+    kalshiUrl: 'https://kalshi.com/markets/KXUNEMP-26MAR07-T4.2',
     priceHistory: [12, 14, 15, 16, 17, 18, 18, 18],
     research: {
       trueProbability: 42,
@@ -147,7 +147,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 92,
     volume: 2156,
     expiration: '2026-03-08',
-    kalshiUrl: 'https://kalshi.com/markets/kxhighny/26MAR08-T55',
+    kalshiUrl: 'https://kalshi.com/markets/KXHIGHNY-26MAR08-T55',
     priceHistory: [5, 6, 7, 7, 8, 8, 8, 8],
     research: {
       trueProbability: 25,
@@ -167,7 +167,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 85,
     volume: 4532,
     expiration: '2026-03-20',
-    kalshiUrl: 'https://kalshi.com/markets/kxeth/26MAR20-T2800',
+    kalshiUrl: 'https://kalshi.com/markets/KXETH-26MAR20-T2800',
     priceHistory: [10, 11, 12, 13, 14, 15, 15, 15],
     research: {
       trueProbability: 38,
@@ -187,7 +187,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 78,
     volume: 7891,
     expiration: '2026-03-12',
-    kalshiUrl: 'https://kalshi.com/markets/kxcpi/26MAR12-T2.9',
+    kalshiUrl: 'https://kalshi.com/markets/KXCPI-26MAR12-T2.9',
     priceHistory: [15, 17, 19, 20, 21, 22, 22, 22],
     research: {
       trueProbability: 45,
@@ -207,7 +207,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 72,
     volume: 9234,
     expiration: '2026-03-21',
-    kalshiUrl: 'https://kalshi.com/markets/kxspx/26MAR21-T5800',
+    kalshiUrl: 'https://kalshi.com/markets/KXSPX-26MAR21-T5800',
     priceHistory: [22, 24, 25, 26, 27, 28, 28, 28],
     research: {
       trueProbability: 40,
@@ -227,7 +227,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 94,
     volume: 892,
     expiration: '2026-03-14',
-    kalshiUrl: 'https://kalshi.com/markets/kxsnowbos/26MAR14-T5',
+    kalshiUrl: 'https://kalshi.com/markets/KXSNOWBOS-26MAR14-T5',
     priceHistory: [3, 4, 5, 6, 6, 6, 6, 6],
     research: {
       trueProbability: 18,
@@ -247,7 +247,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 65,
     volume: 1567,
     expiration: '2026-03-09',
-    kalshiUrl: 'https://kalshi.com/markets/kxrainsea/26MAR09-T0.3',
+    kalshiUrl: 'https://kalshi.com/markets/KXRAINSEA-26MAR09-T0.3',
     priceHistory: [30, 32, 33, 34, 35, 35, 35, 35],
     research: {
       trueProbability: 55,
@@ -267,7 +267,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 58,
     volume: 12453,
     expiration: '2026-03-19',
-    kalshiUrl: 'https://kalshi.com/markets/kxfed/26MAR19-T4.5',
+    kalshiUrl: 'https://kalshi.com/markets/KXFED-26MAR19-T4.5',
     priceHistory: [38, 39, 40, 41, 42, 42, 42, 42],
     research: {
       trueProbability: 48,
