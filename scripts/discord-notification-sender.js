@@ -152,6 +152,7 @@ async function processNotification(notification) {
 
 async function sendDiscordMessage(channelId, message) {
   try {
+    // Use Discord API directly
     const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
       method: 'POST',
       headers: {
@@ -169,7 +170,7 @@ async function sendDiscordMessage(channelId, message) {
     
     return true;
   } catch (error) {
-    console.error('   Discord send error:', error);
+    console.error('   Discord send error:', error.message);
     return false;
   }
 }
@@ -204,14 +205,7 @@ async function triggerAgent(notification) {
       }
     }
     
-    if (!taskSnapshot || !taskSnapshot.exists()) {
-      console.log(`   ⚠️ Task/Workflow not found: ${notification.referenceId}`);
-      // Still create agent trigger so it can be picked up later
-      await createAgentTrigger(agentId, notification);
-      return true;
-    }
-    
-    const task = taskSnapshot.val();
+    const task = taskSnapshot?.exists() ? taskSnapshot.val() : null;
     const channelId = AGENT_CHANNELS[agentId];
     
     if (!channelId) {
@@ -222,18 +216,19 @@ async function triggerAgent(notification) {
     // Build agent prompt
     const prompt = buildAgentPrompt(task, agentId, notification);
     
-    // Create agent trigger record for the OpenClaw system to pick up
-    await set(ref(db, `v6/agentTriggers/${task.id || notification.referenceId}`), {
-      agentId: agentId,
-      taskId: task.id || notification.referenceId,
-      channelId: channelId,
-      prompt: prompt,
-      status: 'pending',
-      createdAt: Date.now(),
-      notificationId: notification.id
-    });
+    // Send message to agent's Discord channel session using OpenClaw sessions_send
+    const sessionKey = await findAgentSession(agentId, channelId);
     
-    console.log(`   🚀 Triggered ${agentId} agent for task ${task.id || notification.referenceId}`);
+    if (sessionKey) {
+      // Send directly to the agent session
+      await sendToAgentSession(sessionKey, prompt);
+      console.log(`   🚀 Triggered ${agentId} agent via sessions_send (session: ${sessionKey})`);
+    } else {
+      // Fallback: Create Firebase trigger for agent to pick up later
+      await createAgentTrigger(agentId, notification, prompt);
+      console.log(`   ⚠️ No active session for ${agentId}, created Firebase trigger`);
+    }
+    
     return true;
     
   } catch (error) {
@@ -242,14 +237,27 @@ async function triggerAgent(notification) {
   }
 }
 
-async function createAgentTrigger(agentId, notification) {
-  // Create a minimal trigger even without task details
+async function findAgentSession(agentId, channelId) {
+  // Sessions need to be queried via the sessions_list tool
+  // For now, we'll use Firebase triggers as the primary mechanism
+  // since we can't directly query sessions from this script
+  return null;
+}
+
+async function sendToAgentSession(sessionKey, prompt) {
+  // This function is no longer used - we rely on Firebase triggers instead
+  // since we cannot call sessions_send from this script context
+  return false;
+}
+
+async function createAgentTrigger(agentId, notification, prompt) {
+  // Create a minimal trigger even without task details or if session send failed
   const triggerId = `trigger-${Date.now()}`;
   await set(ref(db, `v6/agentTriggers/${triggerId}`), {
     agentId: agentId,
     taskId: notification.referenceId,
     channelId: AGENT_CHANNELS[agentId],
-    prompt: `You have been assigned a new task.
+    prompt: prompt || `You have been assigned a new task.
 
 **Notification:** ${notification.message}
 **Reference:** ${notification.referenceId}

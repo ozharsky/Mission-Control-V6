@@ -295,8 +295,32 @@ export class AgentTaskService {
   // ==================== DISCORD INTEGRATION ====================
 
   async notifyAgent(agentId: AgentId, task: AgentTask): Promise<void> {
-    console.log(`[NOTIFY] ${agentId}: New task ${task.id} - ${task.title}`);
-    // TODO: Implement Discord webhook notification
+    const agentEmoji = AGENT_EMOJIS[agentId];
+    const agentName = AGENT_NAMES[agentId];
+    const channelId = AGENT_CHANNELS[agentId];
+    
+    if (!channelId) {
+      console.error(`No channel configured for agent: ${agentId}`);
+      return;
+    }
+
+    // Queue notification for Discord
+    const notification = {
+      id: `discord-notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      channelId,
+      message: `<@${AGENT_DISCORD_IDS[agentId]}> ${agentEmoji} **New Task for ${agentName}**\n\n` +
+        `**${task.title}**\n` +
+        (task.input?.topic ? `Prompt: "${task.input.topic}"\n` : '') +
+        `\nPriority: ${task.priority} | Status: ${task.status}\n` +
+        `Task ID: \`${task.id}\`\n\n` +
+        `Type your response to complete this task.`,
+      referenceId: task.id,
+      status: 'pending',
+      createdAt: Date.now()
+    };
+
+    await set(ref(this.db, `v6/discordNotifications/${notification.id}`), notification);
+    console.log(`[NOTIFY QUEUED] ${agentId}: ${task.title}`);
   }
 
   async linkDiscordThread(taskId: string, threadId: string, channelId: string): Promise<void> {

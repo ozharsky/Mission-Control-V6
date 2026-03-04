@@ -21,6 +21,18 @@ const AGENT_CHANNELS: Record<AgentId, string> = {
   surveyor: '1478488543692194045'      // #📚-researcher
 };
 
+// Agent Discord user IDs for mentions
+const AGENT_DISCORD_IDS: Record<AgentId, string> = {
+  planner: '1478495012416131193',
+  ideator: '1478496025328091269',
+  critic: '1478496289036697890',
+  scout: '1478496531496698036',
+  coder: '1478496764658061312',
+  writer: '1478496947202691103',
+  reviewer: '1478497225918255114',
+  surveyor: '1478497423654649907'
+};
+
 const COORDINATION_CHANNEL = '1478488567020785867'; // #🎯-agent-coordination
 
 export class DiscordNotificationService {
@@ -35,6 +47,7 @@ export class DiscordNotificationService {
    */
   async notifyAgentOfTask(task: AgentTask): Promise<void> {
     const channelId = AGENT_CHANNELS[task.assignee];
+    const agentDiscordId = AGENT_DISCORD_IDS[task.assignee];
     if (!channelId) {
       console.error(`No channel configured for agent: ${task.assignee}`);
       return;
@@ -43,11 +56,15 @@ export class DiscordNotificationService {
     const agentName = AGENT_NAMES[task.assignee];
     const agentEmoji = AGENT_EMOJIS[task.assignee];
     
-    // Post without mention - bot will auto-respond in its channel (requireMention: false)
-    const message = `${agentEmoji} **New Task for ${agentName}**\n\n` +
+    // Include mention so bot responds (with allowBots: true and requireMention: true)
+    const mention = agentDiscordId ? `<@${agentDiscordId}>` : '';
+    
+    const message = `${mention} ${agentEmoji} **New Task for ${agentName}**\n\n` +
       `**${task.title}**\n` +
       (task.input?.topic ? `Prompt: "${task.input.topic}"\n` : '') +
       `\nPriority: ${this.getPriorityEmoji(task.priority)} ${task.priority} | Status: ${task.status}\n` +
+      `Task ID: \`${task.id}\`\n\n` +
+      `Type your response to complete this task.`;
       `Task ID: \`${task.id}\`\n\n` +
       `Type your response to complete this task.`;
 
