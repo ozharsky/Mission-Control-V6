@@ -28,6 +28,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
+  const [responseText, setResponseText] = useState('');
 
   const service = new AgentTaskService(firebaseDb);
 
@@ -41,6 +42,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     if (!taskId) return;
     setLoading(true);
     setCompleteError(null);
+    setResponseText('');
     
     const taskData = await service.getAgentTask(taskId);
     setTask(taskData);
@@ -60,11 +62,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setCompleteError(null);
     
     try {
-      // Get output from task or use default
-      const output = task.output || { result: 'Task completed manually' };
+      // Use the response text entered by user, or default
+      const output = responseText.trim() || 'Task completed';
       
       // Complete the task and trigger next agent
-      await service.completeWorkflowTask(taskId, output);
+      await service.completeWorkflowTask(taskId, { result: output });
       
       // Reload to show updated state
       await loadTask();
@@ -213,6 +215,27 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Output / Response Input */}
+            {task?.status === 'active' && (
+              <div className="rounded-lg border border-surface-hover p-4">
+                <h4 className="text-sm font-medium mb-2">Agent Response</h4>
+                <textarea
+                  value={responseText}
+                  onChange={(e) => setResponseText(e.target.value)}
+                  placeholder="Paste the agent's response from Discord here..."
+                  className="w-full p-3 rounded-lg bg-surface border border-surface-hover focus:border-primary focus:outline-none resize-none min-h-[120px]"
+                  rows={4}
+                />
+              </div>
+            )}
+
+            {task?.output && (
+              <div className="rounded-lg bg-green-500/5 border border-green-500/20 p-4">
+                <h4 className="text-sm font-medium text-green-400 mb-2">Output</h4>
+                <pre className="text-sm whitespace-pre-wrap">{typeof task.output === 'string' ? task.output : JSON.stringify(task.output, null, 2)}</pre>
               </div>
             )}
 
