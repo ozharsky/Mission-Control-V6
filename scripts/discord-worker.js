@@ -8,9 +8,8 @@
  * Run with: node scripts/discord-worker.js
  */
 
-const { initializeApp } = require('firebase/app');
-const { getDatabase, ref, onChildAdded, update, remove, get, set } = require('firebase/database');
-const { execSync } = require('child_process');
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, onChildAdded, update, remove, get, set } from 'firebase/database';
 
 // Firebase config - same as V6
 const firebaseConfig = {
@@ -38,6 +37,18 @@ const AGENT_CHANNELS = {
   coder: '1478488318927700091',        // #💻-architect
   writer: '1478488320454557727',       // #✍️-wordsmith
   reviewer: '1478488321914310758'      // #🔍-editor
+};
+
+// Map Discord mentions to agent IDs
+const MENTION_TO_AGENT = {
+  'researcher': 'surveyor',
+  'strategist': 'planner',
+  'inventor': 'ideator',
+  'analyst': 'critic',
+  'scout': 'scout',
+  'architect': 'coder',
+  'wordsmith': 'writer',
+  'editor': 'reviewer'
 };
 
 const app = initializeApp(firebaseConfig);
@@ -136,34 +147,20 @@ async function triggerAgentIfNeeded(notification) {
     if (!agentMatch) return false;
     
     const agentMention = agentMatch[1].toLowerCase();
+    const agentId = MENTION_TO_AGENT[agentMention];
     
-    // Map mention to agent ID
-    const mentionToAgent = {
-      'researcher': 'surveyor',
-      'strategist': 'planner',
-      'inventor': 'ideator',
-      'analyst': 'critic',
-      'scout': 'scout',
-      'architect': 'coder',
-      'wordsmith': 'writer',
-      'editor': 'reviewer'
-    };
-    
-    const agentId = mentionToAgent[agentMention];
-    if (!agentId) return false;
+    if (!agentId) {
+      console.log(`⚠️ Unknown agent mention: @${agentMention}`);
+      return false;
+    }
     
     // Get the task details from Firebase
     const taskSnapshot = await get(ref(db, `v6/tasks/${notification.referenceId}`));
     if (!taskSnapshot.exists()) return false;
     
     const task = taskSnapshot.val();
-    
-    // Find agent session - check active sessions
-    console.log(`🔍 Looking for ${agentId} agent session...`);
-    
-    // Use OpenClaw CLI to send message to agent's session
-    // The agent session is typically named after the agent in the agent channel
     const channelId = AGENT_CHANNELS[agentId];
+    
     if (!channelId) {
       console.log(`⚠️ No channel configured for agent: ${agentId}`);
       return false;
@@ -172,11 +169,9 @@ async function triggerAgentIfNeeded(notification) {
     // Build task prompt for the agent
     const taskPrompt = buildAgentPrompt(task, agentId);
     
-    // Send to agent via OpenClaw message tool through CLI
-    // We'll use a marker that the cron job can pick up
+    // Create an agent trigger record
     console.log(`🚀 Triggering ${agentId} agent for task: ${task.id}`);
     
-    // Create an agent trigger record that the agent can poll or we can process
     await set(ref(db, `v6/agentTriggers/${task.id}`), {
       agentId: agentId,
       taskId: task.id,

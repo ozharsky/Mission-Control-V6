@@ -4,7 +4,7 @@
  * Mission Control V6
  * 
  * Checks Firebase for pending Discord notifications and processes them
- * Run with: node cron/discord-notification-sender.js
+ * Run with: node scripts/discord-notification-sender.js
  * 
  * This script:
  * 1. Checks v6/discordNotifications for pending notifications
@@ -14,8 +14,8 @@
  * 5. Logs success/failure
  */
 
-const { initializeApp } = require('firebase/app');
-const { getDatabase, ref, get, update, remove, set } = require('firebase/database');
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, get, update, remove, set } from 'firebase/database';
 
 // Firebase config
 const firebaseConfig = {
