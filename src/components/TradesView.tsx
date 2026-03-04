@@ -264,6 +264,7 @@ export function TradesView() {
         
         // Process the balanced trades
         const processedTrades: KalshiTrade[] = balancedTrades.map((m: any, idx: number) => {
+            const price = m.yes_ask || m.yes_price || m.last_price || 50;
             const multiplier = parseFloat((100 / price).toFixed(1));
             
             // Clean title
