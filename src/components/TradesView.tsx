@@ -160,7 +160,10 @@ export function TradesView() {
           .filter((m: any) => {
             // Filter for interesting markets: low price, high multiplier potential
             const price = m.yes_ask || m.yes_price || m.last_price || 50;
-            return price < 30; // Focus on cheap YES contracts
+            const cat = (m.category || '').toLowerCase();
+            // Skip sports - only crypto, weather, economics, politics
+            const isAllowed = ['crypto', 'weather', 'economics', 'politics'].includes(cat);
+            return price < 30 && isAllowed;
           })
           .slice(0, 10) // Limit to 10 markets
           .map((m: any, idx: number) => {
