@@ -24,14 +24,17 @@ import {
   TaskStatus
 } from '../types/agentTask';
 import { AGENTS, WORKFLOW_TEMPLATES } from '../constants/agents';
+import { DiscordNotificationService } from './discordNotificationService';
 
 export class AgentTaskService {
   private db: Database;
   private basePath = 'v6/agentTasks';
   private workflowPath = 'v6/agentWorkflows';
+  private discord: DiscordNotificationService;
 
   constructor(firebaseDb: Database) {
     this.db = firebaseDb;
+    this.discord = new DiscordNotificationService();
   }
 
   // ==================== AGENT TASKS ====================
@@ -234,6 +237,16 @@ export class AgentTaskService {
     // Activate first task
     if (tasks[0]) {
       await this.transitionTaskState(tasks[0].id, 'started', 'system');
+      
+      // Notify first agent via Discord
+      await this.discord.notifyAgentOfTask(tasks[0]);
+      
+      // Notify coordination channel
+      await this.discord.notifyWorkflowStarted(
+        workflow.name,
+        tasks[0].assignee,
+        input?.topic || 'New workflow'
+      );
     }
 
     return { workflow, tasks };
