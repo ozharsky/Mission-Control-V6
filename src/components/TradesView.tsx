@@ -283,18 +283,19 @@ export function TradesView() {
   const tradesWithMetrics = useMemo(() => {
     return filteredTrades.map(trade => {
       const p = trade.research.trueProbability / 100; // Your estimated probability
-      const b = trade.payout.multiplier; // Odds (payout multiplier)
-      const marketP = trade.yesPrice / 100; // Market implied probability
+      const marketPrice = trade.yesPrice / 100; // Market price in decimal
+      
+      // R-Score = (your_prob - market_price) / sqrt(prob * (1-prob))
+      // R-Score >= 1.5 is considered +EV
+      const variance = p * (1 - p);
+      const rScore = variance > 0 ? (p - marketPrice) / Math.sqrt(variance) : 0;
 
-      // R-Score = (Your Prob * Payout) / Market Price
-      // R-Score > 1.5 is considered +EV
-      const rScore = (p * b) / (trade.yesPrice / 100);
-
-      // Kelly Criterion: f* = (bp - q) / b
-      // where q = 1 - p
+      // Kelly Criterion: f* = (bp - q) / b (using half-Kelly for safety)
+      // where b = multiplier, q = 1 - p
+      const b = trade.payout.multiplier;
       const q = 1 - p;
-      const kelly = ((b * p) - q) / b;
-      const kellyFraction = Math.max(0, kelly); // Don't bet if negative
+      const kelly = b > 0 ? ((b * p) - q) / b : 0;
+      const kellyFraction = Math.max(0, kelly * 0.5); // Half-Kelly for safety
 
       return {
         ...trade,
