@@ -351,7 +351,7 @@ export function TradesView() {
     setIsLoading(true);
     try {
       // Use Vercel API route as proxy - UPDATE THIS URL to your Vercel deployment
-      const KALSHI_PROXY_URL = 'https://mission-control-v6-eaxr29zo7-ozharskys-projects.vercel.app/api/kalshi';
+      const KALSHI_PROXY_URL = 'https://mission-control-v6-kappa.vercel.app/api/kalshi';
       const response = await fetch(`${KALSHI_PROXY_URL}?action=markets`);
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
