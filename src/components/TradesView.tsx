@@ -220,8 +220,9 @@ export function TradesView() {
             title = title.replace(/yes /gi, '').replace(/,yes /gi, ' + ').replace(/,no /gi, ' / ');
             if (title.length > 60) title = title.substring(0, 60) + '...';
             
-            // Build URL using the market ticker (full ticker with strike)
-            const urlTicker = m.ticker.toLowerCase();
+            // Build URL using series ticker (trade bot format)
+            const seriesTicker = m.ticker.split('-')[0].toLowerCase();
+            const urlTicker = seriesTicker;
             
             return {
               id: `live-${idx}`,

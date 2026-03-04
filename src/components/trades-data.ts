@@ -11,7 +11,7 @@ export const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 96,
     volume: 1247,
     expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/kxhighsea-26mar05-t54',
+    kalshiUrl: 'https://kalshi.com/markets/kxhightsea',
     priceHistory: [3, 4, 4, 4],
     research: {
       trueProbability: 35,
@@ -31,7 +31,7 @@ export const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 94,
     volume: 890,
     expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/kxhighsea-26mar05-t47',
+    kalshiUrl: 'https://kalshi.com/markets/kxhightsea',
     priceHistory: [5, 6, 6, 6],
     research: {
       trueProbability: 28,
@@ -51,7 +51,7 @@ export const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 87,
     volume: 650,
     expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/kxhighsea-26mar05-b53.5',
+    kalshiUrl: 'https://kalshi.com/markets/kxhightsea',
     priceHistory: [12, 13, 13, 14],
     research: {
       trueProbability: 35,
@@ -71,7 +71,7 @@ export const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 99,
     volume: 420,
     expiration: '2026-03-04',
-    kalshiUrl: 'https://kalshi.com/markets/kxhighsea-26mar04-t56',
+    kalshiUrl: 'https://kalshi.com/markets/kxhightsea',
     priceHistory: [1, 1, 1, 1],
     research: {
       trueProbability: 8,
