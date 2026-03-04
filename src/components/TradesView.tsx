@@ -420,28 +420,46 @@ export function TradesView() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters - Mobile Optimized */}
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
-          {(['all', 'weather', 'crypto', 'economics'] as const).map(cat => {
+        {/* Category Filters - Horizontal scroll on mobile */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+          {(['all', 'weather', 'crypto', 'politics', 'economics'] as const).map(cat => {
             const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
+            const isSelected = selectedCategory === cat;
             return (
-              <button key={cat} onClick={() => setSelectedCategory(cat)}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm shrink-0 ${selectedCategory === cat ? 'bg-primary text-white' : 'border border-surface-hover hover:bg-surface-hover'}`}
+              <button 
+                key={cat} 
+                onClick={() => setSelectedCategory(cat)}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm whitespace-nowrap transition-all ${
+                  isSelected 
+                    ? 'bg-primary text-white shadow-lg shadow-primary/25' 
+                    : 'border border-surface-hover hover:bg-surface-hover'
+                }`}
               >
                 {Icon && <Icon className="h-4 w-4" />}
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                <span className="capitalize">{cat}</span>
+                {isSelected && <span className="ml-1 text-xs opacity-75">({filteredTrades.length})</span>}
               </button>
             );
           })}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm">
-            <option value="edge">Sort: Edge</option>
-            <option value="multiplier">Sort: Multiplier</option>
+        {/* Sort Controls */}
+        <div className="flex items-center gap-2">
+          <select 
+            value={sortBy} 
+            onChange={(e) => setSortBy(e.target.value as any)} 
+            className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm flex-1 sm:flex-none"
+          >
+            <option value="edge">Sort by Edge</option>
+            <option value="multiplier">Sort by Multiplier</option>
           </select>
-          <button onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')} className="rounded-lg border border-surface-hover p-2 hover:bg-surface-hover">
+          <button 
+            onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')} 
+            className="rounded-lg border border-surface-hover p-2 hover:bg-surface-hover"
+            title={sortDirection === 'desc' ? 'Descending' : 'Ascending'}
+          >
             {sortDirection === 'desc' ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </button>
         </div>
