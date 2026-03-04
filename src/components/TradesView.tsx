@@ -6,6 +6,7 @@ import {
   RefreshCw, BookOpen, Filter, ChevronDown, ChevronUp,
   HelpCircle, X, ArrowUpRight, Info
 } from 'lucide-react';
+import { RESEARCHED_TRADES } from './trades-data';
 
 // Educational tooltip component
 function Tooltip({ children, text }: { children: React.ReactNode; text: string }) {
@@ -76,90 +77,6 @@ interface KalshiTrade {
     unrealizedPnl: number;
   };
 }
-
-// LIVE MARKETS - March 5, 2026 (from Kalshi API)
-const RESEARCHED_TRADES: KalshiTrade[] = [
-  {
-    id: '1',
-    ticker: 'KXMVECROSSCATEGORY-S2026343B17AB065-C2FBBAEF5AD',
-    title: 'NBA Parlay: LA Clippers, OKC, Portland, Philadelphia + Over Points',
-    category: 'sports',
-    yesPrice: 3,
-    noPrice: 97,
-    volume: 2450,
-    expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/kxmvecrosscategory-s2026343b17ab065',
-    priceHistory: [3, 3, 3],
-    research: {
-      trueProbability: 15,
-      edge: 12,
-      confidence: 'medium',
-      catalyst: 'Multi-leg NBA parlay for tonight\'s games. 33x payout if all legs hit.',
-      sources: ['Kalshi', 'NBA Schedule']
-    },
-    payout: { buyPrice: 3, potentialReturn: 100, multiplier: 33.3 }
-  },
-  {
-    id: '2',
-    ticker: 'KXMVECROSSCATEGORY-S2026A7C1145B92C-EC9A0DEEFF8',
-    title: 'College Basketball Mega Parlay: 9 Games + Point Spreads',
-    category: 'sports',
-    yesPrice: 1,
-    noPrice: 99,
-    volume: 1890,
-    expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/kxmvecrosscategory-s2026a7c1145b92c',
-    priceHistory: [1, 1, 1],
-    research: {
-      trueProbability: 8,
-      edge: 7,
-      confidence: 'low',
-      catalyst: 'Extreme longshot - 9 college games with point spreads. 100x potential.',
-      sources: ['Kalshi', 'NCAA Schedule']
-    },
-    payout: { buyPrice: 1, potentialReturn: 100, multiplier: 100 }
-  },
-  {
-    id: '3',
-    ticker: 'KXMVECROSSCATEGORY-S20262E326954593-1E34DF383FE',
-    title: '5-Team College Parlay: LA, Philadelphia, Providence, Ohio St, James Madison',
-    category: 'sports',
-    yesPrice: 28,
-    noPrice: 72,
-    volume: 3200,
-    expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/kxmvecrosscategory-s20262e326954593',
-    priceHistory: [28, 28, 28],
-    research: {
-      trueProbability: 38,
-      edge: 10,
-      confidence: 'medium',
-      catalyst: '5 college basketball favorites. Higher probability with solid 3.6x payout.',
-      sources: ['Kalshi', 'NCAA']
-    },
-    payout: { buyPrice: 28, potentialReturn: 100, multiplier: 3.6 }
-  },
-  {
-    id: '4',
-    ticker: 'KXMVECROSSCATEGORY-S20268EA94498B79-5BDC494C88A',
-    title: 'NBA Point Spreads: Boston -4.5, Clippers -7.5, OKC -3.5, Portland -4.5',
-    category: 'sports',
-    yesPrice: 16,
-    noPrice: 84,
-    volume: 4100,
-    expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/kxmvecrosscategory-s20268ea94498b79',
-    priceHistory: [16, 16, 16],
-    research: {
-      trueProbability: 28,
-      edge: 12,
-      confidence: 'medium',
-      catalyst: '4 NBA favorites covering spreads tonight. Good balance of risk/reward.',
-      sources: ['Kalshi', 'NBA']
-    },
-    payout: { buyPrice: 16, potentialReturn: 100, multiplier: 6.3 }
-  }
-];
 
 const CATEGORY_ICONS = {
   weather: CloudRain,
