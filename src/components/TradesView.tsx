@@ -198,11 +198,12 @@ export function TradesView() {
       }
       
       if (allMarkets.length > 0) {
-        // Process markets: filter cheap ones, sort by potential
+        // Process markets: filter cheap ones with volume, sort by potential
         const processedTrades: KalshiTrade[] = allMarkets
           .filter((m: any) => {
             const price = m.yes_ask || m.yes_price || m.last_price || 50;
-            return price >= 1 && price <= 25; // Cheap but not too cheap
+            const volume = m.volume || m.trade_volume || 0;
+            return price >= 1 && price <= 25 && volume > 100; // Cheap + liquid
           })
           .sort((a: any, b: any) => {
             // Sort by multiplier (payout potential)
