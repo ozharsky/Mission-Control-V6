@@ -423,202 +423,85 @@ export function TradesView() {
         <span className="ml-auto flex items-center gap-1 shrink-0">{lastUpdated && <><RefreshCw className="h-3 w-3" /> {lastUpdated.toLocaleTimeString()}</>}</span>
       </div>
 
-      {/* Trade Cards - Mobile: Compact / Desktop: Detailed */}
+      {/* SIMPLE TRADE CARDS */}
       <div className="grid gap-3">
         {tradesWithMetrics.map((trade, index) => {
           const Icon = CATEGORY_ICONS[trade.category];
           const edge = trade.research.edge;
-          const isStrongBuy = edge > 20;
+          const isGoodDeal = (trade.rScore || 0) > 1.5;
+          const price = trade.yesPrice;
+          const multiplier = trade.payout.multiplier;
+          
+          // Simple color coding
+          const dealColor = price <= 5 ? 'bg-emerald-500/20 border-emerald-500/50' : 
+                           price <= 15 ? 'bg-amber-500/20 border-amber-500/50' : 
+                           'bg-surface border-surface-hover';
+          
+          // Simple recommendation
+          let recommendation = 'Skip';
+          let recColor = 'text-gray-400';
+          if (price <= 3 && multiplier >= 30) {
+            recommendation = '🔥 Great Deal';
+            recColor = 'text-emerald-400';
+          } else if (price <= 10 && multiplier >= 10) {
+            recommendation = '👍 Good Value';
+            recColor = 'text-amber-400';
+          }
 
           return (
-            <div key={trade.id} className={`rounded-xl border p-3 lg:p-4 transition-all hover:border-primary/50 ${isStrongBuy ? 'border-success/30 bg-success/5' : 'border-surface-hover bg-surface'}`}>
+            <div key={trade.id} className={`rounded-xl border-2 p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
               
-              {/* MOBILE LAYOUT (default) */}
-              <div className="lg:hidden">
-                {/* Row 1: Icon, Title, Trade Button */}
-                <div className="flex items-center gap-2">
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-medium text-sm leading-tight truncate">{trade.title}</h3>
-                    <div className="flex items-center gap-1 text-xs text-gray-400 truncate">
-                      <span className="truncate max-w-[120px]">{trade.ticker}</span>
-                      <span>•</span>
-                      <span>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
-                      {isStrongBuy && <span className="text-success ml-1">🔥#{index+1}</span>}
-                    </div>
-                  </div>
-                  
-                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 ml-2"
-                    title="Trade on Kalshi"
-                  >
-                    <ArrowUpRight className="h-4 w-4" />
-                  </a>
+              {/* TOP ROW: What + When + Trade Button */}
+              <div className="flex items-start gap-3">
+                {/* Big Icon */}
+                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${CATEGORY_COLORS[trade.category]}`}>
+                  <Icon className="h-6 w-6" />
                 </div>
-
-                {/* Row 2: Price, Edge, Confidence, Multiplier, R-Score, Kelly */}
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold">{trade.yesPrice}¢</span>
-                    <span className={`text-sm ${edge > 0 ? 'text-success' : 'text-danger'}`}>+{edge}%</span>
-                    <ConfidenceBadge level={trade.research.confidence} />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${(trade.rScore || 0) > 1.5 ? 'text-success' : 'text-gray-400'}`}>
-                      R:{trade.rScore?.toFixed(1)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      K:{(trade.kellyFraction || 0).toFixed(1)}%
-                    </span>
-                    <span className="text-right">
-                      <span className="text-lg font-bold text-success">{trade.payout.multiplier}x</span>
-                    </span>
-                  </div>
+                
+                {/* Title & Date */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base leading-tight">{trade.title}</h3>
+                  <p className="text-sm text-gray-400 mt-0.5">
+                    Closes {new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
+                  </p>
                 </div>
+                
+                {/* Trade Button */}
+                <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
+                  className="flex items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 shrink-0"
+                >
+                  Trade <ArrowUpRight className="h-4 w-4" />
+                </a>
+              </div>
 
-                {/* Row 3: Prediction Meter (hidden on very small screens) */}
-                <div className="mt-2 hidden sm:block">
-                  <PredictionMeter probability={trade.research.trueProbability} marketPrice={trade.yesPrice} />
+              {/* MIDDLE: The Deal */}
+              <div className="mt-4 grid grid-cols-3 gap-4">
+                {/* Price */}
+                <div className="text-center">
+                  <div className="text-xs text-gray-400 uppercase tracking-wide">Pay</div>
+                  <div className="text-2xl font-bold">{price}¢</div>
+                  <div className="text-xs text-gray-500">per share</div>
                 </div>
-
-                {/* Row 4: Research note */}
-                <div className="mt-2 text-xs text-gray-400 line-clamp-1">
-                  {trade.research.catalyst}
+                
+                {/* Arrow */}
+                <div className="flex items-center justify-center">
+                  <div className="text-2xl text-gray-600">→</div>
+                </div>
+                
+                {/* Payout */}
+                <div className="text-center">
+                  <div className="text-xs text-gray-400 uppercase tracking-wide">Win</div>
+                  <div className="text-2xl font-bold text-emerald-400">$1</div>
+                  <div className="text-xs text-emerald-500">{multiplier}x return</div>
                 </div>
               </div>
 
-              {/* DESKTOP LAYOUT (lg+) - Two Column Grid */}
-              <div className="hidden lg:grid lg:grid-cols-12 lg:gap-4">
-                
-                {/* Left Column: Trade Info (7 cols) */}
-                <div className="lg:col-span-7 space-y-3">
-                  {/* Header Row */}
-                  <div className="flex items-start gap-3">
-                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${CATEGORY_COLORS[trade.category]}`}>
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-base">{trade.title}</h3>
-                        {isStrongBuy && <span className="text-success text-sm font-medium">🔥 Top Pick #{index+1}</span>}
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-gray-400 mt-1">
-                        <span className="font-mono bg-surface-hover px-2 py-0.5 rounded">{trade.ticker}</span>
-                        <span>•</span>
-                        <span>Expires {new Date(trade.expiration).toLocaleDateString(undefined, {month:'long', day:'numeric', year:'numeric'})}</span>
-                        <span>•</span>
-                        <span>Vol: {trade.volume.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Price Row */}
-                  <div className="flex items-center gap-4 bg-surface-hover/50 rounded-lg p-3">
-                    <div className="flex items-center gap-3">
-                      <Sparkline data={trade.priceHistory || [trade.yesPrice]} />
-                      <div>
-                        <div className="text-2xl font-bold">{trade.yesPrice}¢</div>
-                        <div className="text-xs text-gray-400">Current Price</div>
-                      </div>
-                    </div>
-                    
-                    <div className="h-10 w-px bg-surface-hover" />
-                    
-                    <div>
-                      <div className="text-2xl font-bold text-success">+{edge}%</div>
-                      <div className="text-xs text-gray-400">Edge</div>
-                    </div>
-                    
-                    <div className="h-10 w-px bg-surface-hover" />
-                    
-                    <div>
-                      <div className="text-2xl font-bold text-primary">{trade.research.trueProbability}%</div>
-                      <div className="text-xs text-gray-400">True Prob</div>
-                    </div>
-                    
-                    <div className="h-10 w-px bg-surface-hover" />
-                    
-                    <ConfidenceBadge level={trade.research.confidence} />
-                  </div>
-
-                  {/* Prediction Meter */}
-                  <div className="bg-surface-hover/30 rounded-lg p-3">
-                    <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-                      <span>Market Price vs Model Prediction</span>
-                      <span className={edge > 0 ? 'text-success' : 'text-danger'}>{edge > 0 ? 'Undervalued' : 'Overvalued'}</span>
-                    </div>
-                    <PredictionMeter probability={trade.research.trueProbability} marketPrice={trade.yesPrice} />
-                  </div>
-
-                  {/* Research */}
-                  <div className="bg-surface-hover/30 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-                      <Info className="h-4 w-4" /> Why This Trade?
-                    </div>
-                    <p className="text-sm mb-2">{trade.research.catalyst}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {trade.research.sources.map(source => (
-                        <span key={source} className="rounded bg-surface-hover px-2 py-0.5 text-xs text-gray-400">{source}</span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column: Payout Card (5 cols) */}
-                <div className="lg:col-span-5">
-                  <div className="rounded-xl bg-surface-hover p-4 h-full flex flex-col">
-                    <div className="text-sm text-gray-400 mb-3">Payout Analysis</div>
-                    
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="text-center p-3 bg-surface rounded-lg">
-                        <div className={`text-3xl font-bold ${(trade.rScore || 0) > 1.5 ? 'text-success' : 'text-warning'}`}>{trade.rScore?.toFixed(2) || 'N/A'}</div>
-                        <div className="text-xs text-gray-400">R-Score</div>
-                      </div>
-
-                      <div className="text-center p-3 bg-surface rounded-lg">
-                        <div className="text-3xl font-bold text-primary">{(trade.kellyFraction || 0).toFixed(1)}%</div>
-                        <div className="text-xs text-gray-400">Kelly %</div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 text-sm mb-4">
-                      <div className="flex justify-between items-center py-2 border-b border-surface">
-                        <span className="text-gray-400">Contract Price</span>
-                        <span className="font-medium">{trade.yesPrice}¢ (${(trade.yesPrice/100).toFixed(2)})</span>
-                      </div>
-
-                      <div className="flex justify-between items-center py-2 border-b border-surface">
-                        <span className="text-gray-400">Multiplier</span>
-                        <span className="font-medium text-success">{trade.payout.multiplier}x</span>
-                      </div>
-
-                      <div className="flex justify-between items-center py-2 border-b border-surface">
-                        <span className="text-gray-400">Net Profit</span>
-                        <span className="font-medium text-success">+${trade.payout.potentialReturn - trade.payout.buyPrice}</span>
-                      </div>
-
-                      <div className="flex justify-between items-center py-2 border-b border-surface">
-                        <span className="text-gray-400">Expected Value</span>
-                        <span className={`font-medium ${(trade.research.trueProbability/100 * trade.payout.multiplier) > 1 ? 'text-success' : 'text-danger'}`}>
-                          ${((trade.research.trueProbability/100 * trade.payout.multiplier)).toFixed(2)}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-400">Break-even</span>
-                        <span className="font-medium">{trade.yesPrice}%</span>
-                      </div>
-                    </div>
-
-                    <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
-                      className="mt-auto flex items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-medium text-white hover:bg-primary/90"
-                    >
-                      Trade on Kalshi <ArrowUpRight className="h-4 w-4" />
-                    </a>
-                  </div>
+              {/* BOTTOM: Recommendation + Details */}
+              <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
+                <div className={`text-sm font-medium ${recColor}`}>{recommendation}</div>
+                <div className="flex items-center gap-3 text-xs text-gray-400">
+                  <span title="How much is being traded">💰 {trade.volume?.toLocaleString()} vol</span>
+                  <span title="Our confidence level">🎯 {trade.research.confidence}</span>
                 </div>
               </div>
             </div>
