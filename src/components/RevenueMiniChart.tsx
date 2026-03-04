@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from 'recharts';
 
 interface RevenueMiniChartProps {
   revenue: any;
@@ -46,7 +47,6 @@ export function RevenueMiniChart({ revenue, onNavigate }: RevenueMiniChartProps)
     );
   }
   
-  const max = Math.max(...data.map(d => d.value), 1);
   const total = data.reduce((sum, d) => sum + d.value, 0);
   const avg = data.length > 0 ? total / data.length : 0;
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -56,6 +56,41 @@ export function RevenueMiniChart({ revenue, onNavigate }: RevenueMiniChartProps)
     ((data[data.length - 1].value - data[data.length - 2].value) / data[data.length - 2].value) * 100 : 0;
   
   const formatValue = (val: number) => val >= 1000 ? (val / 1000).toFixed(1) + 'k' : Math.round(val);
+  
+  // Format data for chart - last 6 months
+  const chartData = data.slice(-6).map(d => ({
+    month: d.month.slice(5),
+    fullMonth: d.month,
+    revenue: d.value,
+    orders: d.orders,
+    isCurrent: d.month === currentMonth
+  }));
+  
+  // Calculate moving average for line
+  const movingAvg = chartData.map((d, i, arr) => {
+    const start = Math.max(0, i - 2);
+    const slice = arr.slice(start, i + 1);
+    return slice.reduce((sum, item) => sum + item.revenue, 0) / slice.length;
+  });
+  
+  const chartDataWithAvg = chartData.map((d, i) => ({
+    ...d,
+    avg: movingAvg[i]
+  }));
+  
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="rounded-lg bg-surface border border-surface-hover p-3 shadow-lg">
+          <p className="text-sm font-medium mb-1">{data.fullMonth}</p>
+          <p className="text-sm text-success">Revenue: ${data.revenue.toLocaleString()}</p>
+          <p className="text-xs text-gray-500">{data.orders} orders</p>
+        </div>
+      );
+    }
+    return null;
+  };
   
   return (
     <div className="rounded-2xl border border-surface-hover bg-surface overflow-hidden">
@@ -109,42 +144,39 @@ export function RevenueMiniChart({ revenue, onNavigate }: RevenueMiniChartProps)
         </div>
       </div>
 
-      {/* Sparkline Chart */}
-      <div className="px-5 pb-5 pt-2">
-        <div className="flex items-end justify-between gap-1" style={{ height: '60px' }}>
-          {data.slice(-6).map((d, i) => {
-            const heightPercent = Math.max((d.value / max) * 100, 15);
-            const isCurrent = d.month === currentMonth;
-            
-            return (
-              <div key={i} className="flex flex-col items-center flex-1">
-                <div 
-                  className="w-full flex items-end justify-center relative group cursor-pointer"
-                  style={{ height: '50px' }}
-                >
-                  {/* Tooltip */}
-                  <div className="absolute bottom-full mb-2 hidden group-hover:block z-10">
-                    <div className="rounded-lg bg-surface-hover px-2 py-1 text-xs whitespace-nowrap">
-                      <div className="font-medium">${d.value.toLocaleString()}</div>
-                      <div className="text-gray-500">{d.orders} orders</div>
-                    </div>
-                  </div>
-                  <div
-                    className={`w-full max-w-[40px] rounded-t-md transition-all duration-300 ${
-                      isCurrent 
-                        ? 'bg-success shadow-lg shadow-success/20' 
-                        : 'bg-success/20 hover:bg-success/40'
-                    }`}
-                    style={{ height: `${heightPercent}%`, minHeight: '4px' }}
-                  />
-                </div>
-                <div className={`text-[10px] mt-1.5 ${isCurrent ? 'text-success font-medium' : 'text-gray-500'}`}>
-                  {d.month.slice(5)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* Bar + Line Chart */}
+      <div className="px-4 pb-4 pt-2" style={{ height: '180px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartDataWithAvg} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+            <XAxis 
+              dataKey="month" 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: '#9ca3af', fontSize: 10 }} 
+            />
+            <YAxis 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: '#9ca3af', fontSize: 10 }}
+              tickFormatter={(value) => value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar 
+              dataKey="revenue" 
+              fill="#22c55e" 
+              radius={[4, 4, 0, 0]}
+              opacity={0.8}
+            />
+            <Line 
+              type="monotone" 
+              dataKey="avg" 
+              stroke="#6366f1" 
+              strokeWidth={2} 
+              dot={false}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
