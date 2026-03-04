@@ -333,12 +333,52 @@ export function TradesView() {
   const [selectedCategory, setSelectedCategory] = useState<KalshiTrade['category'] | 'all'>('all');
   const [sortBy, setSortBy] = useState<'edge' | 'multiplier'>('edge');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [trades] = useState<KalshiTrade[]>(RESEARCHED_TRADES);
+  const [trades, setTrades] = useState<KalshiTrade[]>(RESEARCHED_TRADES);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [showEducation, setShowEducation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
+  // Fetch live data from Kalshi public API
+  const fetchLiveData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch markets from Kalshi public API
+      const response = await fetch('https://api.elections.kalshi.com/trade-api/v2/markets?limit=100&status=open');
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      
+      // Update trades with live prices where available
+      if (data.markets) {
+        setTrades(prevTrades => prevTrades.map(trade => {
+          const liveMarket = data.markets.find((m: any) => m.ticker === trade.ticker);
+          if (liveMarket) {
+            return {
+              ...trade,
+              yesPrice: liveMarket.yes_ask || liveMarket.yes_price || trade.yesPrice,
+              volume: liveMarket.volume || trade.volume,
+              // Recalculate payout based on new price
+              payout: {
+                buyPrice: liveMarket.yes_ask || liveMarket.yes_price || trade.yesPrice,
+                potentialReturn: 100,
+                multiplier: parseFloat((100 / (liveMarket.yes_ask || liveMarket.yes_price || trade.yesPrice)).toFixed(1))
+              }
+            };
+          }
+          return trade;
+        }));
+        setLastUpdated(new Date());
+      }
+    } catch (error) {
+      console.error('Failed to fetch live data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Auto-refresh every 5 minutes
   useEffect(() => {
-    const interval = setInterval(() => setLastUpdated(new Date()), 60000);
+    fetchLiveData(); // Initial fetch
+    const interval = setInterval(fetchLiveData, 300000); // 5 minutes
     return () => clearInterval(interval);
   }, []);
 
@@ -369,6 +409,14 @@ export function TradesView() {
           <p className="text-sm text-gray-400 truncate">Researched +EV opportunities</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button 
+            onClick={fetchLiveData} 
+            disabled={isLoading}
+            className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> 
+            {isLoading ? 'Updating...' : 'Refresh'}
+          </button>
           <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0">
             <BookOpen className="h-4 w-4" /> {showEducation ? 'Hide' : 'Learn'}
           </button>
