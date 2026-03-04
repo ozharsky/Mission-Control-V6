@@ -3,6 +3,7 @@ import {
   TrendingUp, DollarSign, ShoppingCart, Calendar, 
   BarChart3, Table, Plus, X, Upload, Download, Target, Award, Activity
 } from 'lucide-react';
+import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, ReferenceLine } from 'recharts';
 import { setData } from '../lib/firebase';
 import { parseEtsyCSV, readFile, aggregateRevenueByMonth, downloadTemplate } from '../lib/csv';
 
@@ -392,26 +393,69 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
 
         {viewMode === 'chart' ? (
           filteredData.length > 0 ? (
-            <div className="flex items-end gap-2 h-64">
-              {filteredData.map((item) => {
-                const heightPercent = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
-                const isGoalMet = item.value >= goal;
-                return (
-                  <div key={item.month} className="group flex flex-1 flex-col items-center justify-end h-full">
-                    <div className="relative w-full flex-1 flex items-end">
-                      <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-surface-hover px-3 py-2 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                        <p className="font-semibold">{formatCurrency(item.value)}</p>
-                        <p className="text-gray-500">{item.orders} orders</p>
-                      </div>
-                      <div 
-                        className={`w-full rounded-t-lg transition-all ${isGoalMet ? 'bg-success' : 'bg-primary'}`} 
-                        style={{ height: `${Math.max(heightPercent, 2)}%` }} 
-                      />
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500">{formatMonthLabel(item.month)}</div>
-                  </div>
-                );
-              })}
+            <div style={{ height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={filteredData.map(d => ({
+                    month: formatMonthLabel(d.month),
+                    fullMonth: d.month,
+                    revenue: d.value,
+                    orders: d.orders,
+                    goal: goal
+                  }))}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="rounded-lg bg-surface border border-surface-hover p-3 shadow-lg">
+                            <p className="text-sm font-medium mb-1">{data.fullMonth}</p>
+                            <p className="text-sm text-success">Revenue: {formatCurrency(data.revenue)}</p>
+                            <p className="text-xs text-gray-500">{data.orders} orders</p>
+                            <p className="text-xs text-gray-500 mt-1">Goal: {formatCurrency(data.goal)}</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <ReferenceLine
+                    y={goal}
+                    stroke="#f59e0b"
+                    strokeDasharray="5 5"
+                    label={{
+                      value: `Goal: ${formatCurrency(goal)}`,
+                      fill: '#f59e0b',
+                      fontSize: 11,
+                      position: 'right'
+                    }}
+                  />
+                  <Bar
+                    dataKey="revenue"
+                    fill="#6366f1"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <div className="py-12 text-center text-gray-500">No revenue data</div>
