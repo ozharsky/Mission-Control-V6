@@ -88,7 +88,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 97,
     volume: 2450,
     expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/KXMVECROSSCATEGORY-S2026343B17AB065-C2FBBAEF5AD',
+    kalshiUrl: 'https://kalshi.com/markets/kxmvecrosscategory-s2026343b17ab065-c2fbbaef5ad',
     priceHistory: [3, 3, 3],
     research: {
       trueProbability: 15,
@@ -108,7 +108,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 99,
     volume: 1890,
     expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/KXMVECROSSCATEGORY-S2026A7C1145B92C-EC9A0DEEFF8',
+    kalshiUrl: 'https://kalshi.com/markets/kxmvecrosscategory-s2026a7c1145b92c-ec9a0deeff8',
     priceHistory: [1, 1, 1],
     research: {
       trueProbability: 8,
@@ -128,7 +128,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 72,
     volume: 3200,
     expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/KXMVECROSSCATEGORY-S20262E326954593-1E34DF383FE',
+    kalshiUrl: 'https://kalshi.com/markets/kxmvecrosscategory-s20262e326954593-1e34df383fe',
     priceHistory: [28, 28, 28],
     research: {
       trueProbability: 38,
@@ -148,7 +148,7 @@ const RESEARCHED_TRADES: KalshiTrade[] = [
     noPrice: 84,
     volume: 4100,
     expiration: '2026-03-05',
-    kalshiUrl: 'https://kalshi.com/markets/KXMVECROSSCATEGORY-S20268EA94498B79-5BDC494C88A',
+    kalshiUrl: 'https://kalshi.com/markets/kxmvecrosscategory-s20268ea94498b79-5bdc494c88a',
     priceHistory: [16, 16, 16],
     research: {
       trueProbability: 28,
@@ -257,7 +257,7 @@ export function TradesView() {
               noPrice: 100 - price,
               volume: m.volume || m.trade_volume || 0,
               expiration: m.settlement_date || m.expiration || '2026-12-31',
-              kalshiUrl: `https://kalshi.com/markets/${m.ticker}`,
+              kalshiUrl: `https://kalshi.com/markets/${m.ticker.toLowerCase()}`,
               priceHistory: [price],
               research: {
                 trueProbability: Math.round(price * 1.2), // Estimate 20% edge for low-priced
