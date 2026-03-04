@@ -21,18 +21,6 @@ const AGENT_CHANNELS: Record<AgentId, string> = {
   surveyor: '1478488543692194045'      // #📚-researcher
 };
 
-// Agent Discord usernames for mentions
-const AGENT_MENTIONS: Record<AgentId, string> = {
-  planner: '@strategist',
-  ideator: '@inventor',
-  critic: '@analyst',
-  scout: '@scout',
-  coder: '@architect',
-  writer: '@wordsmith',
-  reviewer: '@editor',
-  surveyor: '@researcher'
-};
-
 const COORDINATION_CHANNEL = '1478488567020785867'; // #🎯-agent-coordination
 
 export class DiscordNotificationService {
@@ -54,16 +42,14 @@ export class DiscordNotificationService {
 
     const agentName = AGENT_NAMES[task.assignee];
     const agentEmoji = AGENT_EMOJIS[task.assignee];
-
-    // Include mention to trigger the bot
-    const mention = AGENT_MENTIONS[task.assignee] || `@${task.assignee}`;
     
-    const message = `${mention}\n\n` +
-      `${agentEmoji} **New Task for ${agentName}**\n\n` +
+    // Post without mention - bot will auto-respond in its channel (requireMention: false)
+    const message = `${agentEmoji} **New Task for ${agentName}**\n\n` +
       `**${task.title}**\n` +
       (task.input?.topic ? `Prompt: "${task.input.topic}"\n` : '') +
       `\nPriority: ${this.getPriorityEmoji(task.priority)} ${task.priority} | Status: ${task.status}\n` +
-      `Task ID: \`${task.id}\``;
+      `Task ID: \`${task.id}\`\n\n` +
+      `Type your response to complete this task.`;
 
     await this.queueNotification(channelId, message, task.id);
   }
