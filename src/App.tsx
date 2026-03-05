@@ -253,7 +253,7 @@ function App() {
       <div className="flex min-h-screen bg-background text-white">
         <Navigation activeSection={activeSection} onSectionChange={setActiveSection} />
 
-        <div className="flex-1 pt-14 lg:ml-0 lg:pt-0">
+        <div className="flex-1 min-w-0 pt-14 lg:ml-0 lg:pt-0">
           {/* Header - hidden on mobile, shown on desktop */}
           <header className="sticky top-14 z-10 border-b border-surface-hover bg-surface/80 px-4 py-3 backdrop-blur lg:top-0 lg:px-6 lg:py-4 hidden lg:block">
             <div className="flex items-center justify-between">
