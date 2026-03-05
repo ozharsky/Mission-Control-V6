@@ -200,7 +200,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
         <div className="lg:col-span-2">
           <div className="rounded-2xl border border-surface-hover bg-surface p-6">
             {/* Day Headers */}
-            <div className="mb-4 grid grid-cols-7 gap-1">
+            <div className="mb-4 grid grid-cols-7 overflow-x-auto gap-1">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                 <div key={day} className="p-2 text-center text-sm font-medium text-gray-400">
                   {day}
@@ -209,7 +209,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
             </div>
 
             {/* Calendar Days */}
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 overflow-x-auto gap-1">
               {Array.from({ length: startingDay }).map((_, i) => (
                 <div key={`empty-${i}`} className="min-h-[100px] p-1" />
               ))}
