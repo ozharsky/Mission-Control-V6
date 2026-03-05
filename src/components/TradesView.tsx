@@ -43,7 +43,7 @@ export function TradesView() {
       for (const { series, category } of seriesToFetch) {
         try {
           await new Promise(r => setTimeout(r, 100));
-          const res = await fetch(`\${KALSHI_PROXY_URL}?action=series&series=\${series}`);
+          const res = await fetch(`${KALSHI_PROXY_URL}?action=series&series=${series}`);
           if (res.ok) {
             const data = await res.json();
             if (data.markets) {
