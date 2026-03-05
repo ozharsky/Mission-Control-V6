@@ -147,18 +147,18 @@ function AIInsightsCard({
       }
     }
 
-    // Default
+    // Default: All Good - Enhanced empty state
     if (items.length === 0) {
       items.push({
         id: 'allgood',
         type: 'success',
-        icon: <Sparkles className="h-4 w-4" />,
-        title: 'All Good',
-        message: 'Systems running smooth'
+        icon: <CheckCircle2 className="h-5 w-5" />,
+        title: 'All Systems Operational',
+        message: 'No urgent items. Everything is running smoothly! 🚀'
       });
     }
 
-    return items.slice(0, 4);
+    return items.slice(0, 3);
   }, [tasks, projects, revenue, printers, inventory, jobs]);
 
   const colors = {
