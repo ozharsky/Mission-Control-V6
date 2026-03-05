@@ -296,7 +296,7 @@ export function JobsView({ jobs }: JobsViewProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 max-w-full overflow-x-hidden">
       {/* Header Stats */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         {[

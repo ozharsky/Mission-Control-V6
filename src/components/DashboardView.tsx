@@ -335,7 +335,7 @@ function AIInsightsCard({
         <span className="ml-auto text-xs text-gray-500">{insights.length} updates</span>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-4 max-w-full overflow-x-hidden">
         {insights.map((insight) => (
           <div
             key={insight.id}
@@ -779,7 +779,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
           </button>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-4 max-w-full overflow-x-hidden">
           {[...tasks.pending, ...tasks.inProgress, ...tasks.completed]
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 5)

@@ -263,7 +263,7 @@ export function InventoryView({ items }: InventoryViewProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 max-w-full overflow-x-hidden">
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {[

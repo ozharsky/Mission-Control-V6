@@ -198,7 +198,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
   };
 
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="space-y-4 max-w-full overflow-x-hidden">
       {/* Import/Add Modals - same as before */}
       {(showAddModal || editingEntry) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

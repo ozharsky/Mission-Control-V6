@@ -126,7 +126,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
   const selectedDateEvents = selectedDate ? getEventsForDay(selectedDate.getDate()) : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 max-w-full overflow-x-hidden">
       {/* Header */}
       <div className="rounded-2xl border border-surface-hover bg-surface p-6">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

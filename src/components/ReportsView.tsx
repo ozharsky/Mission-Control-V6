@@ -93,7 +93,7 @@ export function ReportsView({ revenue, tasks, projects, inventory, printers }: R
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 max-w-full overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
