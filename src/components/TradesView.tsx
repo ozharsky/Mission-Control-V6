@@ -52,7 +52,7 @@ export function TradesView() {
       
       const transformed = allMarkets.map(m => ({
         id: m.ticker, ticker: m.ticker, title: m.title, category: m.category,
-        yesPrice: m.yes_ask || 50, noPrice: m.no_ask || 50, volume: m.volume || 0,
+        yesPrice: m.yes_ask || m.yes_price || 50, noPrice: m.no_ask || 50, volume: m.volume || 0,
         expiration: m.expiration_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         kalshiUrl: `https://kalshi.com/markets/${m.ticker.toLowerCase()}`,
         research: { trueProbability: 50, edge: 0, confidence: 'medium', catalyst: 'Live market data', sources: [] },
