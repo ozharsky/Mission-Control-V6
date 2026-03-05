@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { 
   Plus, CheckCircle, Clock, Circle, Calendar, Folder, 
-  ArrowRight, ArrowLeft, Trash2, Edit2, X, User, Bot, Filter
+  ArrowRight, ArrowLeft, Trash2, Edit2, X, User, Bot, Filter,
+  List, Columns
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { LoadingButton } from '../components/Loading';
@@ -176,6 +177,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'urgent' | 'due-soon' | 'overdue'>('all');
+  const [mobileTab, setMobileTab] = useState<'pending' | 'inProgress' | 'completed'>('pending');
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -519,13 +521,63 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
         </div>
       )}
 
-      {/* Task Columns */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {/* Mobile Tabbed View */}
+      <div className="lg:hidden">
+        {/* Mobile Tabs */}
+        <div className="mb-4 flex rounded-xl border border-surface-hover bg-surface p-1">
+          {columns.map((column) => (
+            <button
+              key={column.id}
+              onClick={() => setMobileTab(column.id as 'pending' | 'inProgress' | 'completed')}
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+                mobileTab === column.id
+                  ? 'bg-primary text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {column.title}
+              <span className="ml-1 text-xs opacity-70">({column.tasks.length})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Mobile Task List */}
+        <div className="space-y-3">
+          {columns.find(c => c.id === mobileTab)?.tasks.map((task, index) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              index={index}
+              projectName={getProjectName(task.projectId)}
+              onMove={(direction) => handleMoveTask(task, direction)}
+              onEdit={() => openEditModal(task)}
+              onDelete={() => handleDeleteTask(task)}
+              onDragStart={() => handleDragStart(task)}
+              isDragging={draggedTask?.id === task.id}
+            />
+          ))}
+          {columns.find(c => c.id === mobileTab)?.tasks.length === 0 && (
+            <div className="rounded-xl border border-dashed border-surface-hover py-12 text-center text-gray-500">
+              <Circle className="mx-auto mb-2 h-8 w-8 opacity-50" />
+              <p>No tasks in {columns.find(c => c.id === mobileTab)?.title}</p>
+              <button
+                onClick={() => setShowForm(true)}
+                className="mt-2 text-sm text-primary hover:underline"
+              >
+                Add a task
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop Kanban View */}
+      <div className="hidden lg:grid grid-cols-1 gap-6 lg:grid-cols-3">
         {columns.map((column) => {
           const columnStatus = column.id === 'inProgress' ? 'in-progress' : column.id as Task['status'];
           return (
-            <div 
-              key={column.id} 
+            <div
+              key={column.id}
               className={`rounded-2xl border border-surface-hover ${column.bgColor}`}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, columnStatus)}
@@ -544,9 +596,9 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
 
               <div className="space-y-3 p-4 min-h-[200px]">
                 {column.tasks.map((task, index) => (
-                  <TaskCard 
-                    key={task.id} 
-                    task={task} 
+                  <TaskCard
+                    key={task.id}
+                    task={task}
                     index={index}
                     projectName={getProjectName(task.projectId)}
                     onMove={(direction) => handleMoveTask(task, direction)}
