@@ -54,7 +54,7 @@ export function TradesView() {
         id: m.ticker, ticker: m.ticker, title: m.title, category: m.category,
         yesPrice: m.yes_ask || m.yes_price || 50, noPrice: m.no_ask || 50, volume: m.volume || 0,
         expiration: m.expiration_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        kalshiUrl: `https://kalshi.com/markets/${m.ticker.toLowerCase()}`,
+        kalshiUrl: `https://kalshi.com/events/${series.toLowerCase()}`,
         research: { trueProbability: 50, edge: 0, confidence: 'medium', catalyst: 'Live market data', sources: [] },
         payout: { buyPrice: m.yes_ask || 50, potentialReturn: (100 - (m.yes_ask || 50)) / 100, multiplier: Math.round(100 / (m.yes_ask || 50)) }
       }));
