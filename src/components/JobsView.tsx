@@ -484,41 +484,49 @@ export function JobsView({ jobs }: JobsViewProps) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       {/* Mobile: Stack title and badges */}
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                        <h3 className="text-base sm:text-lg font-semibold truncate">{job.title}</h3>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className={`rounded-full border px-2 py-0.5 text-xs ${JOB_STATUS_COLORS[job.status]}`}>
-                            {JOB_STATUS_LABELS[job.status]}
-                          </span>
-                          <span className={`rounded-full border px-2 py-0.5 text-xs ${getPriorityColor(job.priority)}`}>
-                            {job.priority}
-                          </span>
+                      <div className="flex items-start gap-3">
+                        {/* Company Initials Avatar */}
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-sm">
+                          {job.company?.slice(0, 2).toUpperCase() || '??'}
                         </div>
-                      </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                            <h3 className="text-base sm:text-lg font-semibold truncate">{job.title}</h3>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className={`rounded-full border px-2 py-0.5 text-xs ${JOB_STATUS_COLORS[job.status]}`}>
+                                {JOB_STATUS_LABELS[job.status]}
+                              </span>
+                              <span className={`rounded-full border px-2 py-0.5 text-xs ${getPriorityColor(job.priority)}`}>
+                                {job.priority}
+                              </span>
+                            </div>
+                          </div>
 
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                          {job.company}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
-                          {job.location}
-                        </span>
-                        <span className={`rounded px-2 py-0.5 text-xs ${JOB_TYPE_COLORS[job.type]}`}>
-                          {JOB_TYPE_LABELS[job.type]}
-                        </span>
-                        {job.workMode && (
-                          <span className={`rounded-full border px-2 py-0.5 text-xs ${WORK_MODE_COLORS[job.workMode]}`}>
-                            {WORK_MODE_LABELS[job.workMode]}
-                          </span>
-                        )}
-                        {job.salary && (
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />
-                            {job.salary}
-                          </span>
-                        )}
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm text-gray-400">
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                              {job.company}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
+                              {job.location}
+                            </span>
+                            <span className={`rounded px-2 py-0.5 text-xs ${JOB_TYPE_COLORS[job.type]}`}>
+                              {JOB_TYPE_LABELS[job.type]}
+                            </span>
+                            {job.workMode && (
+                              <span className={`rounded-full border px-2 py-0.5 text-xs ${WORK_MODE_COLORS[job.workMode]}`}>
+                                {WORK_MODE_LABELS[job.workMode]}
+                              </span>
+                            )}
+                            {job.salary && (
+                              <span className="flex items-center gap-1">
+                                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />
+                                {job.salary}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
