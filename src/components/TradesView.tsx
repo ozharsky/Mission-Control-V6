@@ -340,21 +340,21 @@ export function TradesView() {
             {hasLiveData ? '✓ Live data' : 'Static data'} {lastUpdated && `• Updated ${lastUpdated.toLocaleTimeString()}`}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 sm:p-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button 
             onClick={fetchLiveData} 
             disabled={isLoading}
-            className="flex items-center gap-1.5 sm:p-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{isLoading ? 'Updating...' : 'Refresh'}</span>
             <span className="sm:hidden">{isLoading ? '...' : '↻'}</span>
           </button>
-          <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-1.5 sm:p-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover">
+          <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover">
             <BookOpen className="h-4 w-4" />
             <span className="hidden sm:inline">{showEducation ? 'Hide' : 'Learn'}</span>
           </button>
-          <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 sm:p-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 ml-auto sm:ml-0">
+          <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 ml-auto sm:ml-0">
             <span className="hidden sm:inline">Kalshi</span>
             <ExternalLink className="h-4 w-4" />
           </a>
@@ -449,7 +449,7 @@ export function TradesView() {
       {/* Filters - Mobile Optimized */}
       <div className="flex flex-col gap-3">
         {/* Category Filters - Horizontal scroll on mobile */}
-        <div className="flex gap-1.5 sm:p-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
           {(['all', 'weather', 'crypto', 'companies', 'economics', 'science', 'world', 'politics', 'government', 'finance'] as const).map(cat => {
             const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
             const isSelected = selectedCategory === cat;
@@ -457,7 +457,7 @@ export function TradesView() {
               <button 
                 key={cat} 
                 onClick={() => setSelectedCategory(cat)}
-                className={`flex items-center gap-1.5 sm:p-2 rounded-lg px-4 py-2.5 text-sm whitespace-nowrap transition-all ${
+                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm whitespace-nowrap transition-all ${
                   isSelected 
                     ? 'bg-primary text-white shadow-lg shadow-primary/25' 
                     : 'border border-surface-hover hover:bg-surface-hover'
@@ -472,7 +472,7 @@ export function TradesView() {
         </div>
 
         {/* Sort Controls */}
-        <div className="flex items-center gap-1.5 sm:p-2">
+        <div className="flex items-center gap-2">
           <select 
             value={sortBy} 
             onChange={(e) => setSortBy(e.target.value as any)} 
@@ -483,7 +483,7 @@ export function TradesView() {
           </select>
           <button 
             onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')} 
-            className="rounded-lg border border-surface-hover p-1.5 sm:p-2 hover:bg-surface-hover"
+            className="rounded-lg border border-surface-hover p-2 hover:bg-surface-hover"
             title={sortDirection === 'desc' ? 'Descending' : 'Ascending'}
           >
             {sortDirection === 'desc' ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -528,14 +528,14 @@ export function TradesView() {
             <div key={trade.id} className={`rounded-xl border-2 p-2 sm:p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
               
               {/* TOP ROW: Icon + Title + Trade Button */}
-              <div className="flex items-start gap-1.5 sm:p-2 sm:gap-3">
+              <div className="flex items-start gap-2 sm:gap-3">
                 <div className={`flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
                   <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-xs sm:text-sm leading-tight line-clamp-1.5 sm:p-2">{trade.title}</h3>
-                  <div className="flex items-center gap-1 sm:gap-1.5 sm:p-2 text-[9px] sm:text-[10px] sm:text-xs text-gray-400 mt-1">
+                  <h3 className="font-medium text-xs sm:text-sm leading-tight line-clamp-2 sm:p-2">{trade.title}</h3>
+                  <div className="flex items-center gap-1 sm:gap-2 text-[9px] sm:text-[10px] sm:text-xs text-gray-400 mt-1">
                     <span>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
                     <span>•</span>
                     <span className="capitalize">{trade.category}</span>
@@ -551,35 +551,35 @@ export function TradesView() {
               </div>
 
               {/* MIDDLE: Key Metrics Grid - Mobile: 2 cols, Desktop: 4 cols */}
-              <div className="mt-3 grid grid-cols-4 gap-1 sm:gap-1.5 sm:p-2">
+              <div className="mt-3 grid grid-cols-4 gap-1 sm:gap-2">
                 {/* Pay */}
-                <div className="text-center bg-surface-hover/50 rounded-lg p-1.5 sm:p-2">
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
                   <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase">Pay</div>
                   <div className="text-sm sm:text-lg font-bold">{price}¢</div>
                 </div>
                 
                 {/* Win */}
-                <div className="text-center bg-surface-hover/50 rounded-lg p-1.5 sm:p-2">
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
                   <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase">Win</div>
                   <div className="text-sm sm:text-lg font-bold text-emerald-400">${multiplier}</div>
                 </div>
                 
                 {/* R */}
-                <div className={`text-center rounded-lg p-1.5 sm:p-2 ${rScore >= 1.5 ? 'bg-emerald-500/20' : 'bg-surface-hover/50'}`}>
+                <div className={`text-center rounded-lg p-2 ${rScore >= 1.5 ? 'bg-emerald-500/20' : 'bg-surface-hover/50'}`}>
                   <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase">R</div>
                   <div className={`text-sm sm:text-lg font-bold ${rScore >= 1.5 ? 'text-emerald-400' : 'text-gray-300'}`}>{rScore.toFixed(1)}</div>
                 </div>
                 
                 {/* K */}
-                <div className="text-center bg-surface-hover/50 rounded-lg p-1.5 sm:p-2">
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
                   <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase">K</div>
                   <div className="text-sm sm:text-lg font-bold text-blue-400">{kelly.toFixed(1)}%</div>
                 </div>
               </div>
 
               {/* BOTTOM: Why This Trade + Yes/No Recommendation */}
-              <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:p-2 sm:justify-between">
-                <div className="flex items-center gap-1.5 sm:p-2 min-w-0">
+              <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+                <div className="flex items-center gap-2 min-w-0">
                   <span className={`text-xs font-medium shrink-0 ${recColor}`}>{recommendation}</span>
                   <span className="text-xs text-gray-500 truncate">💰 {trade.volume?.toLocaleString()} vol</span>
                 </div>
@@ -594,7 +594,7 @@ export function TradesView() {
               </div>
               
               {/* Why This Trade - Collapsible on mobile */}
-              <div className="mt-2 text-xs text-gray-400 bg-surface-hover/30 rounded-lg p-1.5 sm:p-2 line-clamp-1.5 sm:p-2 sm:line-clamp-none">
+              <div className="mt-2 text-xs text-gray-400 bg-surface-hover/30 rounded-lg p-2 line-clamp-2 sm:p-2 sm:line-clamp-none">
                 <span className="text-gray-500">Why:</span> {trade.research.catalyst}
               </div>
             </div>
