@@ -199,254 +199,132 @@ export function TradesView() {
                 m.category = category;
                 m.series_name = name;
               });
-              allMarkets = allMarkets.concat(data.markets);
+              allMarkets = [...allMarkets, ...data.markets];
             }
           }
-        } catch (e) {
-          console.log(`Failed to fetch ${series}:`, e);
+        } catch (err) {
+          console.warn(`Failed to fetch ${series}:`, err);
         }
       }
       
-      // Also fetch general markets as fallback
-      const generalResponse = await fetch(`${KALSHI_PROXY_URL}?action=markets`);
-      if (generalResponse.ok) {
-        const generalData = await generalResponse.json();
-        if (generalData.markets) {
-          // Filter general markets for crypto/weather/politics only
-          const filteredGeneral = generalData.markets.filter((m: any) => {
-            const cat = (m.category || '').toLowerCase();
-            return ['crypto', 'weather', 'politics', 'economics'].includes(cat);
-          });
-          allMarkets = allMarkets.concat(filteredGeneral);
-        }
-      }
+      console.log('Fetched markets:', allMarkets.length);
       
-      if (allMarkets.length > 0) {
-        // Process markets: filter cheap ones with volume (matching trade agent criteria)
-        const filteredMarkets = allMarkets.filter((m: any) => {
-          const price = m.yes_ask || m.yes_price || m.last_price || 50;
-          const volume = m.volume || m.trade_volume || 0;
-          // Match trade agent criteria: 1¢-25¢ price, >=50 volume, active, no MVE
-          return price >= 1 && price <= 25 && volume >= 50 && m.status === 'active' && !m.mve_collection_ticker;
-        });
-        
-        // Calculate R-Score for each for sorting and display
-        // Show ALL trades, just sort by R-Score
-        const marketsWithRScore = filteredMarkets.map((m: any) => {
-          const price = m.yes_ask || m.yes_price || m.last_price || 50;
-          const estimatedProb = Math.min(price * 2, 95) / 100;
-          const marketPrice = price / 100;
-          const variance = estimatedProb * (1 - estimatedProb);
-          const rScore = variance > 0 ? (estimatedProb - marketPrice) / Math.sqrt(variance) : 0;
-          return { ...m, calculatedRScore: rScore };
-        });
-        
-        // Sort by R-Score (best opportunities first)
-        marketsWithRScore.sort((a: any, b: any) => b.calculatedRScore - a.calculatedRScore);
-        
-        // Take top 30 trades (show all, sorted by R-Score)
-        const topTrades = marketsWithRScore.slice(0, 30);
-        
-        // Process the +EV trades
-        const processedTrades: KalshiTrade[] = topTrades.map((m: any, idx: number) => {
-            const price = m.yes_ask || m.yes_price || m.last_price || 50;
-            const multiplier = parseFloat((100 / price).toFixed(1));
-            const estimatedProb = Math.min(price * 1.5, 95);
-            
-            // Clean title - include subtitle for crypto/price range markets
-            let title = m.title || `${m.series_name || m.ticker} Market`;
-            title = title.replace(/yes /gi, '').replace(/,yes /gi, ' + ').replace(/,no /gi, ' / ');
-            
-            // Detect category from ticker prefix first (needed for subtitle check)
-            const tickerPrefix = m.ticker.split('-')[0].toUpperCase();
-            
-            // Add subtitle for markets that have them
-            if (m.subtitle) {
-              title = `${title} - ${m.subtitle}`;
-            }
-            
-            // For IPO/finance/date-based markets, extract date from ticker
-            // Format: KXIPOANDURIL-27MAY01 -> "May 2027"
-            const tickerParts = m.ticker.split('-');
-            if (tickerParts.length >= 2 && ['KXIPO', 'KXFREDDIE', 'KXACQUIRE', 'KXRATE', 'KXLCPIMIN'].some(p => tickerPrefix.includes(p))) {
-              const dateCode = tickerParts[1]; // e.g., "27MAY01"
-              if (dateCode && dateCode.length >= 5) {
-                const year = '20' + dateCode.substring(0, 2); // "27" -> "2027"
-                const monthCode = dateCode.substring(2, 5); // "MAY"
-                const months: Record<string, string> = {
-                  'JAN': 'Jan', 'FEB': 'Feb', 'MAR': 'Mar', 'APR': 'Apr', 'MAY': 'May', 'JUN': 'Jun',
-                  'JUL': 'Jul', 'AUG': 'Aug', 'SEP': 'Sep', 'OCT': 'Oct', 'NOV': 'Nov', 'DEC': 'Dec'
-                };
-                const month = months[monthCode] || monthCode;
-                if (month) {
-                  title = `${title} (${month} ${year})`;
-                }
-              }
-            }
-            
-            if (title.length > 90) title = title.substring(0, 90) + '...';
-            
-            // Build URL using series ticker (trade bot format)
-            const seriesTicker = m.ticker.split('-')[0].toLowerCase();
-            const urlTicker = seriesTicker;
-            
-            // Detect category from ticker prefix
-            let detectedCategory: KalshiTrade['category'] = 'companies';
-            if (['KXHIGHTSEA', 'KXHIGHNY', 'KXHIGHCHI', 'KXHIGHMIA', 'KXHIGHTPHX', 'KXRAINSEA', 'KXRAINSFO', 'KXSNOW NYC'].includes(tickerPrefix)) {
-              detectedCategory = 'weather';
-            } else if (['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
-              detectedCategory = 'crypto';
-            } else if (['TESLAROADSTER', 'KXTIKTOKSELL', 'KXDANAWHITEFB', 'KXACQUIREMANU', 'KXSTOCKXTEST'].includes(tickerPrefix)) {
-              detectedCategory = 'companies';
-            } else if (['KXFED', 'KXGDP', 'KXCPI', 'KXRATECUTE', 'KXLCPIMIN', 'NGASMAX', 'SPRMAX', 'KXDIESELM'].includes(tickerPrefix)) {
-              detectedCategory = 'economics';
-            } else if (['KXCHOPSTICKS', 'KXCOLONIZEMARS', 'KXELONMARS', 'KXNEUTRONORBIT', 'KXALTMAN', 'SUPERCON'].includes(tickerPrefix)) {
-              detectedCategory = 'science';
-            } else if (['KXGDPCN', 'MAERSK', 'VONCUK', 'PMLA', 'KXCTCS'].includes(tickerPrefix)) {
-              detectedCategory = 'world';
-            } else if (['KXTRUTHSOCIAL', 'KXJAN6PARDONDAY1', 'KXCORPTAXCUT', 'KXSECARMY', 'KXMETGALA', 'KXDJTUNFOLLOWMUSK', 'KXBIDENMENTION', 'KXBILL', 'KXASSOCAG'].includes(tickerPrefix)) {
-              detectedCategory = 'politics';
-            } else if (['KXFEDCHAIRCONFIRMED', 'KXADMINNASA'].includes(tickerPrefix)) {
-              detectedCategory = 'government';
-            } else if (['KXIPO', 'KXFREDDIE', 'KXACQUIRECOINBASE', 'KXIPOANDURIL', 'KXIPOAIRTABLE', 'KXGREENTERRITORY', 'KXCANTERRITORY'].includes(tickerPrefix)) {
-              detectedCategory = 'finance';
-            }
-            
-            return {
-              id: `live-${idx}`,
-              ticker: m.ticker,
-              title: title,
-              category: detectedCategory,
-              yesPrice: price,
-              noPrice: 100 - price,
-              volume: m.volume || m.trade_volume || 0,
-              expiration: m.close_time || m.settlement_date || m.expiration || '2026-03-05',
-              kalshiUrl: `https://kalshi.com/markets/${urlTicker}`,
-              priceHistory: [price],
-              research: {
-                trueProbability: Math.min(Math.round(price * 1.5), 95), // Conservative estimate
-                edge: Math.round(price * 0.3),
-                confidence: price < 10 ? 'high' : price < 20 ? 'medium' : 'low',
-                catalyst: `${m.series_name || m.category} market with ${multiplier}x payout potential`,
-                sources: ['Kalshi']
-              },
-              payout: {
-                buyPrice: price,
-                potentialReturn: 100,
-                multiplier: multiplier
-              }
-            };
-          });
-        
-        // Always update trades, even if empty (to show "no trades" message)
-        setTrades(processedTrades);
+      // Transform to our format
+      const transformed: KalshiTrade[] = allMarkets.map((m: any) => ({
+        id: m.ticker,
+        ticker: m.ticker,
+        title: m.title,
+        category: m.category,
+        yesPrice: m.yes_ask || m.yes_price || 50,
+        noPrice: m.no_ask || m.no_price || 50,
+        volume: m.volume || 0,
+        expiration: m.expiration_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        kalshiUrl: `https://kalshi.com/markets/${m.ticker}`,
+        priceHistory: m.price_history || [],
+        research: {
+          trueProbability: 50,
+          edge: 0,
+          confidence: 'medium',
+          catalyst: 'Live market data',
+          sources: ['Kalshi API']
+        },
+        payout: {
+          buyPrice: m.yes_ask || 50,
+          potentialReturn: (100 - (m.yes_ask || 50)) / 100,
+          multiplier: Math.round(100 / (m.yes_ask || 50))
+        }
+      }));
+      
+      if (transformed.length > 0) {
+        setTrades(transformed);
         setLastUpdated(new Date());
       }
-    } catch (error) {
-      console.error('Failed to fetch live data:', error);
+    } catch (err) {
+      console.error('Failed to fetch live data:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Auto-fetch on mount
-  useEffect(() => {
-    fetchLiveData();
-    const interval = setInterval(fetchLiveData, 300000); // 5 minutes
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch markets by category from Kalshi API
-  const fetchByCategory = async (category: string) => {
-    const KALSHI_API_URL = 'https://api.elections.kalshi.com/trade-api/v2';
-    try {
-      // Get all series in this category
-      const response = await fetch(`${KALSHI_API_URL}/series?category=${category}&limit=100`);
-      if (!response.ok) return [];
-      const data = await response.json();
-      const series = data.series || [];
-      
-      // Fetch markets from each series
-      let allMarkets: any[] = [];
-      for (const s of series.slice(0, 10)) { // Limit to top 10 series per category
-        try {
-          const marketResponse = await fetch(`${KALSHI_API_URL}/series/${s.ticker}`);
-          if (marketResponse.ok) {
-            const marketData = await marketResponse.json();
-            if (marketData.markets) {
-              marketData.markets.forEach((m: any) => {
-                m.category = category.toLowerCase();
-                m.series_name = s.title;
-              });
-              allMarkets = allMarkets.concat(marketData.markets);
-            }
-          }
-        } catch (e) {
-          console.log(`Failed to fetch ${s.ticker}:`, e);
-        }
-      }
-      return allMarkets;
-    } catch (error) {
-      console.error(`Failed to fetch category ${category}:`, error);
-      return [];
-    }
-  };
-
-  const filteredTrades = useMemo(() => {
-    let result = selectedCategory === 'all' ? trades : trades.filter(t => t.category === selectedCategory);
-    result = [...result].sort((a, b) => {
-      const comparison = sortBy === 'edge'
-        ? a.research.edge - b.research.edge
-        : a.payout.multiplier - b.payout.multiplier;
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-    return result;
-  }, [trades, selectedCategory, sortBy, sortDirection]);
-
-  // Calculate R-Score and Kelly for each trade
+  // Calculate metrics for each trade
   const tradesWithMetrics = useMemo(() => {
-    return filteredTrades.map(trade => {
-      const p = trade.research.trueProbability / 100; // Your estimated probability
-      const marketPrice = trade.yesPrice / 100; // Market price in decimal
+    return trades.map(trade => {
+      const price = trade.yesPrice;
+      const trueProb = trade.research.trueProbability;
+      const edge = trueProb - price;
+      const variance = price * (100 - price) / 100;
+      const rScore = variance > 0 ? edge / Math.sqrt(variance) : 0;
+      const kelly = edge > 0 ? edge / (price * (100 - price) / 100) : 0;
       
-      // R-Score = (your_prob - market_price) / sqrt(prob * (1-prob))
-      // R-Score >= 1.5 is considered +EV
-      const variance = p * (1 - p);
-      const rScore = variance > 0 ? (p - marketPrice) / Math.sqrt(variance) : 0;
-
-      // Kelly Criterion: f* = (bp - q) / b (using half-Kelly for safety)
-      // where b = multiplier, q = 1 - p
-      const b = trade.payout.multiplier;
-      const q = 1 - p;
-      const kelly = b > 0 ? ((b * p) - q) / b : 0;
-      const kellyFraction = Math.max(0, kelly * 0.5); // Half-Kelly for safety
-
       return {
         ...trade,
         rScore,
-        kellyFraction
+        kellyFraction: Math.min(kelly * 0.5, 5) // Half-Kelly, max 5%
       };
     });
-  }, [filteredTrades]);
+  }, [trades]);
 
-  // Portfolio stats
-  const portfolioStats = useMemo(() => ({
-    totalRisk: tradesWithMetrics.reduce((sum, t) => sum + (t.position?.shares || 0) * (t.yesPrice / 100), 0),
-    totalUnrealizedPnl: tradesWithMetrics.reduce((sum, t) => sum + (t.position?.unrealizedPnl || 0), 0),
-    highRScoreTrades: tradesWithMetrics.filter(t => (t.rScore || 0) > 1.5).length,
-    avgRScore: (tradesWithMetrics.reduce((sum, t) => sum + (t.rScore || 0), 0) / tradesWithMetrics.length).toFixed(2)
-  }), [tradesWithMetrics]);
+  // Filter trades
+  const filteredTrades = useMemo(() => {
+    return tradesWithMetrics.filter(trade => {
+      // Category filter
+      if (selectedCategory !== 'all' && trade.category !== selectedCategory) return false;
+      
+      // Price filter (1¢ to 25¢)
+      if (trade.yesPrice < 1 || trade.yesPrice > 25) return false;
+      
+      // Volume filter (at least 50)
+      if (trade.volume < 50) return false;
+      
+      // Only active markets
+      if (trade.expiration && new Date(trade.expiration) < new Date()) return false;
+      
+      // No complex multi-markets
+      if (trade.ticker.includes('MVE')) return false;
+      
+      return true;
+    });
+  }, [tradesWithMetrics, selectedCategory]);
 
-  const stats = useMemo(() => ({
-    total: trades.length,
-    avgEdge: Math.round(trades.reduce((sum, t) => sum + t.research.edge, 0) / trades.length),
-    avgMultiplier: (trades.reduce((sum, t) => sum + t.payout.multiplier, 0) / trades.length).toFixed(1),
-    strongBuyCount: trades.filter(t => t.research.edge > 20).length
-  }), [trades]);
+  // Sort trades
+  const sortedTrades = useMemo(() => {
+    return [...filteredTrades].sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'edge') {
+        comparison = (a.rScore || 0) - (b.rScore || 0);
+      } else if (sortBy === 'multiplier') {
+        comparison = a.payout.multiplier - b.payout.multiplier;
+      }
+      return sortDirection === 'desc' ? -comparison : comparison;
+    });
+  }, [filteredTrades, sortBy, sortDirection]);
 
-  // Debug: Check if any prices have changed from original
-  const hasLiveData = useMemo(() => {
-    return trades.some((trade, idx) => {
+  // Calculate stats
+  const stats = useMemo(() => {
+    const total = sortedTrades.length;
+    const avgRScore = total > 0 
+      ? sortedTrades.reduce((sum, t) => sum + (t.rScore || 0), 0) / total 
+      : 0;
+    const avgMultiplier = total > 0
+      ? sortedTrades.reduce((sum, t) => sum + t.payout.multiplier, 0) / total
+      : 0;
+    const highRScoreTrades = sortedTrades.filter(t => (t.rScore || 0) >= 1.5).length;
+    
+    return { total, avgRScore: avgRScore.toFixed(1), avgMultiplier: avgMultiplier.toFixed(1), highRScoreTrades };
+  }, [sortedTrades]);
+
+  // Portfolio-level stats
+  const portfolioStats = useMemo(() => {
+    const avgRScore = sortedTrades.length > 0
+      ? (sortedTrades.reduce((sum, t) => sum + (t.rScore || 0), 0) / sortedTrades.length).toFixed(1)
+      : '0.0';
+    const highRScoreTrades = sortedTrades.filter(t => (t.rScore || 0) >= 1.5).length;
+    return { avgRScore, highRScoreTrades };
+  }, [sortedTrades]);
+
+  const hasLiveData = lastUpdated !== null;
+  const changedPrices = useMemo(() => {
+    return sortedTrades.filter((trade, idx) => {
       const original = RESEARCHED_TRADES[idx];
       return original && trade.yesPrice !== original.yesPrice;
     });
@@ -454,28 +332,31 @@ export function TradesView() {
 
   return (
     <div className="space-y-4 w-full min-w-0">
-      {/* Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      {/* Header - Mobile Optimized */}
+      <div className="flex flex-col gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold truncate">Kalshi Trades</h1>
           <p className="text-sm text-gray-400 truncate">
             {hasLiveData ? '✓ Live data' : 'Static data'} {lastUpdated && `• Updated ${lastUpdated.toLocaleTimeString()}`}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
           <button 
             onClick={fetchLiveData} 
             disabled={isLoading}
-            className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            {isLoading ? 'Updating...' : 'Refresh'}
+            <span className="hidden sm:inline">{isLoading ? 'Updating...' : 'Refresh'}</span>
+            <span className="sm:hidden">{isLoading ? '...' : '↻'}</span>
           </button>
-          <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover shrink-0">
-            <BookOpen className="h-4 w-4" /> {showEducation ? 'Hide' : 'Learn'}
+          <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover">
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">{showEducation ? 'Hide' : 'Learn'}</span>
           </button>
-          <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 shrink-0">
-            Kalshi <ExternalLink className="h-4 w-4" />
+          <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 ml-auto sm:ml-0">
+            <span className="hidden sm:inline">Kalshi</span>
+            <ExternalLink className="h-4 w-4" />
           </a>
         </div>
       </div>
@@ -489,7 +370,7 @@ export function TradesView() {
           </div>
           
           {/* Legend Grid */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             {/* R-Score */}
             <div className="space-y-1">
               <div className="font-medium text-gray-300">R-Score</div>
@@ -610,7 +491,7 @@ export function TradesView() {
         </div>
       </div>
 
-      {/* TRADE CARDS - REDESIGNED */}
+      {/* TRADE CARDS - MOBILE OPTIMIZED */}
       {tradesWithMetrics.length === 0 ? (
         <div className="rounded-xl bg-surface-hover/50 p-8 text-center">
           <div className="text-4xl mb-4">🔍</div>
@@ -627,7 +508,7 @@ export function TradesView() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {tradesWithMetrics.map((trade, index) => {
+          {sortedTrades.map((trade, index) => {
           const Icon = CATEGORY_ICONS[trade.category];
           const price = trade.yesPrice;
           const multiplier = trade.payout.multiplier;
@@ -644,75 +525,76 @@ export function TradesView() {
           let recColor = 'text-emerald-400';
 
           return (
-            <div key={trade.id} className={`rounded-xl border-2 p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
+            <div key={trade.id} className={`rounded-xl border-2 p-3 sm:p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
               
               {/* TOP ROW: Icon + Title + Trade Button */}
-              <div className="flex items-start gap-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
-                  <Icon className="h-5 w-5" />
+              <div className="flex items-start gap-2 sm:gap-3">
+                <div className={`flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-sm leading-tight">{trade.title}</h3>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                    <span>Closes {new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
+                  <h3 className="font-medium text-xs sm:text-sm leading-tight line-clamp-2">{trade.title}</h3>
+                  <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-gray-400 mt-1">
+                    <span>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
                     <span>•</span>
                     <span className="capitalize">{trade.category}</span>
                   </div>
                 </div>
                 
                 <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
-                  className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 shrink-0"
+                  className="flex items-center gap-1 rounded-lg bg-primary px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white hover:bg-primary/90 shrink-0"
                 >
-                  Trade <ArrowUpRight className="h-3 w-3" />
+                  <span className="hidden sm:inline">Trade</span>
+                  <ArrowUpRight className="h-3 w-3" />
                 </a>
               </div>
 
-              {/* MIDDLE: Key Metrics Grid */}
-              <div className="mt-3 grid grid-cols-4 gap-2">
+              {/* MIDDLE: Key Metrics Grid - Mobile: 2 cols, Desktop: 4 cols */}
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {/* Pay */}
                 <div className="text-center bg-surface-hover/50 rounded-lg p-2">
                   <div className="text-[10px] text-gray-400 uppercase">Pay</div>
-                  <div className="text-lg font-bold">{price}¢</div>
+                  <div className="text-base sm:text-lg font-bold">{price}¢</div>
                 </div>
                 
                 {/* Win */}
                 <div className="text-center bg-surface-hover/50 rounded-lg p-2">
                   <div className="text-[10px] text-gray-400 uppercase">Win</div>
-                  <div className="text-lg font-bold text-emerald-400">${multiplier}</div>
+                  <div className="text-base sm:text-lg font-bold text-emerald-400">${multiplier}</div>
                 </div>
                 
                 {/* R-Score */}
                 <div className={`text-center rounded-lg p-2 ${rScore >= 1.5 ? 'bg-emerald-500/20' : 'bg-surface-hover/50'}`}>
                   <div className="text-[10px] text-gray-400 uppercase">R-Score</div>
-                  <div className={`text-lg font-bold ${rScore >= 1.5 ? 'text-emerald-400' : 'text-gray-300'}`}>{rScore.toFixed(1)}</div>
+                  <div className={`text-base sm:text-lg font-bold ${rScore >= 1.5 ? 'text-emerald-400' : 'text-gray-300'}`}>{rScore.toFixed(1)}</div>
                 </div>
                 
                 {/* Kelly */}
                 <div className="text-center bg-surface-hover/50 rounded-lg p-2">
                   <div className="text-[10px] text-gray-400 uppercase">Kelly</div>
-                  <div className="text-lg font-bold text-blue-400">{kelly.toFixed(1)}%</div>
+                  <div className="text-base sm:text-lg font-bold text-blue-400">{kelly.toFixed(1)}%</div>
                 </div>
               </div>
 
               {/* BOTTOM: Why This Trade + Yes/No Recommendation */}
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium ${recColor}`}>{recommendation}</span>
-                  <span className="text-xs text-gray-500">💰 {trade.volume?.toLocaleString()} vol</span>
+              <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`text-xs font-medium shrink-0 ${recColor}`}>{recommendation}</span>
+                  <span className="text-xs text-gray-500 truncate">💰 {trade.volume?.toLocaleString()} vol</span>
                 </div>
                 
                 {/* BUY YES Button - Only shown for +EV trades */}
                 <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-4 py-2 text-sm font-bold text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30"
+                  className="flex items-center justify-center gap-1 rounded-lg bg-emerald-500/20 px-3 py-2 text-sm font-bold text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 shrink-0"
                   title="R-Score >= 1.5 - This is a +EV trade. Click to buy YES on Kalshi."
                 >
                   👍 BUY YES
                 </a>
               </div>
               
-              {/* Why This Trade */}
-              <div className="mt-2 text-xs text-gray-400 bg-surface-hover/30 rounded-lg p-2">
+              {/* Why This Trade - Collapsible on mobile */}
+              <div className="mt-2 text-xs text-gray-400 bg-surface-hover/30 rounded-lg p-2 line-clamp-2 sm:line-clamp-none">
                 <span className="text-gray-500">Why:</span> {trade.research.catalyst}
               </div>
             </div>
