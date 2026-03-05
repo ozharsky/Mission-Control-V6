@@ -335,10 +335,9 @@ export function TradesView() {
             };
           });
         
-        if (processedTrades.length > 0) {
-          setTrades(processedTrades);
-          setLastUpdated(new Date());
-        }
+        // Always update trades, even if empty (to show "no trades" message)
+        setTrades(processedTrades);
+        setLastUpdated(new Date());
       }
     } catch (error) {
       console.error('Failed to fetch live data:', error);
@@ -600,8 +599,23 @@ export function TradesView() {
       </div>
 
       {/* TRADE CARDS - REDESIGNED */}
-      <div className="grid gap-3">
-        {tradesWithMetrics.map((trade, index) => {
+      {tradesWithMetrics.length === 0 ? (
+        <div className="rounded-xl bg-surface-hover/50 p-8 text-center">
+          <div className="text-4xl mb-4">🔍</div>
+          <h3 className="text-lg font-medium mb-2">No +EV Trades Found</h3>
+          <p className="text-sm text-gray-400 mb-4">
+            No markets currently meet the R-Score >= 0.5 threshold.
+          </p>
+          <button 
+            onClick={fetchLiveData}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+          >
+            Refresh Data
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {tradesWithMetrics.map((trade, index) => {
           const Icon = CATEGORY_ICONS[trade.category];
           const price = trade.yesPrice;
           const multiplier = trade.payout.multiplier;
@@ -693,6 +707,7 @@ export function TradesView() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }
