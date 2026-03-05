@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { 
   TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, 
   Calendar, Target, BarChart3, PieChart, ArrowUpRight, ArrowDownRight,
-  Printer, CheckCircle2, Clock
+  Printer, CheckCircle2, Clock, Download, FileText
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
@@ -17,6 +17,15 @@ interface ReportsViewProps {
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export function ReportsView({ revenue, tasks, projects, inventory, printers }: ReportsViewProps) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   // Revenue Analytics
   const revenueData = useMemo(() => {
     if (!revenue) return [];
@@ -92,14 +101,73 @@ export function ReportsView({ revenue, tasks, projects, inventory, printers }: R
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 
+  // Export report as text for mobile sharing
+  const handleExportReport = () => {
+    const reportDate = new Date().toLocaleDateString();
+    let report = `📊 Mission Control Report - ${reportDate}\n\n`;
+    
+    if (revenueStats) {
+      report += `💰 REVENUE\n`;
+      report += `Total: ${formatCurrency(revenueStats.total)}\n`;
+      report += `Monthly Avg: ${formatCurrency(revenueStats.avg)}\n`;
+      report += `Orders: ${revenueStats.totalOrders}\n`;
+      report += `Growth: ${revenueStats.growth.toFixed(1)}%\n\n`;
+    }
+    
+    report += `✅ TASKS\n`;
+    report += `Total: ${taskStats.total}\n`;
+    report += `Completion: ${taskStats.completionRate}%\n`;
+    report += `Urgent: ${taskStats.urgent}\n`;
+    report += `Overdue: ${taskStats.overdue}\n\n`;
+    
+    report += `📁 PROJECTS\n`;
+    report += `Total: ${projectStats.total}\n`;
+    report += `Active: ${projectStats.active}\n`;
+    report += `Completed: ${projectStats.completed}\n`;
+    report += `Avg Progress: ${projectStats.avgProgress}%\n\n`;
+    
+    report += `📦 INVENTORY\n`;
+    report += `Items: ${inventoryStats.totalItems}\n`;
+    report += `Value: ${formatCurrency(inventoryStats.totalValue)}\n`;
+    report += `Low Stock: ${inventoryStats.lowStock}\n\n`;
+    
+    report += `🖨️ PRINTERS\n`;
+    report += `Total: ${printerStats.total}\n`;
+    report += `Online: ${printerStats.online}\n`;
+    report += `Printing: ${printerStats.printing}\n`;
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(report).then(() => {
+      alert('Report copied to clipboard!');
+    }).catch(() => {
+      // Fallback: create downloadable text file
+      const blob = new Blob([report], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mission-control-report-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  };
+
   return (
     <div className="space-y-4 max-w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Reports & Analytics</h1>
           <p className="text-sm text-gray-400">Business insights and performance metrics</p>
         </div>
+        <button
+          onClick={handleExportReport}
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary-hover touch-feedback"
+        >
+          <Download className="h-4 w-4" />
+          Export Report
+        </button>
       </div>
 
       {/* Revenue Section */}
@@ -137,12 +205,12 @@ export function ReportsView({ revenue, tasks, projects, inventory, printers }: R
           </div>
 
           {revenueData.length > 1 && (
-            <div className="mt-6 h-[250px]">
+            <div className={`mt-6 ${isMobile ? 'h-[180px]' : 'h-[250px]'}`}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={revenueData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="month" tick={{ fill: '#9ca3af', fontSize: 11 }} />
-                  <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                  <XAxis dataKey="month" tick={{ fill: '#9ca3af', fontSize: isMobile ? 9 : 11 }} />
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: isMobile ? 9 : 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
                     formatter={(value: number) => [formatCurrency(value), 'Revenue']}
@@ -182,15 +250,15 @@ export function ReportsView({ revenue, tasks, projects, inventory, printers }: R
           </div>
 
           {taskStats.byStatus.length > 0 && (
-            <div className="h-[200px]">
+            <div className={`${isMobile ? 'h-[150px]' : 'h-[200px]'}`}>
               <ResponsiveContainer width="100%" height="100%">
                 <RePieChart>
                   <Pie
                     data={taskStats.byStatus}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={isMobile ? 40 : 60}
+                    outerRadius={isMobile ? 55 : 80}
                     paddingAngle={5}
                     dataKey="value"
                   >
@@ -230,12 +298,12 @@ export function ReportsView({ revenue, tasks, projects, inventory, printers }: R
           </div>
 
           {projectStats.byStatus.length > 0 && (
-            <div className="h-[200px]">
+            <div className={`${isMobile ? 'h-[150px]' : 'h-[200px]'}`}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={projectStats.byStatus} layout="vertical" margin={{ left: 20 }}>
+                <BarChart data={projectStats.byStatus} layout="vertical" margin={{ left: isMobile ? 10 : 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
                   <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" tick={{ fill: '#9ca3af', fontSize: 12 }} width={80} />
+                  <YAxis dataKey="name" type="category" tick={{ fill: '#9ca3af', fontSize: isMobile ? 10 : 12 }} width={isMobile ? 60 : 80} />
                   <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }} />
                   <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} />
                 </BarChart>
