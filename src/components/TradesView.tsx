@@ -106,8 +106,8 @@ const CATEGORY_COLORS = {
 };
 
 const EDUCATION_CONTENT = {
-  rScore: "R-Score measures edge vs market. >1.5 = strong +EV trade, 1.0-1.5 = decent, <1.0 = marginal.",
-  kelly: "Kelly % is the optimal position size. Bet this % of your bankroll (we use half-Kelly for safety).",
+  rScore: "R measures edge vs market. >1.5 = strong +EV trade, 1.0-1.5 = decent, <1.0 = marginal.",
+  kelly: "K % is the optimal position size. Bet this % of your bankroll (we use half-K for safety).",
   multiplier: "Multiplier shows payout potential. 10x means $1 bet wins $10. Higher multipliers come with lower probability.",
   pay: "Pay is the contract price in cents. 5¢ = $0.05 per share. Lower prices = higher multipliers but lower probability.",
   volume: "Volume shows how much is being traded. Higher = more liquid = easier to buy/sell at fair prices.",
@@ -259,7 +259,7 @@ export function TradesView() {
       return {
         ...trade,
         rScore,
-        kellyFraction: Math.min(kelly * 0.5, 5) // Half-Kelly, max 5%
+        kellyFraction: Math.min(kelly * 0.5, 5) // Half-K, max 5%
       };
     });
   }, [trades]);
@@ -340,21 +340,21 @@ export function TradesView() {
             {hasLiveData ? '✓ Live data' : 'Static data'} {lastUpdated && `• Updated ${lastUpdated.toLocaleTimeString()}`}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:p-2">
           <button 
             onClick={fetchLiveData} 
             disabled={isLoading}
-            className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
+            className="flex items-center gap-1.5 sm:p-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{isLoading ? 'Updating...' : 'Refresh'}</span>
             <span className="sm:hidden">{isLoading ? '...' : '↻'}</span>
           </button>
-          <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover">
+          <button onClick={() => setShowEducation(!showEducation)} className="flex items-center gap-1.5 sm:p-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover">
             <BookOpen className="h-4 w-4" />
             <span className="hidden sm:inline">{showEducation ? 'Hide' : 'Learn'}</span>
           </button>
-          <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 ml-auto sm:ml-0">
+          <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 sm:p-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 ml-auto sm:ml-0">
             <span className="hidden sm:inline">Kalshi</span>
             <ExternalLink className="h-4 w-4" />
           </a>
@@ -371,9 +371,9 @@ export function TradesView() {
           
           {/* Legend Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            {/* R-Score */}
+            {/* R */}
             <div className="space-y-1">
-              <div className="font-medium text-gray-300">R-Score</div>
+              <div className="font-medium text-gray-300">R</div>
               <div className="flex items-center gap-1">
                 <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">R:1.5+</span> 
                 <span className="text-gray-400">Strong +EV</span>
@@ -385,9 +385,9 @@ export function TradesView() {
               <div className="text-gray-500 mt-1 text-xs">{EDUCATION_CONTENT.rScore}</div>
             </div>
             
-            {/* Kelly % */}
+            {/* K % */}
             <div className="space-y-1">
-              <div className="font-medium text-gray-300">Kelly %</div>
+              <div className="font-medium text-gray-300">K %</div>
               <div className="flex items-center gap-1">
                 <span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">K:2.5%</span> 
                 <span className="text-gray-400">Position size</span>
@@ -436,7 +436,7 @@ export function TradesView() {
           <div className="text-xs text-gray-400">Trades</div><div className="text-xl font-bold">{stats.total}</div>
         </div>
         <div className="rounded-xl border border-surface-hover bg-surface p-3">
-          <div className="text-xs text-gray-400">Avg R-Score</div><div className={`text-xl font-bold ${parseFloat(portfolioStats.avgRScore) > 1.5 ? 'text-success' : 'text-warning'}`}>{portfolioStats.avgRScore}</div>
+          <div className="text-xs text-gray-400">Avg R</div><div className={`text-xl font-bold ${parseFloat(portfolioStats.avgRScore) > 1.5 ? 'text-success' : 'text-warning'}`}>{portfolioStats.avgRScore}</div>
         </div>
         <div className="rounded-xl border border-surface-hover bg-surface p-3">
           <div className="text-xs text-gray-400">+EV Trades (R&gt;1.5)</div><div className="text-xl font-bold text-success">{portfolioStats.highRScoreTrades}</div>
@@ -449,7 +449,7 @@ export function TradesView() {
       {/* Filters - Mobile Optimized */}
       <div className="flex flex-col gap-3">
         {/* Category Filters - Horizontal scroll on mobile */}
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+        <div className="flex gap-1.5 sm:p-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
           {(['all', 'weather', 'crypto', 'companies', 'economics', 'science', 'world', 'politics', 'government', 'finance'] as const).map(cat => {
             const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
             const isSelected = selectedCategory === cat;
@@ -457,7 +457,7 @@ export function TradesView() {
               <button 
                 key={cat} 
                 onClick={() => setSelectedCategory(cat)}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1.5 sm:p-2 rounded-lg px-4 py-2.5 text-sm whitespace-nowrap transition-all ${
                   isSelected 
                     ? 'bg-primary text-white shadow-lg shadow-primary/25' 
                     : 'border border-surface-hover hover:bg-surface-hover'
@@ -472,7 +472,7 @@ export function TradesView() {
         </div>
 
         {/* Sort Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:p-2">
           <select 
             value={sortBy} 
             onChange={(e) => setSortBy(e.target.value as any)} 
@@ -483,7 +483,7 @@ export function TradesView() {
           </select>
           <button 
             onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')} 
-            className="rounded-lg border border-surface-hover p-2 hover:bg-surface-hover"
+            className="rounded-lg border border-surface-hover p-1.5 sm:p-2 hover:bg-surface-hover"
             title={sortDirection === 'desc' ? 'Descending' : 'Ascending'}
           >
             {sortDirection === 'desc' ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -497,7 +497,7 @@ export function TradesView() {
           <div className="text-4xl mb-4">🔍</div>
           <h3 className="text-lg font-medium mb-2">No +EV Trades Found</h3>
           <p className="text-sm text-gray-400 mb-4">
-            No markets currently meet the R-Score {`>=`} 0.5 threshold.
+            No markets currently meet the R {`>=`} 0.5 threshold.
           </p>
           <button 
             onClick={fetchLiveData}
@@ -515,12 +515,12 @@ export function TradesView() {
           const rScore = trade.rScore || 0;
           const kelly = trade.kellyFraction || 0;
           
-          // Color coding based on R-Score
+          // Color coding based on R
           const dealColor = rScore >= 1.5 ? 'bg-emerald-500/10 border-emerald-500/50' : 
                            rScore >= 1.0 ? 'bg-amber-500/10 border-amber-500/50' : 
                            'bg-surface border-surface-hover';
           
-          // Recommendation based on R-Score - only +EV trades shown now
+          // Recommendation based on R - only +EV trades shown now
           let recommendation = '✅ +EV Trade';
           let recColor = 'text-emerald-400';
 
@@ -528,14 +528,14 @@ export function TradesView() {
             <div key={trade.id} className={`rounded-xl border-2 p-3 sm:p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
               
               {/* TOP ROW: Icon + Title + Trade Button */}
-              <div className="flex items-start gap-2 sm:gap-3">
+              <div className="flex items-start gap-1.5 sm:p-2 sm:gap-3">
                 <div className={`flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
                   <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-xs sm:text-sm leading-tight line-clamp-2">{trade.title}</h3>
-                  <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-gray-400 mt-1">
+                  <h3 className="font-medium text-xs sm:text-sm leading-tight line-clamp-1.5 sm:p-2">{trade.title}</h3>
+                  <div className="flex items-center gap-1 sm:gap-1.5 sm:p-2 text-[9px] sm:text-[10px] sm:text-xs text-gray-400 mt-1">
                     <span>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
                     <span>•</span>
                     <span className="capitalize">{trade.category}</span>
@@ -543,7 +543,7 @@ export function TradesView() {
                 </div>
                 
                 <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
-                  className="flex items-center gap-1 rounded-lg bg-primary px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white hover:bg-primary/90 shrink-0"
+                  className="flex items-center gap-1 rounded-lg bg-primary px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] sm:text-xs font-medium text-white hover:bg-primary/90 shrink-0"
                 >
                   <span className="hidden sm:inline">Trade</span>
                   <ArrowUpRight className="h-3 w-3" />
@@ -551,35 +551,35 @@ export function TradesView() {
               </div>
 
               {/* MIDDLE: Key Metrics Grid - Mobile: 2 cols, Desktop: 4 cols */}
-              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="mt-3 grid grid-cols-4 gap-1 sm:gap-1.5 sm:p-2">
                 {/* Pay */}
-                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
-                  <div className="text-[10px] text-gray-400 uppercase">Pay</div>
-                  <div className="text-base sm:text-lg font-bold">{price}¢</div>
+                <div className="text-center bg-surface-hover/50 rounded-lg p-1.5 sm:p-2">
+                  <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase">Pay</div>
+                  <div className="text-sm sm:text-lg font-bold">{price}¢</div>
                 </div>
                 
                 {/* Win */}
-                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
-                  <div className="text-[10px] text-gray-400 uppercase">Win</div>
-                  <div className="text-base sm:text-lg font-bold text-emerald-400">${multiplier}</div>
+                <div className="text-center bg-surface-hover/50 rounded-lg p-1.5 sm:p-2">
+                  <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase">Win</div>
+                  <div className="text-sm sm:text-lg font-bold text-emerald-400">${multiplier}</div>
                 </div>
                 
-                {/* R-Score */}
-                <div className={`text-center rounded-lg p-2 ${rScore >= 1.5 ? 'bg-emerald-500/20' : 'bg-surface-hover/50'}`}>
-                  <div className="text-[10px] text-gray-400 uppercase">R-Score</div>
-                  <div className={`text-base sm:text-lg font-bold ${rScore >= 1.5 ? 'text-emerald-400' : 'text-gray-300'}`}>{rScore.toFixed(1)}</div>
+                {/* R */}
+                <div className={`text-center rounded-lg p-1.5 sm:p-2 ${rScore >= 1.5 ? 'bg-emerald-500/20' : 'bg-surface-hover/50'}`}>
+                  <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase">R</div>
+                  <div className={`text-sm sm:text-lg font-bold ${rScore >= 1.5 ? 'text-emerald-400' : 'text-gray-300'}`}>{rScore.toFixed(1)}</div>
                 </div>
                 
-                {/* Kelly */}
-                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
-                  <div className="text-[10px] text-gray-400 uppercase">Kelly</div>
-                  <div className="text-base sm:text-lg font-bold text-blue-400">{kelly.toFixed(1)}%</div>
+                {/* K */}
+                <div className="text-center bg-surface-hover/50 rounded-lg p-1.5 sm:p-2">
+                  <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase">K</div>
+                  <div className="text-sm sm:text-lg font-bold text-blue-400">{kelly.toFixed(1)}%</div>
                 </div>
               </div>
 
               {/* BOTTOM: Why This Trade + Yes/No Recommendation */}
-              <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:p-2 sm:justify-between">
+                <div className="flex items-center gap-1.5 sm:p-2 min-w-0">
                   <span className={`text-xs font-medium shrink-0 ${recColor}`}>{recommendation}</span>
                   <span className="text-xs text-gray-500 truncate">💰 {trade.volume?.toLocaleString()} vol</span>
                 </div>
@@ -587,14 +587,14 @@ export function TradesView() {
                 {/* BUY YES Button - Only shown for +EV trades */}
                 <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-1 rounded-lg bg-emerald-500/20 px-3 py-2 text-sm font-bold text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 shrink-0"
-                  title="R-Score >= 1.5 - This is a +EV trade. Click to buy YES on Kalshi."
+                  title="R >= 1.5 - This is a +EV trade. Click to buy YES on Kalshi."
                 >
                   👍 BUY YES
                 </a>
               </div>
               
               {/* Why This Trade - Collapsible on mobile */}
-              <div className="mt-2 text-xs text-gray-400 bg-surface-hover/30 rounded-lg p-2 line-clamp-2 sm:line-clamp-none">
+              <div className="mt-2 text-xs text-gray-400 bg-surface-hover/30 rounded-lg p-1.5 sm:p-2 line-clamp-1.5 sm:p-2 sm:line-clamp-none">
                 <span className="text-gray-500">Why:</span> {trade.research.catalyst}
               </div>
             </div>
