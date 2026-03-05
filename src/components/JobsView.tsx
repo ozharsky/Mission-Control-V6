@@ -446,25 +446,28 @@ export function JobsView({ jobs }: JobsViewProps) {
                   onClick={() => setExpandedJob(isExpanded ? null : job.id)}
                   className="cursor-pointer p-4 hover:bg-surface-hover/50"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold">{job.title}</h3>
-                        <span className={`rounded-full border px-2 py-0.5 text-xs ${JOB_STATUS_COLORS[job.status]}`}>
-                          {JOB_STATUS_LABELS[job.status]}
-                        </span>
-                        <span className={`rounded-full border px-2 py-0.5 text-xs ${getPriorityColor(job.priority)}`}>
-                          {job.priority}
-                        </span>
+                      {/* Mobile: Stack title and badges */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                        <h3 className="text-base sm:text-lg font-semibold truncate">{job.title}</h3>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className={`rounded-full border px-2 py-0.5 text-xs ${JOB_STATUS_COLORS[job.status]}`}>
+                            {JOB_STATUS_LABELS[job.status]}
+                          </span>
+                          <span className={`rounded-full border px-2 py-0.5 text-xs ${getPriorityColor(job.priority)}`}>
+                            {job.priority}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm text-gray-400">
                         <span className="flex items-center gap-1">
-                          <Building2 className="h-4 w-4" />
+                          <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
                           {job.company}
                         </span>
                         <span className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
+                          <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
                           {job.location}
                         </span>
                         <span className={`rounded px-2 py-0.5 text-xs ${JOB_TYPE_COLORS[job.type]}`}>
@@ -472,38 +475,38 @@ export function JobsView({ jobs }: JobsViewProps) {
                         </span>
                         {job.salary && (
                           <span className="flex items-center gap-1">
-                            <DollarSign className="h-4 w-4" />
+                            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />
                             {job.salary}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                       {job.url && (
                         <a
                           href={job.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover hover:text-white"
+                          className="rounded-lg p-1.5 sm:p-2 text-gray-400 hover:bg-surface-hover hover:text-white touch-feedback"
                         >
-                          <ExternalLink className="h-4 w-4" />
+                          <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4" />
                         </a>
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); openEdit(job); }}
-                        className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover hover:text-white"
+                        className="rounded-lg p-1.5 sm:p-2 text-gray-400 hover:bg-surface-hover hover:text-white touch-feedback"
                       >
-                        <Edit2 className="h-4 w-4" />
+                        <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); deleteJob(job.id); }}
-                        className="rounded-lg p-2 text-gray-400 hover:bg-danger/10 hover:text-danger"
+                        className="rounded-lg p-1.5 sm:p-2 text-gray-400 hover:bg-danger/10 hover:text-danger touch-feedback"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
-                      {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      {isExpanded ? <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5" /> : <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" />}
                     </div>
                   </div>
                 </div>
@@ -515,7 +518,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                       <div className="space-y-4 max-w-full overflow-x-hidden">
                         <div>
                           <h4 className="text-sm font-medium text-gray-400 mb-2">Description</h4>
-                          <p className="text-sm truncate min-w-0">{job.description || 'No description'}</p>
+                          <p className="text-sm whitespace-pre-wrap">{job.description || 'No description'}</p>
                         </div>
 
                         {(job.requirements || []).length > 0 && (
