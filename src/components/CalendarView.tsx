@@ -280,7 +280,7 @@ export function CalendarView() {
               {/* Calendar Days */}
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: startingDay }).map((_, i) => (
-                  <div key={`empty-${i}`} className="min-h-[80px] lg:min-h-[100px] p-1" />
+                  <div key={`empty-${i}`} className="min-h-[100px] sm:min-h-[120px] p-1" />
                 ))}
 
                 {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -292,7 +292,7 @@ export function CalendarView() {
                     <button
                       key={day}
                       onClick={() => setSelectedDate(new Date(year, month, day))}
-                      className={`min-h-[80px] lg:min-h-[100px] rounded-lg lg:rounded-xl border p-2 text-left transition-all touch-feedback ${
+                      className={`min-h-[100px] sm:min-h-[120px] rounded-lg lg:rounded-xl border p-2 text-left transition-all touch-feedback ${
                         isSelected(day)
                           ? 'border-primary bg-primary/10'
                           : isToday(day)
@@ -300,24 +300,24 @@ export function CalendarView() {
                           : 'border-surface-hover bg-background hover:border-surface'
                       }`}
                     >
-                      <div className={`mb-1 text-xs lg:text-sm font-medium ${
+                      <div className={`mb-1 text-sm lg:text-base font-medium ${
                         isToday(day) ? 'text-primary' : 'text-gray-400'
                       }`}>
                         {day}
                       </div>
                       
-                      <div className="space-y-0.5 lg:space-y-1">
+                      <div className="space-y-1">
                         {dayEvents.slice(0, 2).map((event) => (
                           <div
                             key={event.id}
-                            className={`truncate rounded px-1 py-0.5 text-[10px] lg:text-xs text-white ${EVENT_COLORS[event.type].bg}`}
+                            className={`truncate rounded px-1 py-0.5 text-xs text-white ${EVENT_COLORS[event.type].bg}`}
                             title={event.title}
                           >
                             {event.title}
                           </div>
                         ))}
                         {dayEvents.length > 2 && (
-                          <div className="text-[10px] lg:text-xs text-gray-500">+{dayEvents.length - 2}</div>
+                          <div className="text-xs text-gray-500">+{dayEvents.length - 2}</div>
                         )}
                       </div>
                     </button>

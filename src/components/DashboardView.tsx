@@ -440,11 +440,11 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                     ) : (
                       <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
                         <span className="flex items-center gap-0.5">
-                          <Thermometer className="h-3 w-3" />
+                          <Thermometer className="h-4 w-4" />
                           {printer.temp || 0}°
                         </span>
                         <span className="flex items-center gap-0.5">
-                          <Flame className="h-3 w-3" />
+                          <Flame className="h-4 w-4" />
                           {printer.bedTemp || 0}°
                         </span>
                       </div>

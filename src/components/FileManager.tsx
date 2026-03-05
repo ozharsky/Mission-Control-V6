@@ -148,7 +148,7 @@ function FileCard({
         {file.projectId && projectName && (
           <div className="mt-2 flex items-center gap-1 text-xs text-primary"
           >
-            <Link className="h-3 w-3"></Link>
+            <Link className="h-4 w-4"></Link>
             {projectName}
           </div>
         )}

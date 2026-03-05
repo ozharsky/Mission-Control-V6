@@ -70,10 +70,10 @@ function truncateFilename(filename?: string, maxLength = 25): string {
 
 function StatusBadge({ status }: { status: string }) {
   const configs: Record<string, { bg: string; text: string; label: string; icon: React.ReactNode }> = {
-    operational: { bg: 'bg-success/10', text: 'text-success', label: 'Online', icon: <CheckCircle className="h-3 w-3" /> },
-    printing: { bg: 'bg-primary/10', text: 'text-primary', label: 'Printing', icon: <Printer className="h-3 w-3" /> },
-    idle: { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Idle', icon: <Moon className="h-3 w-3" /> },
-    error: { bg: 'bg-danger/10', text: 'text-danger', label: 'Error', icon: <AlertTriangle className="h-3 w-3" /> },
+    operational: { bg: 'bg-success/10', text: 'text-success', label: 'Online', icon: <CheckCircle className="h-4 w-4" /> },
+    printing: { bg: 'bg-primary/10', text: 'text-primary', label: 'Printing', icon: <Printer className="h-4 w-4" /> },
+    idle: { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Idle', icon: <Moon className="h-4 w-4" /> },
+    error: { bg: 'bg-danger/10', text: 'text-danger', label: 'Error', icon: <AlertTriangle className="h-4 w-4" /> },
     offline: { bg: 'bg-gray-800', text: 'text-gray-500', label: 'Offline', icon: <Circle className="h-3 w-3" /> },
   };
 
