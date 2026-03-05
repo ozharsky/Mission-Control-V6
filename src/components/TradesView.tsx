@@ -134,7 +134,7 @@ export function TradesView() {
   return (
     <div className="space-y-4 w-full min-w-0 overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 max-w-full overflow-hidden">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold truncate">Kalshi Trades</h1>
           <p className="text-sm text-gray-400 truncate">
@@ -245,8 +245,8 @@ export function TradesView() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3">
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+      <div className="flex flex-col gap-3 max-w-full overflow-hidden">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide max-w-full">
           {(['all', 'weather', 'crypto', 'companies', 'economics', 'science', 'world', 'politics', 'government', 'finance'] as const).map(cat => {
             const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
             const isSelected = selectedCategory === cat;
