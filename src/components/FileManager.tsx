@@ -103,9 +103,9 @@ function FileCard({
   }
 
   return (
-    <div className="group relative rounded-xl border border-surface-hover bg-background p-4 transition-all hover:border-primary hover:shadow-lg"
+    <div className="group relative rounded-xl border border-surface-hover bg-background p-3 sm:p-4 transition-all hover:border-primary hover:shadow-lg touch-feedback"
     >
-      <div className="mb-3 aspect-square rounded-lg bg-surface overflow-hidden">
+      <div className="mb-2 sm:mb-3 aspect-square rounded-lg bg-surface overflow-hidden">
         {isImage && file.thumbnailUrl && !imgError ? (
           <a 
             href={file.url}
@@ -124,22 +124,22 @@ function FileCard({
         ) : (
           <div className="flex h-full items-center justify-center"
           >
-            <Icon className="h-12 w-12 text-gray-600"></Icon>
+            <Icon className="h-8 w-8 sm:h-12 sm:w-12 text-gray-600"></Icon>
           </div>
         )}
       </div>
 
       <div className="min-w-0"
       >
-        <p className="truncate font-medium">{file.name}</p>
-        <div className="mt-1 flex items-center justify-between text-sm text-gray-500"
+        <p className="truncate text-sm sm:text-base font-medium">{file.name}</p>
+        <div className="mt-1 flex items-center justify-between text-xs sm:text-sm text-gray-500"
         >
           <span>{formatSize(file.size)}</span>
           <span>{new Date(file.uploadedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
         </div>
 
         {file.category && (
-          <span className="mt-2 inline-block rounded-full bg-surface px-2 py-0.5 text-xs text-gray-400"
+          <span className="mt-1 sm:mt-2 inline-block rounded-full bg-surface px-2 py-0.5 text-xs text-gray-400"
           >
             {file.category}
           </span>
@@ -406,7 +406,7 @@ export function FileManager({ projectId }: FileManagerProps) {
       </div>
 
       {/* Files Grid/List */}
-      <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4' : 'space-y-2'}>
+      <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' : 'space-y-2'}>
         {filteredFiles.map((file) => (
           <FileCard 
             key={file.id} 
