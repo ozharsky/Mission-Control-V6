@@ -316,12 +316,31 @@ export function TradesView() {
             // Detect category from ticker prefix first (needed for subtitle check)
             const tickerPrefix = m.ticker.split('-')[0].toUpperCase();
             
-            // Add subtitle for markets that have them (crypto price ranges, company details, etc)
+            // Add subtitle for markets that have them
             if (m.subtitle) {
               title = `${title} - ${m.subtitle}`;
             }
             
-            if (title.length > 80) title = title.substring(0, 80) + '...';
+            // For IPO/finance/date-based markets, extract date from ticker
+            // Format: KXIPOANDURIL-27MAY01 -> "May 2027"
+            const tickerParts = m.ticker.split('-');
+            if (tickerParts.length >= 2 && ['KXIPO', 'KXFREDDIE', 'KXACQUIRE', 'KXRATE', 'KXLCPIMIN'].some(p => tickerPrefix.includes(p))) {
+              const dateCode = tickerParts[1]; // e.g., "27MAY01"
+              if (dateCode && dateCode.length >= 5) {
+                const year = '20' + dateCode.substring(0, 2); // "27" -> "2027"
+                const monthCode = dateCode.substring(2, 5); // "MAY"
+                const months: Record<string, string> = {
+                  'JAN': 'Jan', 'FEB': 'Feb', 'MAR': 'Mar', 'APR': 'Apr', 'MAY': 'May', 'JUN': 'Jun',
+                  'JUL': 'Jul', 'AUG': 'Aug', 'SEP': 'Sep', 'OCT': 'Oct', 'NOV': 'Nov', 'DEC': 'Dec'
+                };
+                const month = months[monthCode] || monthCode;
+                if (month) {
+                  title = `${title} (${month} ${year})`;
+                }
+              }
+            }
+            
+            if (title.length > 90) title = title.substring(0, 90) + '...';
             
             // Build URL using series ticker (trade bot format)
             const seriesTicker = m.ticker.split('-')[0].toLowerCase();
