@@ -268,28 +268,32 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
           className="flex items-center justify-center gap-1.5 rounded-lg ripple touch-feedback bg-primary/10 px-2 py-2.5 text-xs md:text-sm font-medium text-primary transition-colors hover:bg-primary/20"
         >
           <Plus className="h-3.5 w-3.5 md:h-4 md:w-4" />
-          <span className="truncate">Add Task</span>
+          <span className="hidden md:inline">Add Task</span>
+          <span className="md:hidden">Task</span>
         </button>
         <button
           onClick={() => onNavigate('projects')}
           className="flex items-center justify-center gap-1.5 rounded-lg ripple touch-feedback bg-blue-500/10 px-2 py-2.5 text-xs md:text-sm font-medium text-blue-400 transition-colors hover:bg-blue-500/20"
         >
           <Plus className="h-3.5 w-3.5 md:h-4 md:w-4" />
-          <span className="truncate">Add Proj</span>
+          <span className="hidden md:inline">Add Project</span>
+          <span className="md:hidden">Project</span>
         </button>
         <button
           onClick={() => onNavigate('jobs')}
           className="flex items-center justify-center gap-1.5 rounded-lg ripple touch-feedback bg-success/10 px-2 py-2.5 text-xs md:text-sm font-medium text-success transition-colors hover:bg-success/20"
         >
           <Briefcase className="h-3.5 w-3.5 md:h-4 md:w-4" />
-          <span className="truncate">Jobs</span>
+          <span className="hidden md:inline">View Jobs</span>
+          <span className="md:hidden">Jobs</span>
         </button>
         <button
           onClick={() => onNavigate('inventory')}
           className="flex items-center justify-center gap-1.5 rounded-lg ripple touch-feedback bg-warning/10 px-2 py-2.5 text-xs md:text-sm font-medium text-warning transition-colors hover:bg-warning/20"
         >
           <Package className="h-3.5 w-3.5 md:h-4 md:w-4" />
-          <span className="truncate">Inventory</span>
+          <span className="hidden md:inline">Inventory</span>
+          <span className="md:hidden">Stock</span>
         </button>
       </div>
 
