@@ -426,7 +426,7 @@ export function JobsView({ jobs }: JobsViewProps) {
       </div>
 
       {/* Jobs List */}
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-full overflow-x-hidden">
         {filteredJobs.length === 0 ? (
           <div className="rounded-xl border border-surface-hover bg-surface p-12 text-center">
             <Briefcase className="mx-auto mb-4 h-12 w-12 text-gray-500" />
@@ -512,7 +512,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                 {isExpanded && (
                   <div className="border-t border-surface-hover p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
+                      <div className="space-y-4 max-w-full overflow-x-hidden">
                         <div>
                           <h4 className="text-sm font-medium text-gray-400 mb-2">Description</h4>
                           <p className="text-sm">{job.description || 'No description'}</p>
@@ -537,7 +537,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                         )}
                       </div>
 
-                      <div className="space-y-4">
+                      <div className="space-y-4 max-w-full overflow-x-hidden">
                         <div className="flex items-center gap-2 text-sm">
                           <Calendar className="h-4 w-4 text-gray-400" />
                           <span>Posted: {new Date(job.datePosted).toLocaleDateString()}</span>

@@ -401,7 +401,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
   }, [tasks, projects, revenue, printers, inventory, jobs]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
