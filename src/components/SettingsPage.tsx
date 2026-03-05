@@ -26,6 +26,7 @@ export function SettingsPage() {
   });
   const [saved, setSaved] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<keyof FirebaseConfig, string>>>({});
 
   useEffect(() => {
     // Load existing config from localStorage
@@ -42,7 +43,21 @@ export function SettingsPage() {
     setIsConfigured(!!localStorage.getItem('mc_firebase_url'));
   }, []);
 
+  const validate = (): boolean => {
+    const newErrors: Partial<Record<keyof FirebaseConfig, string>> = {};
+    
+    if (!config.apiKey.trim()) newErrors.apiKey = 'API Key is required';
+    if (!config.authDomain.trim()) newErrors.authDomain = 'Auth Domain is required';
+    if (!config.databaseURL.trim()) newErrors.databaseURL = 'Database URL is required';
+    if (!config.projectId.trim()) newErrors.projectId = 'Project ID is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSave = () => {
+    if (!validate()) return;
+    
     localStorage.setItem('mc_firebase_api_key', config.apiKey);
     localStorage.setItem('mc_firebase_auth_domain', config.authDomain);
     localStorage.setItem('mc_firebase_url', config.databaseURL);
@@ -113,10 +128,22 @@ export function SettingsPage() {
             <input
               type="text"
               value={config[key as keyof FirebaseConfig]}
-              onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
+              onChange={(e) => {
+                setConfig({ ...config, [key]: e.target.value });
+                if (errors[key as keyof FirebaseConfig]) {
+                  setErrors({ ...errors, [key]: undefined });
+                }
+              }}
               placeholder={placeholder}
-              className="w-full truncate rounded-lg border border-surface-hover bg-background px-4 py-2 text-sm text-white placeholder-gray-600 focus:border-primary focus:outline-none"
+              className={`w-full truncate rounded-lg border bg-background px-4 py-2 text-sm text-white placeholder-gray-600 focus:outline-none ${
+                errors[key as keyof FirebaseConfig] 
+                  ? 'border-danger focus:border-danger' 
+                  : 'border-surface-hover focus:border-primary'
+              }`}
             />
+            {errors[key as keyof FirebaseConfig] && (
+              <p className="mt-1 text-xs text-danger">{errors[key as keyof FirebaseConfig]}</p>
+            )}
           </div>
         ))}
       </div>
