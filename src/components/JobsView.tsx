@@ -3,7 +3,7 @@ import {
   Briefcase, Plus, Search, Filter, ExternalLink, Calendar, 
   MapPin, DollarSign, Clock, Tag, MoreHorizontal, Edit2, 
   Trash2, Archive, CheckCircle, X, ChevronDown, ChevronUp,
-  User, Bot, Mail, Building2
+  User, Bot, Mail, Building2, Bookmark
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { LoadingButton } from '../components/Loading';
@@ -92,6 +92,7 @@ export function JobsView({ jobs }: JobsViewProps) {
   const [filterStatus, setFilterStatus] = useState<Job['status'] | 'all'>('all');
   const [filterType, setFilterType] = useState<Job['type'] | 'all'>('all');
   const [filterPriority, setFilterPriority] = useState<Job['priority'] | 'all'>('all');
+  const [filterBookmarked, setFilterBookmarked] = useState(false);
   const [sortField, setSortField] = useState<SortField>('datePosted');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showFilters, setShowFilters] = useState(false);
@@ -145,6 +146,11 @@ export function JobsView({ jobs }: JobsViewProps) {
       result = result.filter(job => job.priority === filterPriority);
     }
 
+    // Bookmarked filter
+    if (filterBookmarked) {
+      result = result.filter(job => job.bookmarked);
+    }
+
     // Sort
     result.sort((a, b) => {
       let comparison = 0;
@@ -169,7 +175,7 @@ export function JobsView({ jobs }: JobsViewProps) {
     });
 
     return result;
-  }, [jobs, searchQuery, filterStatus, filterType, filterPriority, sortField, sortDirection]);
+  }, [jobs, searchQuery, filterStatus, filterType, filterPriority, filterBookmarked, sortField, sortDirection]);
 
   // Stats
   const stats = useMemo(() => {
@@ -408,13 +414,22 @@ export function JobsView({ jobs }: JobsViewProps) {
               <option value="company-asc">Company A-Z</option>
             </select>
 
-            {(filterStatus !== 'all' || filterType !== 'all' || filterPriority !== 'all' || searchQuery) && (
+            <button
+              onClick={() => setFilterBookmarked(!filterBookmarked)}
+              className={`flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2 ${filterBookmarked ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
+            >
+              <Bookmark className="h-4 w-4" />
+              Bookmarked
+            </button>
+
+            {(filterStatus !== 'all' || filterType !== 'all' || filterPriority !== 'all' || searchQuery || filterBookmarked) && (
               <button
                 onClick={() => {
                   setFilterStatus('all');
                   setFilterType('all');
                   setFilterPriority('all');
                   setSearchQuery('');
+                  setFilterBookmarked(false);
                 }}
                 className="text-sm text-gray-400 hover:text-white"
               >
@@ -483,6 +498,13 @@ export function JobsView({ jobs }: JobsViewProps) {
                     </div>
 
                     <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); updateJob(job.id, { bookmarked: !job.bookmarked }); }}
+                        className={`rounded-lg p-1.5 sm:p-2 touch-feedback ${job.bookmarked ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}
+                        title={job.bookmarked ? 'Remove bookmark' : 'Bookmark job'}
+                      >
+                        <Bookmark className={`h-3 w-3 sm:h-4 sm:w-4 ${job.bookmarked ? 'fill-current' : ''}`} />
+                      </button>
                       {job.url && (
                         <a
                           href={job.url}

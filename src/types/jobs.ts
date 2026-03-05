@@ -21,6 +21,7 @@ export interface Job {
   contactEmail?: string;
   addedBy: 'user' | 'agent';
   addedAt: string;
+  bookmarked?: boolean;
 }
 
 export interface JobFilters {
