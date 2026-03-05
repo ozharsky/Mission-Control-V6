@@ -227,21 +227,21 @@ export function TradesView() {
           return price >= 1 && price <= 25 && volume > 100; // Cheap + liquid
         });
         
-        // Calculate R-Score for each for display purposes
-        const marketsWithRScore = filteredMarkets.map((m: any) => {
+        // Calculate R-Score for each and filter to ONLY +EV trades (R-Score >= 1.5)
+        const plusEVMarkets = filteredMarkets.map((m: any) => {
           const price = m.yes_ask || m.yes_price || m.last_price || 50;
           const estimatedProb = Math.min(price * 1.5, 95) / 100;
           const marketPrice = price / 100;
           const variance = estimatedProb * (1 - estimatedProb);
           const rScore = variance > 0 ? (estimatedProb - marketPrice) / Math.sqrt(variance) : 0;
           return { ...m, calculatedRScore: rScore };
-        });
+        }).filter((m: any) => m.calculatedRScore >= 1.5); // ONLY +EV TRADES
         
         // Sort by R-Score (best opportunities first)
-        marketsWithRScore.sort((a: any, b: any) => b.calculatedRScore - a.calculatedRScore);
+        plusEVMarkets.sort((a: any, b: any) => b.calculatedRScore - a.calculatedRScore);
         
-        // Take top 30 trades (show all, not just +EV)
-        const topTrades = marketsWithRScore.slice(0, 30);
+        // Take top 20 +EV trades only
+        const topTrades = plusEVMarkets.slice(0, 20);
         
         // Process the +EV trades
         const processedTrades: KalshiTrade[] = topTrades.map((m: any, idx: number) => {
@@ -612,19 +612,9 @@ export function TradesView() {
                            rScore >= 1.0 ? 'bg-amber-500/10 border-amber-500/50' : 
                            'bg-surface border-surface-hover';
           
-          // Recommendation based on R-Score
-          let recommendation = 'Skip';
-          let recColor = 'text-gray-400';
-          if (rScore >= 2.0) {
-            recommendation = '🔥 Strong Buy';
-            recColor = 'text-emerald-400';
-          } else if (rScore >= 1.5) {
-            recommendation = '✅ Buy';
-            recColor = 'text-emerald-400';
-          } else if (rScore >= 1.0) {
-            recommendation = '⚠️ Marginal';
-            recColor = 'text-amber-400';
-          }
+          // Recommendation based on R-Score - only +EV trades shown now
+          let recommendation = '✅ +EV Trade';
+          let recColor = 'text-emerald-400';
 
           return (
             <div key={trade.id} className={`rounded-xl border-2 p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
@@ -685,30 +675,13 @@ export function TradesView() {
                   <span className="text-xs text-gray-500">💰 {trade.volume?.toLocaleString()} vol</span>
                 </div>
                 
-                {/* Single Recommendation Button */}
-                {rScore >= 1.5 ? (
-                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30"
-                    title="R-Score > 1.5 - This is a +EV trade. Buy YES if you agree with the thesis."
-                  >
-                    👍 BUY YES
-                  </a>
-                ) : rScore >= 1.0 ? (
-                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-500/30 border border-amber-500/30"
-                    title="R-Score 1.0-1.5 - Marginal trade. Consider buying YES if you have high conviction."
-                  >
-                    👍 BUY YES
-                  </a>
-                ) : (
-                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/30 border border-red-500/30"
-                    title="R-Score < 1.0 - Skip this trade or consider buying NO if you think it's overpriced."
-                  >
-                    👎 SKIP / BUY NO
-                  </a>
-                )}
-              </div>
+                {/* BUY YES Button - Only shown for +EV trades */}
+                <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-4 py-2 text-sm font-bold text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30"
+                  title="R-Score >= 1.5 - This is a +EV trade. Click to buy YES on Kalshi."
+                >
+                  👍 BUY YES
+                </a>
               
               {/* Why This Trade */}
               <div className="mt-2 text-xs text-gray-400 bg-surface-hover/30 rounded-lg p-2">
