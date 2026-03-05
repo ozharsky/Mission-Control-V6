@@ -244,7 +244,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     <div className="space-y-4 max-w-full overflow-x-hidden">
       {/* Header - Compact on mobile */}
       <div>
-        <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
         <p className="text-xs md:text-sm text-gray-400">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
@@ -321,7 +321,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
               )}
             </div>
             <div className="mt-2">
-              <div className="text-xl md:text-2xl font-bold">{stats.tasks.active}</div>
+              <div className="text-2xl md:text-3xl font-bold">{stats.tasks.active}</div>
               <div className="text-xs text-gray-400">Active Tasks</div>
             </div>
             <div className="mt-1.5 h-1 md:h-1.5 overflow-hidden rounded-full bg-surface-hover">
@@ -339,7 +339,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
               <Briefcase className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
             </div>
             <div className="mt-2">
-              <div className="text-xl md:text-2xl font-bold">{stats.projects.active}</div>
+              <div className="text-2xl md:text-3xl font-bold">{stats.projects.active}</div>
               <div className="text-xs text-gray-400">Active Proj</div>
             </div>
             <div className="mt-2 text-xs text-gray-500">{stats.projects.completed} done</div>
@@ -354,7 +354,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
               <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-success" />
             </div>
             <div className="mt-2">
-              <div className="text-xl md:text-2xl font-bold">${(stats.revenue.total / 1000).toFixed(1)}k</div>
+              <div className="text-2xl md:text-3xl font-bold">${(stats.revenue.total / 1000).toFixed(1)}k</div>
               <div className="text-xs text-gray-400">Revenue</div>
             </div>
             <div className="mt-2 text-xs text-gray-500">{stats.revenue.orders} orders</div>
@@ -374,7 +374,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
               )}
             </div>
             <div className="mt-2">
-              <div className="text-xl md:text-2xl font-bold">${(stats.inventory.value / 1000).toFixed(1)}k</div>
+              <div className="text-2xl md:text-3xl font-bold">${(stats.inventory.value / 1000).toFixed(1)}k</div>
               <div className="text-xs text-gray-400">Inventory</div>
             </div>
             <div className="mt-2 text-xs text-gray-500">{stats.inventory.total} items</div>
