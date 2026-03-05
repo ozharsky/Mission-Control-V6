@@ -99,82 +99,26 @@ export function SettingsPage() {
       )}
 
       <div className="space-y-4">
-        <div>
-          <label className="mb-1 block text-sm text-gray-400">Database URL</label>
-          <input
-            type="text" style={{maxWidth: "100%"}}
-            value={config.databaseURL}
-            onChange={(e) => setConfig({ ...config, databaseURL: e.target.value })}
-            placeholder="https://your-project.firebaseio.com"
-            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-gray-400">API Key</label>
-          <input
-            type="text" style={{maxWidth: "100%"}}
-            value={config.apiKey}
-            onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-            placeholder="AIzaSy..."
-            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-gray-400">Auth Domain</label>
-          <input
-            type="text" style={{maxWidth: "100%"}}
-            value={config.authDomain}
-            onChange={(e) => setConfig({ ...config, authDomain: e.target.value })}
-            placeholder="your-project.firebaseapp.com"
-            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-gray-400">Project ID</label>
-          <input
-            type="text" style={{maxWidth: "100%"}}
-            value={config.projectId}
-            onChange={(e) => setConfig({ ...config, projectId: e.target.value })}
-            placeholder="your-project"
-            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-gray-400">Storage Bucket</label>
-          <input
-            type="text" style={{maxWidth: "100%"}}
-            value={config.storageBucket}
-            onChange={(e) => setConfig({ ...config, storageBucket: e.target.value })}
-            placeholder="your-project.appspot.com"
-            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-gray-400">Messaging Sender ID</label>
-          <input
-            type="text" style={{maxWidth: "100%"}}
-            value={config.messagingSenderId}
-            onChange={(e) => setConfig({ ...config, messagingSenderId: e.target.value })}
-            placeholder="123456789"
-            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-gray-400">App ID</label>
-          <input
-            type="text" style={{maxWidth: "100%"}}
-            value={config.appId}
-            onChange={(e) => setConfig({ ...config, appId: e.target.value })}
-            placeholder="1:123456789:web:abcdef"
-            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
-          />
-        </div>
+        {[
+          { key: 'databaseURL', label: 'Database URL', placeholder: 'https://your-project.firebaseio.com' },
+          { key: 'apiKey', label: 'API Key', placeholder: 'AIzaSy...' },
+          { key: 'authDomain', label: 'Auth Domain', placeholder: 'your-project.firebaseapp.com' },
+          { key: 'projectId', label: 'Project ID', placeholder: 'your-project' },
+          { key: 'storageBucket', label: 'Storage Bucket', placeholder: 'your-project.appspot.com' },
+          { key: 'messagingSenderId', label: 'Messaging Sender ID', placeholder: '123456789' },
+          { key: 'appId', label: 'App ID', placeholder: '1:123456789:web:abcdef' },
+        ].map(({ key, label, placeholder }) => (
+          <div key={key}>
+            <label className="mb-1 block text-sm text-gray-400">{label}</label>
+            <input
+              type="text"
+              value={config[key as keyof FirebaseConfig]}
+              onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
+              placeholder={placeholder}
+              className="w-full truncate rounded-lg border border-surface-hover bg-background px-4 py-2 text-sm text-white placeholder-gray-600 focus:border-primary focus:outline-none"
+            />
+          </div>
+        ))}
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
