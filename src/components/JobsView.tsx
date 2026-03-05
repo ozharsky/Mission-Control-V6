@@ -12,7 +12,9 @@ import {
   JOB_TYPE_LABELS, 
   JOB_STATUS_LABELS, 
   JOB_STATUS_COLORS, 
-  JOB_TYPE_COLORS 
+  JOB_TYPE_COLORS,
+  WORK_MODE_LABELS,
+  WORK_MODE_COLORS
 } from '../types/jobs';
 
 // Pre-loaded jobs found by agent
@@ -92,6 +94,7 @@ export function JobsView({ jobs }: JobsViewProps) {
   const [filterStatus, setFilterStatus] = useState<Job['status'] | 'all'>('all');
   const [filterType, setFilterType] = useState<Job['type'] | 'all'>('all');
   const [filterPriority, setFilterPriority] = useState<Job['priority'] | 'all'>('all');
+  const [filterWorkMode, setFilterWorkMode] = useState<Job['workMode'] | 'all'>('all');
   const [filterBookmarked, setFilterBookmarked] = useState(false);
   const [sortField, setSortField] = useState<SortField>('datePosted');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -151,6 +154,11 @@ export function JobsView({ jobs }: JobsViewProps) {
       result = result.filter(job => job.bookmarked);
     }
 
+    // Work mode filter
+    if (filterWorkMode !== 'all') {
+      result = result.filter(job => job.workMode === filterWorkMode);
+    }
+
     // Sort
     result.sort((a, b) => {
       let comparison = 0;
@@ -175,7 +183,7 @@ export function JobsView({ jobs }: JobsViewProps) {
     });
 
     return result;
-  }, [jobs, searchQuery, filterStatus, filterType, filterPriority, filterBookmarked, sortField, sortDirection]);
+  }, [jobs, searchQuery, filterStatus, filterType, filterPriority, filterBookmarked, filterWorkMode, sortField, sortDirection]);
 
   // Stats
   const stats = useMemo(() => {
@@ -414,6 +422,17 @@ export function JobsView({ jobs }: JobsViewProps) {
               <option value="company-asc">Company A-Z</option>
             </select>
 
+            <select
+              value={filterWorkMode}
+              onChange={(e) => setFilterWorkMode(e.target.value as Job['workMode'] | 'all')}
+              className="rounded-lg border border-surface-hover bg-background px-3 py-2 text-white"
+            >
+              <option value="all">All Work Modes</option>
+              <option value="remote">Remote</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="onsite">On-site</option>
+            </select>
+
             <button
               onClick={() => setFilterBookmarked(!filterBookmarked)}
               className={`flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2 ${filterBookmarked ? 'bg-primary text-white' : 'border border-surface-hover text-gray-400'}`}
@@ -422,7 +441,7 @@ export function JobsView({ jobs }: JobsViewProps) {
               Bookmarked
             </button>
 
-            {(filterStatus !== 'all' || filterType !== 'all' || filterPriority !== 'all' || searchQuery || filterBookmarked) && (
+            {(filterStatus !== 'all' || filterType !== 'all' || filterPriority !== 'all' || searchQuery || filterBookmarked || filterWorkMode !== 'all') && (
               <button
                 onClick={() => {
                   setFilterStatus('all');
@@ -430,6 +449,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                   setFilterPriority('all');
                   setSearchQuery('');
                   setFilterBookmarked(false);
+                  setFilterWorkMode('all');
                 }}
                 className="text-sm text-gray-400 hover:text-white"
               >
@@ -488,6 +508,11 @@ export function JobsView({ jobs }: JobsViewProps) {
                         <span className={`rounded px-2 py-0.5 text-xs ${JOB_TYPE_COLORS[job.type]}`}>
                           {JOB_TYPE_LABELS[job.type]}
                         </span>
+                        {job.workMode && (
+                          <span className={`rounded-full border px-2 py-0.5 text-xs ${WORK_MODE_COLORS[job.workMode]}`}>
+                            {WORK_MODE_LABELS[job.workMode]}
+                          </span>
+                        )}
                         {job.salary && (
                           <span className="flex items-center gap-1">
                             <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />

@@ -22,6 +22,7 @@ export interface Job {
   addedBy: 'user' | 'agent';
   addedAt: string;
   bookmarked?: boolean;
+  workMode?: 'remote' | 'hybrid' | 'onsite';
 }
 
 export interface JobFilters {
@@ -64,4 +65,16 @@ export const JOB_TYPE_COLORS: Record<Job['type'], string> = {
   'contract': 'bg-orange-500/20 text-orange-400',
   'freelance': 'bg-pink-500/20 text-pink-400',
   'gig': 'bg-teal-500/20 text-teal-400',
+};
+
+export const WORK_MODE_LABELS: Record<NonNullable<Job['workMode']>, string> = {
+  'remote': 'Remote',
+  'hybrid': 'Hybrid',
+  'onsite': 'On-site',
+};
+
+export const WORK_MODE_COLORS: Record<NonNullable<Job['workMode']>, string> = {
+  'remote': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  'hybrid': 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  'onsite': 'bg-slate-500/20 text-slate-400 border-slate-500/30',
 };
