@@ -404,23 +404,26 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         {viewMode === 'chart' ? (
           filteredData.length > 0 ? (
             <>
-              <div className="flex items-end gap-2">
-                {filteredData.map((item) => {
-                  const height = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
-                  const isGoalMet = item.value >= goal;
-                  return (
-                    <div key={item.month} className="group flex flex-1 flex-col items-center">
-                      <div className="relative w-full">
-                        <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-surface-hover px-3 py-2 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                          <p className="font-semibold">{formatCurrency(item.value)}</p>
-                          <p className="text-gray-500">{item.orders} orders</p>
+              {/* Mobile: Horizontal scroll with all bars visible */}
+              <div className="overflow-x-auto pb-2 lg:overflow-visible">
+                <div className="flex items-end gap-1 sm:gap-2 min-w-max lg:min-w-0">
+                  {filteredData.map((item) => {
+                    const height = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
+                    const isGoalMet = item.value >= goal;
+                    return (
+                      <div key={item.month} className="group flex flex-col items-center w-8 sm:w-10 lg:flex-1">
+                        <div className="relative w-full">
+                          <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-surface-hover px-2 py-1 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                            <p className="font-semibold">{formatCurrency(item.value)}</p>
+                            <p className="text-gray-500">{item.orders} orders</p>
+                          </div>
+                          <div className={`w-full rounded-t transition-all ${isGoalMet ? 'bg-success' : 'bg-primary'}`} style={{ height: `${Math.max(height, 4)}%`, minHeight: '4px' }} />
                         </div>
-                        <div className={`w-full rounded-t-lg transition-all ${isGoalMet ? 'bg-success' : 'bg-primary'}`} style={{ height: `${Math.max(height, 4)}%`, minHeight: '4px' }} />
+                        <div className="mt-1 text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">{new Date(item.month + '-01').toLocaleDateString(undefined, { month: 'short' })}</div>
                       </div>
-                      <div className="mt-2 text-xs text-gray-500">{new Date(item.month + '-01').toLocaleDateString(undefined, { month: 'short' })}</div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </>
           ) : (
