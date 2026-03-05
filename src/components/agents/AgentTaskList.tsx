@@ -158,7 +158,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="rounded-xl border border-surface-hover bg-surface p-4">
           <div className="text-2xl font-bold">{stats.total}</div>
           <div className="text-sm text-gray-400">Total Tasks</div>

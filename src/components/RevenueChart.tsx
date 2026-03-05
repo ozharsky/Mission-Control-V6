@@ -255,8 +255,8 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                 />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowAddModal(false); setEditingEntry(null); }} className="flex-1 rounded-xl border border-surface-hover py-2 text-gray-400">Cancel</button>
-                <button type="submit" className="flex-1 rounded-xl bg-primary py-2 font-medium text-white">{editingEntry ? 'Save' : 'Add'}</button>
+                <button type="button" onClick={() => { setShowAddModal(false); setEditingEntry(null); }} className="flex-1 min-w-0 rounded-xl border border-surface-hover py-2 text-gray-400">Cancel</button>
+                <button type="submit" className="flex-1 min-w-0 rounded-xl bg-primary py-2 font-medium text-white">{editingEntry ? 'Save' : 'Add'}</button>
               </div>
             </form>
           </div>
@@ -264,7 +264,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
       )}
 
       {/* Enhanced Stats Grid */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="grid grid-cols-2 gap-3  lg:gap-4">
         <StatCard title="Total Revenue" value={formatCurrency(stats.total)} icon={DollarSign} color="success" />
         <StatCard title="Total Orders" value={stats.orders.toString()} icon={ShoppingCart} color="primary" />
         <StatCard title="Avg/Month" value={formatCurrency(stats.avg)} icon={Calendar} color="info" subtext={`Best: ${stats.bestMonth?.month || '-'}`} />
@@ -290,7 +290,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
 
       {/* Mini Charts Row */}
       {filteredData.length > 1 && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 grid-cols-1">
           <div className="rounded-xl border border-surface-hover bg-surface p-4">
             <div className="mb-2 flex items-center gap-2">
               <Activity className="h-4 w-4 text-primary" />
