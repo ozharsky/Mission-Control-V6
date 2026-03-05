@@ -738,28 +738,36 @@ export function TradesView() {
                 </div>
               </div>
 
-              {/* BOTTOM: Why This Trade + Yes/No */}
+              {/* BOTTOM: Why This Trade + Yes/No Recommendation */}
               <div className="mt-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className={`text-xs font-medium ${recColor}`}>{recommendation}</span>
                   <span className="text-xs text-gray-500">💰 {trade.volume?.toLocaleString()} vol</span>
                 </div>
                 
-                {/* Yes/No Buttons */}
-                <div className="flex items-center gap-1">
+                {/* Single Recommendation Button */}
+                {rScore >= 1.5 ? (
                   <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-400 hover:bg-emerald-500/30"
-                    title="Buy YES - You think this WILL happen"
+                    className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30"
+                    title="R-Score > 1.5 - This is a +EV trade. Buy YES if you agree with the thesis."
                   >
-                    👍 YES
+                    👍 BUY YES
                   </a>
+                ) : rScore >= 1.0 ? (
                   <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 rounded-lg bg-red-500/20 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/30"
-                    title="Buy NO - You think this WON'T happen"
+                    className="flex items-center gap-1 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-500/30 border border-amber-500/30"
+                    title="R-Score 1.0-1.5 - Marginal trade. Consider buying YES if you have high conviction."
                   >
-                    👎 NO
+                    👍 BUY YES
                   </a>
-                </div>
+                ) : (
+                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/30 border border-red-500/30"
+                    title="R-Score < 1.0 - Skip this trade or consider buying NO if you think it's overpriced."
+                  >
+                    👎 SKIP / BUY NO
+                  </a>
+                )}
               </div>
               
               {/* Why This Trade */}
