@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Filter, ChevronDown, ChevronUp, CloudRain, Zap, Target, BarChart3, Activity, Shield, DollarSign, Building2, Rocket, Globe } from 'lucide-react';
+import { RefreshCw, Filter, CloudRain, Zap, Target, BarChart3, Activity, Shield, DollarSign, Building2, Rocket, Globe } from 'lucide-react';
 import { RESEARCHED_TRADES } from './trades-data';
 
 const CATEGORY_ICONS = {
@@ -54,7 +54,7 @@ export function TradesView() {
         id: m.ticker, ticker: m.ticker, title: m.title, category: m.category,
         yesPrice: m.yes_ask || 50, noPrice: m.no_ask || 50, volume: m.volume || 0,
         expiration: m.expiration_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        kalshiUrl: `https://kalshi.com/markets/${m.ticker}`,
+        kalshiUrl: `https://kalshi.com/markets/${m.ticker.toLowerCase()}`,
         research: { trueProbability: 50, edge: 0, confidence: 'medium', catalyst: 'Live market data', sources: [] },
         payout: { buyPrice: m.yes_ask || 50, potentialReturn: (100 - (m.yes_ask || 50)) / 100, multiplier: Math.round(100 / (m.yes_ask || 50)) }
       }));
@@ -152,17 +152,15 @@ export function TradesView() {
           
           return (
             <div key={trade.id} style={{ padding: '10px', borderRadius: '8px', border: `2px solid ${borderColor}`, background: bgColor }}>
-              {/* Title - Multi-line allowed */}
+              {/* Title */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
                 <div style={{ width: '24px', height: '24px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: CATEGORY_COLORS[trade.category] + '30' }}>
                   <Icon size={14} color={CATEGORY_COLORS[trade.category]} />
                 </div>
-                
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '12px', fontWeight: 500, lineHeight: 1.4 }}>{trade.title}</div>
                   <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})} • {trade.category}</div>
                 </div>
-                
                 <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" style={{ padding: '4px 8px', fontSize: '12px', borderRadius: '4px', background: '#3b82f6', color: 'white', textDecoration: 'none', flexShrink: 0 }}>↗</a>
               </div>
 
