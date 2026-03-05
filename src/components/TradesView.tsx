@@ -4,7 +4,7 @@ import {
   DollarSign, Percent, Calendar, ExternalLink,
   CloudRain, Zap, BarChart3, Activity,
   RefreshCw, BookOpen, Filter, ChevronDown, ChevronUp,
-  HelpCircle, X, ArrowUpRight, Info
+  HelpCircle, X, ArrowUpRight, Info, Shield
 } from 'lucide-react';
 import { RESEARCHED_TRADES } from './trades-data';
 
@@ -83,7 +83,9 @@ const CATEGORY_ICONS = {
   crypto: Zap,
   politics: Target,
   economics: BarChart3,
-  sports: Activity
+  sports: Activity,
+  government: Shield,
+  finance: DollarSign
 };
 
 const CATEGORY_COLORS = {
@@ -91,7 +93,9 @@ const CATEGORY_COLORS = {
   crypto: 'bg-orange-500/20 text-orange-400',
   politics: 'bg-red-500/20 text-red-400',
   economics: 'bg-green-500/20 text-green-400',
-  sports: 'bg-purple-500/20 text-purple-400'
+  sports: 'bg-purple-500/20 text-purple-400',
+  government: 'bg-indigo-500/20 text-indigo-400',
+  finance: 'bg-emerald-500/20 text-emerald-400'
 };
 
 const EDUCATION_CONTENT = {
@@ -150,8 +154,8 @@ export function TradesView() {
     try {
       const KALSHI_PROXY_URL = 'https://mission-control-v6-kappa.vercel.app/api/kalshi';
       
-      // Fetch specific series: crypto, weather, politics, economics
-      // NOTE: Politics and Economics series exist but have no active markets currently
+      // Fetch specific series: crypto, weather, politics, economics, government, finance
+      // NOTE: Many series exist but have no active markets currently (markets settled)
       const seriesToFetch = [
         // Weather (5) - These have active markets
         { series: 'KXHIGHTSEA', category: 'weather', name: 'Seattle Weather' },
@@ -165,15 +169,18 @@ export function TradesView() {
         { series: 'KXSOL', category: 'crypto', name: 'Solana' },
         { series: 'KXADA', category: 'crypto', name: 'Cardano' },
         { series: 'KXDOT', category: 'crypto', name: 'Polkadot' },
-        // Politics (5) - Series exist but NO ACTIVE MARKETS currently (markets settled)
-        // { series: 'KXTRUTHSOCIAL', category: 'politics', name: 'Trump Truth Social' },
-        // { series: 'KXVOTEHUBTRUMPUPDOWN', category: 'politics', name: 'Trump Approval' },
-        // { series: 'KXTRUMPMEET', category: 'politics', name: 'Trump Meetings' },
-        // { series: 'KXTRUMPOUT', category: 'politics', name: 'Trump Out' },
-        // Economics (5) - Series exist but NO ACTIVE MARKETS currently (markets settled)
-        // { series: 'CPI', category: 'economics', name: 'CPI Inflation' },
-        // { series: 'FRM', category: 'economics', name: 'Mortgage Rate' },
-        // { series: 'GDP', category: 'economics', name: 'GDP Growth' },
+        // Government (5) - Series exist but NO ACTIVE MARKETS currently
+        { series: 'KXBIDENMENTION', category: 'government', name: 'Biden Speech' },
+        { series: 'KXBILL', category: 'government', name: 'Bill Becomes Law' },
+        { series: 'KXASSOCAG', category: 'government', name: 'Associate AG' },
+        { series: 'KXFEDCHAIRCONFIRMED', category: 'government', name: 'Fed Chair Confirm' },
+        { series: 'KXADMINNASA', category: 'government', name: 'NASA Admin' },
+        // Finance (5) - Series exist but NO ACTIVE MARKETS currently
+        { series: 'KXIPO', category: 'finance', name: 'IPOs' },
+        { series: 'KXFREDDIE', category: 'finance', name: 'Freddie Mac IPO' },
+        { series: 'KXACQUIRECOINBASE', category: 'finance', name: 'Coinbase Acquisition' },
+        { series: 'KXIPOANDURIL', category: 'finance', name: 'Anduril IPO' },
+        { series: 'KXIPOAIRTABLE', category: 'finance', name: 'AirTable IPO' },
       ];
       
       let allMarkets: any[] = [];
@@ -284,15 +291,15 @@ export function TradesView() {
             const urlTicker = seriesTicker;
             
             // Detect category from ticker prefix
-            let detectedCategory: KalshiTrade['category'] = 'economics';
+            let detectedCategory: KalshiTrade['category'] = 'finance';
             if (['KXHIGHTSEA', 'KXHIGHNY', 'KXHIGHCHI', 'KXHIGHMIA', 'KXHIGHTPHX', 'KXRAINSEA', 'KXRAINSFO', 'KXSNOW NYC'].includes(tickerPrefix)) {
               detectedCategory = 'weather';
             } else if (['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
               detectedCategory = 'crypto';
-            } else if (['KXTRUTHSOCIAL', 'KXVOTEHUBTRUMPUPDOWN', 'KXTRUMPZELENSKYY', 'KXTRUMPMEET', 'KXTRUMPOUT', 'KXTRUMPSAY', 'KXTRUMPFAV', 'KXTRUMPAPPROVALYEAR'].includes(tickerPrefix)) {
-              detectedCategory = 'politics';
-            } else if (['FED', 'KXCPI', 'GDP', 'FRM', 'PAYROLLS', 'CPI', 'NGDP', 'KXGDP', 'KXJOBS', 'KXIR'].includes(tickerPrefix)) {
-              detectedCategory = 'economics';
+            } else if (['KXBIDENMENTION', 'KXBILL', 'KXASSOCAG', 'KXFEDCHAIRCONFIRMED', 'KXADMINNASA'].includes(tickerPrefix)) {
+              detectedCategory = 'government';
+            } else if (['KXIPO', 'KXFREDDIE', 'KXACQUIRECOINBASE', 'KXIPOANDURIL', 'KXIPOAIRTABLE', 'KXGREENTERRITORY', 'KXCANTERRITORY'].includes(tickerPrefix)) {
+              detectedCategory = 'finance';
             }
             
             return {
@@ -464,7 +471,7 @@ export function TradesView() {
       <div className="flex flex-col gap-3">
         {/* Category Filters - Horizontal scroll on mobile */}
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
-          {(['all', 'weather', 'crypto', 'politics', 'economics'] as const).map(cat => {
+          {(['all', 'weather', 'crypto', 'government', 'finance'] as const).map(cat => {
             const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
             const isSelected = selectedCategory === cat;
             return (
