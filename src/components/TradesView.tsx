@@ -264,50 +264,35 @@ export function TradesView() {
           return price >= 1 && price <= 25 && volume > 100; // Cheap + liquid
         });
         
-        // Sort by multiplier within each category, then interleave for diversity
-        const byCategory: Record<string, any[]> = {
-          weather: [],
-          crypto: [],
-          politics: [],
-          economics: []
-        };
-        
-        filteredMarkets.forEach((m: any) => {
-          const tickerPrefix = m.ticker.split('-')[0].toUpperCase();
-          let cat = 'economics';
-          if (['KXHIGHTSEA', 'KXHIGHNY', 'KXHIGHCHI', 'KXHIGHMIA', 'KXHIGHTPHX', 'KXRAINSEA'].includes(tickerPrefix)) {
-            cat = 'weather';
-          } else if (['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
-            cat = 'crypto';
-          } else if (['KXTRUTHSOCIAL', 'KXVOTEHUBTRUMPUPDOWN', 'KXTRUMPZELENSKYY', 'KXTRUMPMEET', 'KXTRUMPOUT'].includes(tickerPrefix)) {
-            cat = 'politics';
-          } else if (['FED', 'KXCPI', 'GDP', 'FRM', 'PAYROLLS', 'CPI'].includes(tickerPrefix)) {
-            cat = 'economics';
-          }
-          byCategory[cat].push(m);
+        // Calculate R-Score for each and filter to only +EV trades (R-Score >= 1.5)
+        const plusEVMarkets = filteredMarkets.filter((m: any) => {
+          const price = m.yes_ask || m.yes_price || m.last_price || 50;
+          const estimatedProb = Math.min(price * 1.5, 95) / 100; // Conservative estimate
+          const marketPrice = price / 100;
+          const variance = estimatedProb * (1 - estimatedProb);
+          const rScore = variance > 0 ? (estimatedProb - marketPrice) / Math.sqrt(variance) : 0;
+          return rScore >= 1.5; // Only +EV trades
         });
         
-        // Sort each category by multiplier (best deals first)
-        Object.keys(byCategory).forEach(cat => {
-          byCategory[cat].sort((a: any, b: any) => {
-            const priceA = a.yes_ask || a.yes_price || a.last_price || 50;
-            const priceB = b.yes_ask || b.yes_price || b.last_price || 50;
-            return (100 / priceB) - (100 / priceA);
-          });
+        // Sort by R-Score (best opportunities first)
+        plusEVMarkets.sort((a: any, b: any) => {
+          const priceA = a.yes_ask || a.yes_price || a.last_price || 50;
+          const priceB = b.yes_ask || b.yes_price || b.last_price || 50;
+          const probA = Math.min(priceA * 1.5, 95) / 100;
+          const probB = Math.min(priceB * 1.5, 95) / 100;
+          const rScoreA = (probA - priceA/100) / Math.sqrt(probA * (1-probA));
+          const rScoreB = (probB - priceB/100) / Math.sqrt(probB * (1-probB));
+          return rScoreB - rScoreA;
         });
         
-        // Take top 15 from each category for balanced view
-        const balancedTrades = [
-          ...byCategory.weather.slice(0, 15),
-          ...byCategory.crypto.slice(0, 15),
-          ...byCategory.politics.slice(0, 15),
-          ...byCategory.economics.slice(0, 15)
-        ];
+        // Take top 20 +EV trades
+        const topTrades = plusEVMarkets.slice(0, 20);
         
-        // Process the balanced trades
-        const processedTrades: KalshiTrade[] = balancedTrades.map((m: any, idx: number) => {
+        // Process the +EV trades
+        const processedTrades: KalshiTrade[] = topTrades.map((m: any, idx: number) => {
             const price = m.yes_ask || m.yes_price || m.last_price || 50;
             const multiplier = parseFloat((100 / price).toFixed(1));
+            const estimatedProb = Math.min(price * 1.5, 95);
             
             // Clean title - include subtitle for crypto/price range markets
             let title = m.title || `${m.series_name || m.ticker} Market`;
