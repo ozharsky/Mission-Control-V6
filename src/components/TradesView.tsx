@@ -682,6 +682,7 @@ export function TradesView() {
                 >
                   👍 BUY YES
                 </a>
+              </div>
               
               {/* Why This Trade */}
               <div className="mt-2 text-xs text-gray-400 bg-surface-hover/30 rounded-lg p-2">
