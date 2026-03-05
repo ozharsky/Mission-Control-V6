@@ -227,15 +227,17 @@ export function TradesView() {
           return price >= 1 && price <= 25 && volume > 100; // Cheap + liquid
         });
         
-        // Calculate R-Score for each and filter to ONLY +EV trades (R-Score >= 1.5)
+        // Calculate R-Score for each and filter to decent trades (R-Score >= 0.5)
+        // Using realistic probability estimates
         const plusEVMarkets = filteredMarkets.map((m: any) => {
           const price = m.yes_ask || m.yes_price || m.last_price || 50;
-          const estimatedProb = Math.min(price * 1.5, 95) / 100;
+          // Realistic probability estimate (price * 2 for potential edge)
+          const estimatedProb = Math.min(price * 2, 95) / 100;
           const marketPrice = price / 100;
           const variance = estimatedProb * (1 - estimatedProb);
           const rScore = variance > 0 ? (estimatedProb - marketPrice) / Math.sqrt(variance) : 0;
           return { ...m, calculatedRScore: rScore };
-        }).filter((m: any) => m.calculatedRScore >= 1.5); // ONLY +EV TRADES
+        }).filter((m: any) => m.calculatedRScore >= 0.5); // Lower threshold to show more trades
         
         // Sort by R-Score (best opportunities first)
         plusEVMarkets.sort((a: any, b: any) => b.calculatedRScore - a.calculatedRScore);
