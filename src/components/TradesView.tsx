@@ -333,27 +333,27 @@ export function TradesView() {
               </div>
 
               {/* MIDDLE: Key Metrics Grid - 2x2 on mobile, 4x1 on desktop */}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
+              <div className="mt-3 grid grid-cols-2 gap-2 w-full">
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2 w-full">
                   <div className="text-[10px] text-gray-400 uppercase">Pay</div>
                   <div className="text-base font-bold">{price}¢</div>
                 </div>
-                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2 w-full">
                   <div className="text-[10px] text-gray-400 uppercase">Win</div>
                   <div className="text-base font-bold text-emerald-400">${multiplier}</div>
                 </div>
-                <div className={`text-center rounded-lg p-2 ${rScore >= 1.5 ? 'bg-emerald-500/20' : 'bg-surface-hover/50'}`}>
+                <div className={`text-center rounded-lg p-2 w-full ${rScore >= 1.5 ? 'bg-emerald-500/20' : 'bg-surface-hover/50'}`}>
                   <div className="text-[10px] text-gray-400 uppercase">R-Score</div>
                   <div className={`text-base font-bold ${rScore >= 1.5 ? 'text-emerald-400' : 'text-gray-300'}`}>{rScore.toFixed(1)}</div>
                 </div>
-                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2 w-full">
                   <div className="text-[10px] text-gray-400 uppercase">Kelly</div>
                   <div className="text-base font-bold text-blue-400">{kelly.toFixed(1)}%</div>
                 </div>
               </div>
 
               {/* BOTTOM: Why This Trade + Yes/No Recommendation */}
-              <div className="mt-3 flex flex-col sm:items-center gap-2 sm:justify-between">
+              <div className="mt-3 flex flex-col gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`text-xs font-medium shrink-0 ${recColor}`}>{recommendation}</span>
                   <span className="text-xs text-gray-500 truncate">💰 {trade.volume?.toLocaleString()} vol</span>
