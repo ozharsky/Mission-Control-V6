@@ -378,29 +378,33 @@ export function InventoryView({ items }: InventoryViewProps) {
                   onClick={() => setExpandedItem(isExpanded ? null : item.id)}
                   className="cursor-pointer p-4 hover:bg-surface-hover/50"
                 >
-                  <div className="flex items-start justify-between"
->
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="font-mono text-sm text-gray-500">{item.sku}</span>
-                        <h3 className="font-semibold">{item.name}</h3>
-                        <span className={`rounded-full border px-2 py-0.5 text-xs ${CATEGORY_COLORS[item.category]}`}>
-                          {CATEGORY_LABELS[item.category]}
-                        </span>
-                        <span className={`rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[item.status]}`}>
-                          {STATUS_LABELS[item.status]}
-                        </span>
+                      {/* Mobile: Stack vertically, Desktop: Row */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs sm:text-sm text-gray-500 truncate">{item.sku}</span>
+                          <h3 className="font-semibold text-sm sm:text-base truncate">{item.name}</h3>
+                        </div>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className={`rounded-full border px-2 py-0.5 text-xs ${CATEGORY_COLORS[item.category]}`}>
+                            {CATEGORY_LABELS[item.category]}
+                          </span>
+                          <span className={`rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[item.status]}`}>
+                            {STATUS_LABELS[item.status]}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm text-gray-400">
                         <span className="flex items-center gap-1">
-                          <Package className="h-4 w-4" />
+                          <Package className="h-3 w-3 sm:h-4 sm:w-4" />
                           Qty: {item.quantity}
                         </span>
                         
                         <span className="flex items-center gap-1">
-                          <DollarSign className="h-4 w-4" />
-                          ${item.unitCost.toFixed(2)} each
+                          <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />
+                          ${item.unitCost.toFixed(2)}
                         </span>
                         
                         {item.sellingPrice && (
@@ -410,50 +414,50 @@ export function InventoryView({ items }: InventoryViewProps) {
                         )}
 
                         {item.location && (
-                          <span>📍 {item.location}</span>
+                          <span className="truncate">📍 {item.location}</span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                       {/* Quick Adjust */}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 sm:gap-1">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setAdjustQuantity({ itemId: item.id, amount: -1, reason: 'Quick removal' });
                           }}
-                          className="rounded p-1 text-gray-400 hover:bg-danger/10 hover:text-danger"
+                          className="rounded p-1 sm:p-1.5 text-gray-400 hover:bg-danger/10 hover:text-danger touch-feedback"
                         >
-                          <Minus className="h-4 w-4" />
+                          <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                         </button>
-                        <span className="w-8 text-center font-mono">{item.quantity}</span>
+                        <span className="w-6 sm:w-8 text-center font-mono text-sm">{item.quantity}</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setAdjustQuantity({ itemId: item.id, amount: 1, reason: 'Quick add' });
                           }}
-                          className="rounded p-1 text-gray-400 hover:bg-success/10 hover:text-success"
+                          className="rounded p-1 sm:p-1.5 text-gray-400 hover:bg-success/10 hover:text-success touch-feedback"
                         >
-                          <PlusIcon className="h-4 w-4" />
+                          <PlusIcon className="h-3 w-3 sm:h-4 sm:w-4" />
                         </button>
                       </div>
 
                       <button
                         onClick={(e) => { e.stopPropagation(); openEdit(item); }}
-                        className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover"
+                        className="rounded-lg p-1.5 sm:p-2 text-gray-400 hover:bg-surface-hover touch-feedback"
                       >
-                        <Edit2 className="h-4 w-4" />
+                        <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
 
                       <button
                         onClick={(e) => { e.stopPropagation(); deleteInventoryItem(item.id); }}
-                        className="rounded-lg p-2 text-gray-400 hover:bg-danger/10 hover:text-danger"
+                        className="rounded-lg p-1.5 sm:p-2 text-gray-400 hover:bg-danger/10 hover:text-danger touch-feedback"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
 
-                      {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      {isExpanded ? <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5" /> : <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" />}
                     </div>
                   </div>
 
