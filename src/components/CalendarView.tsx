@@ -43,6 +43,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [quickAddType, setQuickAddType] = useState<CalendarEvent['type']>('meeting');
+  const [customEvents, setCustomEvents] = useState<CalendarEvent[]>([]);
 
   // Detect mobile on mount
   useEffect(() => {
@@ -61,7 +62,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
 
   // Generate events from projects and tasks
   const allEvents = useMemo(() => {
-    const generatedEvents: CalendarEvent[] = [...events];
+    const generatedEvents: CalendarEvent[] = [...events, ...customEvents];
 
     // Add project due dates
     projects.forEach(project => {
@@ -97,7 +98,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
     }
 
     return generatedEvents;
-  }, [events, projects, tasks]);
+  }, [events, projects, tasks, customEvents]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -457,8 +458,14 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
                 <button
                   onClick={() => {
                     if (quickAddTitle.trim()) {
-                      // Here you would add the event to your data source
-                      console.log('Adding event:', { title: quickAddTitle, type: quickAddType, date: new Date().toISOString() });
+                      const newEvent: CalendarEvent = {
+                        id: `custom-${Date.now()}`,
+                        title: quickAddTitle,
+                        type: quickAddType,
+                        date: new Date().toISOString().split('T')[0],
+                        description: 'Added via quick add',
+                      };
+                      setCustomEvents(prev => [...prev, newEvent]);
                       setQuickAddTitle('');
                       setShowQuickAdd(false);
                     }
