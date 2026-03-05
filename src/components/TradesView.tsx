@@ -614,103 +614,157 @@ export function TradesView() {
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-400">
-        <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-success" /> R-Score &gt;1.5 (+EV)</span>
-        <span className="flex items-center gap-1 shrink-0"><div className="h-2 w-2 rounded-full bg-warning" /> R-Score 1.0-1.5</span>
-        <span className="ml-auto flex items-center gap-1 shrink-0">{lastUpdated && <><RefreshCw className="h-3 w-3" /> {lastUpdated.toLocaleTimeString()}</>}</span>
+      {/* COMPREHENSIVE LEGEND */}
+      <div className="rounded-xl bg-surface-hover/50 p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <BookOpen className="h-4 w-4 text-primary" />
+          <span>How to Read Trade Cards</span>
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          {/* R-Score */}
+          <div className="space-y-1">
+            <div className="font-medium text-gray-300">R-Score</div>
+            <div className="flex items-center gap-1"><span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">R:1.5+</span> <span className="text-gray-400">+EV trade</span></div>
+            <div className="flex items-center gap-1"><span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">R:1.0</span> <span className="text-gray-400">Marginal</span></div>
+            <div className="text-gray-500 mt-1">Higher = better edge vs market</div>
+          </div>
+          
+          {/* Kelly % */}
+          <div className="space-y-1">
+            <div className="font-medium text-gray-300">Kelly %</div>
+            <div className="flex items-center gap-1"><span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">K:2.5%</span> <span className="text-gray-400">Position size</span></div>
+            <div className="text-gray-500 mt-1">% of bankroll to bet (half-Kelly)</div>
+          </div>
+          
+          {/* Price/Multiplier */}
+          <div className="space-y-1">
+            <div className="font-medium text-gray-300">Price → Multiplier</div>
+            <div className="flex items-center gap-1"><span className="text-emerald-400">5¢ → 20x</span></div>
+            <div className="text-gray-500 mt-1">Lower price = higher payout</div>
+          </div>
+          
+          {/* Volume */}
+          <div className="space-y-1">
+            <div className="font-medium text-gray-300">Volume</div>
+            <div className="flex items-center gap-1">💰 <span className="text-gray-400">1,240 vol</span></div>
+            <div className="text-gray-500 mt-1">Higher = easier to trade</div>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
+          <span className="flex items-center gap-1 text-xs text-gray-400"><span className="text-emerald-400">👍</span> Buy YES if you think it happens</span>
+          <span className="flex items-center gap-1 text-xs text-gray-400"><span className="text-red-400">👎</span> Buy NO if you think it won't</span>
+        </div>
       </div>
 
-      {/* SIMPLE TRADE CARDS */}
+      {/* TRADE CARDS - REDESIGNED */}
       <div className="grid gap-3">
         {tradesWithMetrics.map((trade, index) => {
           const Icon = CATEGORY_ICONS[trade.category];
-          const edge = trade.research.edge;
-          const isGoodDeal = (trade.rScore || 0) > 1.5;
           const price = trade.yesPrice;
           const multiplier = trade.payout.multiplier;
+          const rScore = trade.rScore || 0;
+          const kelly = trade.kellyFraction || 0;
           
-          // Simple color coding
-          const dealColor = price <= 5 ? 'bg-emerald-500/20 border-emerald-500/50' : 
-                           price <= 15 ? 'bg-amber-500/20 border-amber-500/50' : 
+          // Color coding based on R-Score
+          const dealColor = rScore >= 1.5 ? 'bg-emerald-500/10 border-emerald-500/50' : 
+                           rScore >= 1.0 ? 'bg-amber-500/10 border-amber-500/50' : 
                            'bg-surface border-surface-hover';
           
-          // Simple recommendation
+          // Recommendation based on R-Score
           let recommendation = 'Skip';
           let recColor = 'text-gray-400';
-          if (price <= 3 && multiplier >= 30) {
-            recommendation = '🔥 Great Deal';
+          if (rScore >= 2.0) {
+            recommendation = '🔥 Strong Buy';
             recColor = 'text-emerald-400';
-          } else if (price <= 10 && multiplier >= 10) {
-            recommendation = '👍 Good Value';
+          } else if (rScore >= 1.5) {
+            recommendation = '✅ Buy';
+            recColor = 'text-emerald-400';
+          } else if (rScore >= 1.0) {
+            recommendation = '⚠️ Marginal';
             recColor = 'text-amber-400';
           }
 
           return (
             <div key={trade.id} className={`rounded-xl border-2 p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
               
-              {/* TOP ROW: What + When + Trade Button */}
+              {/* TOP ROW: Icon + Title + Trade Button */}
               <div className="flex items-start gap-3">
-                {/* Big Icon */}
-                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${CATEGORY_COLORS[trade.category]}`}>
-                  <Icon className="h-6 w-6" />
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
+                  <Icon className="h-5 w-5" />
                 </div>
                 
-                {/* Title & Date */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base leading-tight">{trade.title}</h3>
-                  <p className="text-sm text-gray-400 mt-0.5">
-                    Closes {new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
-                  </p>
+                  <h3 className="font-medium text-sm leading-tight">{trade.title}</h3>
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                    <span>Closes {new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
+                    <span>•</span>
+                    <span className="capitalize">{trade.category}</span>
+                  </div>
                 </div>
                 
-                {/* Trade Button */}
                 <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" 
-                  className="flex items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 shrink-0"
+                  className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 shrink-0"
                 >
-                  Trade <ArrowUpRight className="h-4 w-4" />
+                  Trade <ArrowUpRight className="h-3 w-3" />
                 </a>
               </div>
 
-              {/* MIDDLE: The Deal */}
-              <div className="mt-4 grid grid-cols-3 gap-4">
-                {/* Price */}
-                <div className="text-center">
-                  <div className="text-xs text-gray-400 uppercase tracking-wide">Pay</div>
-                  <div className="text-2xl font-bold">{price}¢</div>
-                  <div className="text-xs text-gray-500">per share</div>
+              {/* MIDDLE: Key Metrics Grid */}
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {/* Pay */}
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
+                  <div className="text-[10px] text-gray-400 uppercase">Pay</div>
+                  <div className="text-lg font-bold">{price}¢</div>
                 </div>
                 
-                {/* Arrow */}
-                <div className="flex items-center justify-center">
-                  <div className="text-2xl text-gray-600">→</div>
+                {/* Win */}
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
+                  <div className="text-[10px] text-gray-400 uppercase">Win</div>
+                  <div className="text-lg font-bold text-emerald-400">${multiplier}</div>
                 </div>
                 
-                {/* Payout */}
-                <div className="text-center">
-                  <div className="text-xs text-gray-400 uppercase tracking-wide">Win</div>
-                  <div className="text-2xl font-bold text-emerald-400">$1</div>
-                  <div className="text-xs text-emerald-500">{multiplier}x return</div>
+                {/* R-Score */}
+                <div className={`text-center rounded-lg p-2 ${rScore >= 1.5 ? 'bg-emerald-500/20' : 'bg-surface-hover/50'}`}>
+                  <div className="text-[10px] text-gray-400 uppercase">R-Score</div>
+                  <div className={`text-lg font-bold ${rScore >= 1.5 ? 'text-emerald-400' : 'text-gray-300'}`}>{rScore.toFixed(1)}</div>
+                </div>
+                
+                {/* Kelly */}
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
+                  <div className="text-[10px] text-gray-400 uppercase">Kelly</div>
+                  <div className="text-lg font-bold text-blue-400">{kelly.toFixed(1)}%</div>
                 </div>
               </div>
 
-              {/* BOTTOM: Recommendation + R-Score/Kelly + Details */}
-              <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
-                <div className="flex items-center gap-3">
-                  <div className={`text-sm font-medium ${recColor}`}>{recommendation}</div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className={`px-2 py-0.5 rounded ${(trade.rScore || 0) > 1.5 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700 text-gray-400'}`}>
-                      R:{trade.rScore?.toFixed(1)}
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-gray-700 text-gray-400">
-                      K:{(trade.kellyFraction || 0).toFixed(1)}%
-                    </span>
-                  </div>
+              {/* BOTTOM: Why This Trade + Yes/No */}
+              <div className="mt-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-medium ${recColor}`}>{recommendation}</span>
+                  <span className="text-xs text-gray-500">💰 {trade.volume?.toLocaleString()} vol</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-400">
-                  <span title="How much is being traded">💰 {trade.volume?.toLocaleString()} vol</span>
-                  <span title="Our confidence level">🎯 {trade.research.confidence}</span>
+                
+                {/* Yes/No Buttons */}
+                <div className="flex items-center gap-1">
+                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-400 hover:bg-emerald-500/30"
+                    title="Buy YES - You think this WILL happen"
+                  >
+                    👍 YES
+                  </a>
+                  <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 rounded-lg bg-red-500/20 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/30"
+                    title="Buy NO - You think this WON'T happen"
+                  >
+                    👎 NO
+                  </a>
                 </div>
+              </div>
+              
+              {/* Why This Trade */}
+              <div className="mt-2 text-xs text-gray-400 bg-surface-hover/30 rounded-lg p-2">
+                <span className="text-gray-500">Why:</span> {trade.research.catalyst}
               </div>
             </div>
           );
