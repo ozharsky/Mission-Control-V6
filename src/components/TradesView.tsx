@@ -182,9 +182,12 @@ export function TradesView() {
       
       let allMarkets: any[] = [];
       
-      // Fetch markets from each series
+      // Fetch markets from each series with delay to avoid rate limiting
       for (const { series, category, name } of seriesToFetch) {
         try {
+          // Add delay between requests to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           const response = await fetch(`${KALSHI_PROXY_URL}?action=series&series=${series}`);
           if (response.ok) {
             const data = await response.json();
@@ -224,29 +227,21 @@ export function TradesView() {
           return price >= 1 && price <= 25 && volume > 100; // Cheap + liquid
         });
         
-        // Calculate R-Score for each and filter to only +EV trades (R-Score >= 1.5)
-        const plusEVMarkets = filteredMarkets.filter((m: any) => {
+        // Calculate R-Score for each for display purposes
+        const marketsWithRScore = filteredMarkets.map((m: any) => {
           const price = m.yes_ask || m.yes_price || m.last_price || 50;
-          const estimatedProb = Math.min(price * 1.5, 95) / 100; // Conservative estimate
+          const estimatedProb = Math.min(price * 1.5, 95) / 100;
           const marketPrice = price / 100;
           const variance = estimatedProb * (1 - estimatedProb);
           const rScore = variance > 0 ? (estimatedProb - marketPrice) / Math.sqrt(variance) : 0;
-          return rScore >= 1.5; // Only +EV trades
+          return { ...m, calculatedRScore: rScore };
         });
         
         // Sort by R-Score (best opportunities first)
-        plusEVMarkets.sort((a: any, b: any) => {
-          const priceA = a.yes_ask || a.yes_price || a.last_price || 50;
-          const priceB = b.yes_ask || b.yes_price || b.last_price || 50;
-          const probA = Math.min(priceA * 1.5, 95) / 100;
-          const probB = Math.min(priceB * 1.5, 95) / 100;
-          const rScoreA = (probA - priceA/100) / Math.sqrt(probA * (1-probA));
-          const rScoreB = (probB - priceB/100) / Math.sqrt(probB * (1-probB));
-          return rScoreB - rScoreA;
-        });
+        marketsWithRScore.sort((a: any, b: any) => b.calculatedRScore - a.calculatedRScore);
         
-        // Take top 20 +EV trades
-        const topTrades = plusEVMarkets.slice(0, 20);
+        // Take top 30 trades (show all, not just +EV)
+        const topTrades = marketsWithRScore.slice(0, 30);
         
         // Process the +EV trades
         const processedTrades: KalshiTrade[] = topTrades.map((m: any, idx: number) => {
