@@ -580,7 +580,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
       </div>
 
       {/* Desktop Kanban View */}
-      <div className="hidden lg:grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="hidden lg:grid gap-6 lg:grid-cols-3">
         {columns.map((column) => {
           const columnStatus = column.id === 'inProgress' ? 'in-progress' : column.id as Task['status'];
           return (
