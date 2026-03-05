@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Database, ref, onValue } from 'firebase/database';
 import { AgentTaskService } from '../../services/agentTaskService';
-import { AgentTask, TaskFilters, AgentId, AgentWorkflow } from '../../types/agentTask';
+import type { AgentTask, TaskFilters, AgentId, AgentWorkflow } from '../../types/agentTask';
 import { AGENT_EMOJIS, AGENT_NAMES, TASK_STATUS } from '../../constants/agents';
 import { NewWorkflowModal } from './NewWorkflowModal';
 import { TaskDetailModal } from './TaskDetailModal';

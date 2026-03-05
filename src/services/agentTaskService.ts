@@ -18,7 +18,7 @@ import {
   remove,
   runTransaction
 } from 'firebase/database';
-import {
+import type {
   AgentTask,
   AgentWorkflow,
   TaskFilters,
@@ -35,6 +35,7 @@ import {
   AGENT_NAMES 
 } from '../constants/agents';
 import { DiscordNotificationService } from './discordNotificationService';
+import { WorkflowCompletionService } from './workflowCompletionService';
 
 // Agent Discord user IDs for mentions
 const AGENT_DISCORD_IDS: Record<AgentId, string> = {
@@ -283,7 +284,6 @@ export class AgentTaskService {
       
       // Compile and save final document
       try {
-        const { WorkflowCompletionService } = await import('./workflowCompletionService');
         const completionService = new WorkflowCompletionService(this.db);
         const document = await completionService.compileWorkflowDocument(workflow.id);
         if (document) {

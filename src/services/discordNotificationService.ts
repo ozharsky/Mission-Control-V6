@@ -6,7 +6,7 @@
  */
 
 import { Database, ref, set } from 'firebase/database';
-import { AgentTask, AgentId } from '../types/agentTask';
+import type { AgentTask, AgentId } from '../types/agentTask';
 import { AGENT_NAMES, AGENT_EMOJIS } from '../constants/agents';
 
 // Webhook server URL - update this after deploying to Render

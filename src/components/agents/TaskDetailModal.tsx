@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Database } from 'firebase/database';
 import { AgentTaskService } from '../../services/agentTaskService';
-import { AgentTask, AgentWorkflow } from '../../types/agentTask';
+import type { AgentTask, AgentWorkflow } from '../../types/agentTask';
 import { AGENT_EMOJIS, AGENT_NAMES, WORKFLOW_TEMPLATES } from '../../constants/agents';
 import { X, Bot, ChevronRight, Clock, CheckCircle, Circle } from 'lucide-react';
 

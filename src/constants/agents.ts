@@ -3,7 +3,7 @@
  * Mission Control V6
  */
 
-import { AgentId, AgentTaskType, WorkflowTemplate } from '../types/agentTask';
+import type { AgentId, AgentTaskType, WorkflowTemplate } from '../types/agentTask';
 
 export const AGENTS: Record<string, AgentId> = {
   PLANNER: 'planner',

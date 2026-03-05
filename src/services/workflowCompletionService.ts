@@ -4,27 +4,7 @@
  */
 
 import { Database, ref, set, get } from 'firebase/database';
-import { AgentTask, AgentWorkflow } from '../types/agentTask';
-
-export interface CompiledDocument {
-  id: string;
-  workflowId: string;
-  name: string;
-  type: string;
-  content: string;
-  sections: DocumentSection[];
-  createdAt: number;
-  updatedAt: number;
-  tags: string[];
-}
-
-export interface DocumentSection {
-  agent: string;
-  agentName: string;
-  step: string;
-  content: string;
-  timestamp: number;
-}
+import type { AgentTask, AgentWorkflow, CompiledDocument, DocumentSection } from '../types/agentTask';
 
 export class WorkflowCompletionService {
   private db: Database;

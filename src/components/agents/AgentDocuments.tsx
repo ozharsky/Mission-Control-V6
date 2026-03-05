@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Database, ref, onValue } from 'firebase/database';
 import { FileText, Download, Trash2, X } from 'lucide-react';
-import { CompiledDocument } from '../../services/workflowCompletionService';
+import type { CompiledDocument } from '../../types/agentTask';
 import { WorkflowCompletionService } from '../../services/workflowCompletionService';
 
 interface AgentDocumentsProps {

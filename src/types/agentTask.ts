@@ -133,3 +133,24 @@ export interface TaskFilters {
   priority?: Priority;
   projectId?: string;
 }
+
+// Document compilation types (moved from workflowCompletionService to avoid circular deps)
+export interface CompiledDocument {
+  id: string;
+  workflowId: string;
+  name: string;
+  type: string;
+  content: string;
+  sections: DocumentSection[];
+  createdAt: number;
+  updatedAt: number;
+  tags: string[];
+}
+
+export interface DocumentSection {
+  agent: string;
+  agentName: string;
+  step: string;
+  content: string;
+  timestamp: number;
+}
