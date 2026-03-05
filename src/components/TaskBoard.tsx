@@ -427,21 +427,24 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
         </button>
       </div>
 
-      {/* Add/Edit Task Modal */}
+      {/* Add/Edit Task Modal - Bottom sheet on mobile, centered on desktop */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-surface-hover bg-surface p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 lg:items-center lg:p-4" onClick={() => { setShowForm(false); setEditingTask(null); }}>
+          <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl border border-surface-hover bg-surface p-4 lg:p-6 max-h-[90vh] lg:max-h-none overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* Drag handle for mobile */}
+            <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-surface-hover lg:hidden"></div>
+            
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold">{editingTask ? 'Edit Task' : 'Add New Task'}</h3>
               <button 
                 onClick={() => { setShowForm(false); setEditingTask(null); }}
-                className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover hover:text-white"
+                className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover hover:text-white touch-feedback"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <form onSubmit={editingTask ? handleEditTask : handleAddTask} className="space-y-4">
+            <form onSubmit={editingTask ? handleEditTask : handleAddTask} className="space-y-3 lg:space-y-4">
               <input
                 type="text"
                 value={newTask.title}
@@ -454,32 +457,32 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                 value={newTask.description}
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                 placeholder="Description (optional)"
-                rows={3}
+                rows={2}
                 className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 lg:gap-3">
                 <select
                   value={newTask.priority}
                   onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as Task['priority'] })}
-                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
                 >
-                  <option value="low">Low Priority</option>
-                  <option value="medium">Medium Priority</option>
-                  <option value="high">High Priority</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
                 </select>
                 
                 <input
                   type="date"
                   value={newTask.dueDate}
                   onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 lg:gap-3">
                 <select
                   value={newTask.projectId}
                   onChange={(e) => setNewTask({ ...newTask, projectId: e.target.value })}
-                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
                 >
                   <option value="">No Project</option>
                   {projects.map(p => (
@@ -490,7 +493,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                 <select
                   value={newTask.assignee}
                   onChange={(e) => setNewTask({ ...newTask, assignee: e.target.value as Task['assignee'] })}
-                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
                 >
                   <option value="">Unassigned</option>
                   <option value="Oleg">Oleg</option>
@@ -502,13 +505,13 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                 value={newTask.tags}
                 onChange={(e) => setNewTask({ ...newTask, tags: e.target.value })}
                 placeholder="Tags (comma separated)"
-                className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-sm text-white focus:border-primary focus:outline-none"
               />
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-2 sticky bottom-0 bg-surface pb-2 lg:pb-0 lg:static">
                 <button
                   type="button"
                   onClick={() => { setShowForm(false); setEditingTask(null); }}
-                  className="flex-1 rounded-xl border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
+                  className="flex-1 rounded-xl border border-surface-hover py-2.5 text-gray-400 hover:bg-surface-hover touch-feedback"
                 >
                   Cancel
                 </button>
@@ -516,9 +519,9 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                   type="submit"
                   isLoading={isSubmitting}
                   loadingText={editingTask ? 'Saving...' : 'Adding...'}
-                  className="flex-1 rounded-xl bg-primary py-2 font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-primary py-2.5 font-medium text-white hover:bg-primary-hover disabled:opacity-50 touch-feedback"
                 >
-                  {editingTask ? 'Save Changes' : 'Add Task'}
+                  {editingTask ? 'Save' : 'Add'}
                 </LoadingButton>
               </div>
             </form>
