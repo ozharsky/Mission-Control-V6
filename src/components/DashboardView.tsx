@@ -6,6 +6,7 @@ import {
   Activity, Award, BarChart3, Plus, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
+import { SkeletonCard } from "./Loading";
 import { RevenueMiniChart } from './RevenueMiniChart';
 import type { Task, Project, Job, InventoryItem, Printer } from '../types';
 
@@ -208,8 +209,9 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({ onNavigate }: DashboardViewProps) {
-  const { tasks, projects, jobs, inventory, printers, revenue } = useAppStore();
+  const { tasks, projects, jobs, inventory, printers, revenue, _isSubscribed } = useAppStore();
   const [printersExpanded, setPrintersExpanded] = useState(true);
+  const isLoading = !_isSubscribed;
 
   const stats = useMemo(() => {
     const activeTasks = tasks.pending.length + tasks.inProgress.length;
@@ -292,80 +294,89 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* Main Stats Grid - Compact cards */}
-      <div className="grid grid-cols-2 gap-2 md:gap-3">
-        {/* Tasks */}
-        <button
-          onClick={() => onNavigate('tasks')}
-          className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Target className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-2 md:gap-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 md:gap-3">
+          {/* Tasks */}
+          <button
+            onClick={() => onNavigate('tasks')}
+            className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Target className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+              </div>
+              {stats.tasks.overdue > 0 && (
+                <span className="rounded-full bg-danger/10 px-1.5 py-0.5 text-xs text-danger">{stats.tasks.overdue}</span>
+              )}
             </div>
-            {stats.tasks.overdue > 0 && (
-              <span className="rounded-full bg-danger/10 px-1.5 py-0.5 text-xs text-danger">{stats.tasks.overdue}</span>
-            )}
-          </div>
-          <div className="mt-2">
-            <div className="text-xl md:text-2xl font-bold">{stats.tasks.active}</div>
-            <div className="text-xs text-gray-400">Active Tasks</div>
-          </div>
-          <div className="mt-1.5 h-1 md:h-1.5 overflow-hidden rounded-full bg-surface-hover">
-            <div className="h-full bg-primary transition-all" style={{ width: `${stats.tasks.completion}%` }} />
-          </div>
-          <div className="mt-1 text-xs text-gray-500">{stats.tasks.completion}%</div>
-        </button>
-
-        {/* Projects */}
-        <button
-          onClick={() => onNavigate('projects')}
-          className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
-        >
-          <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-blue-500/10">
-            <Briefcase className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
-          </div>
-          <div className="mt-2">
-            <div className="text-xl md:text-2xl font-bold">{stats.projects.active}</div>
-            <div className="text-xs text-gray-400">Active Proj</div>
-          </div>
-          <div className="mt-2 text-xs text-gray-500">{stats.projects.completed} done</div>
-        </button>
-
-        {/* Revenue */}
-        <button
-          onClick={() => onNavigate('revenue')}
-          className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
-        >
-          <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-success/10">
-            <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-success" />
-          </div>
-          <div className="mt-2">
-            <div className="text-xl md:text-2xl font-bold">${(stats.revenue.total / 1000).toFixed(1)}k</div>
-            <div className="text-xs text-gray-400">Revenue</div>
-          </div>
-          <div className="mt-2 text-xs text-gray-500">{stats.revenue.orders} orders</div>
-        </button>
-
-        {/* Inventory */}
-        <button
-          onClick={() => onNavigate('inventory')}
-          className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-warning/10">
-              <Package className="h-4 w-4 md:h-5 md:w-5 text-warning" />
+            <div className="mt-2">
+              <div className="text-xl md:text-2xl font-bold">{stats.tasks.active}</div>
+              <div className="text-xs text-gray-400">Active Tasks</div>
             </div>
-            {stats.inventory.lowStock > 0 && (
-              <span className="rounded-full bg-danger/10 px-1.5 py-0.5 text-xs text-danger">{stats.inventory.lowStock}</span>
-            )}
-          </div>
-          <div className="mt-2">
-            <div className="text-xl md:text-2xl font-bold">${(stats.inventory.value / 1000).toFixed(1)}k</div>
-            <div className="text-xs text-gray-400">Inventory</div>
-          </div>
-          <div className="mt-2 text-xs text-gray-500">{stats.inventory.total} items</div>
-        </button>
-      </div>
+            <div className="mt-1.5 h-1 md:h-1.5 overflow-hidden rounded-full bg-surface-hover">
+              <div className="h-full bg-primary transition-all" style={{ width: `${stats.tasks.completion}%` }} />
+            </div>
+            <div className="mt-1 text-xs text-gray-500">{stats.tasks.completion}%</div>
+          </button>
+
+          {/* Projects */}
+          <button
+            onClick={() => onNavigate('projects')}
+            className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
+          >
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-blue-500/10">
+              <Briefcase className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
+            </div>
+            <div className="mt-2">
+              <div className="text-xl md:text-2xl font-bold">{stats.projects.active}</div>
+              <div className="text-xs text-gray-400">Active Proj</div>
+            </div>
+            <div className="mt-2 text-xs text-gray-500">{stats.projects.completed} done</div>
+          </button>
+
+          {/* Revenue */}
+          <button
+            onClick={() => onNavigate('revenue')}
+            className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
+          >
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-success/10">
+              <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-success" />
+            </div>
+            <div className="mt-2">
+              <div className="text-xl md:text-2xl font-bold">${(stats.revenue.total / 1000).toFixed(1)}k</div>
+              <div className="text-xs text-gray-400">Revenue</div>
+            </div>
+            <div className="mt-2 text-xs text-gray-500">{stats.revenue.orders} orders</div>
+          </button>
+
+          {/* Inventory */}
+          <button
+            onClick={() => onNavigate('inventory')}
+            className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-warning/10">
+                <Package className="h-4 w-4 md:h-5 md:w-5 text-warning" />
+              </div>
+              {stats.inventory.lowStock > 0 && (
+                <span className="rounded-full bg-danger/10 px-1.5 py-0.5 text-xs text-danger">{stats.inventory.lowStock}</span>
+              )}
+            </div>
+            <div className="mt-2">
+              <div className="text-xl md:text-2xl font-bold">${(stats.inventory.value / 1000).toFixed(1)}k</div>
+              <div className="text-xs text-gray-400">Inventory</div>
+            </div>
+            <div className="mt-2 text-xs text-gray-500">{stats.inventory.total} items</div>
+          </button>
+        </div>
+      )}
 
       {/* Printers - Collapsible on mobile */}
       <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
