@@ -301,7 +301,6 @@ export class AgentTaskService {
     const channelId = AGENT_CHANNELS[agentId];
     
     if (!channelId) {
-      console.error(`No channel configured for agent: ${agentId}`);
       return;
     }
 
@@ -321,7 +320,6 @@ export class AgentTaskService {
     };
 
     await set(ref(this.db, `v6/discordNotifications/${notification.id}`), notification);
-    console.log(`[NOTIFY QUEUED] ${agentId}: ${task.title}`);
   }
 
   async linkDiscordThread(taskId: string, threadId: string, channelId: string): Promise<void> {

@@ -75,7 +75,6 @@ export const NewWorkflowModal: React.FC<NewWorkflowModalProps> = ({
     } catch (err: any) {
       const errorMessage = err?.message || 'Unknown error';
       setError(`Failed to create workflow: ${errorMessage}`);
-      console.error('Workflow creation error:', err);
     } finally {
       setIsCreating(false);
     }

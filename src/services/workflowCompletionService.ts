@@ -47,7 +47,6 @@ export class WorkflowCompletionService {
       const workflow = workflowSnap.val() as AgentWorkflow | null;
 
       if (!workflow) {
-        console.error(`Workflow ${workflowId} not found`);
         return null;
       }
 
@@ -108,10 +107,8 @@ export class WorkflowCompletionService {
       const docRef = ref(this.db, `${this.documentPath}/${document.id}`);
       await set(docRef, document);
 
-      console.log(`[COMPILE] Document ${document.id} created for workflow ${workflowId}`);
       return document;
     } catch (error) {
-      console.error('[COMPILE] Error compiling document:', error);
       throw error;
     }
   }

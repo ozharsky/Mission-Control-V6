@@ -27,7 +27,6 @@ export function DataMigration({ onClose }: DataMigrationProps) {
       setMigrationResult(result);
       setMigrationStatus('success');
     } catch (err) {
-      console.error('Migration failed:', err);
       setMigrationStatus('error');
     }
     setIsMigrating(false);

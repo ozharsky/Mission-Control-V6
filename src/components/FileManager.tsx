@@ -263,7 +263,6 @@ export function FileManager({ projectId }: FileManagerProps) {
         
         setUploadProgress(((i + 1) / fileList.length) * 100);
       } catch (error: any) {
-        console.error('Upload failed:', error);
         const errorMessage = error?.message || 'Unknown error';
         alert(`Failed to upload ${file.name}: ${errorMessage}`);
       }
@@ -280,7 +279,6 @@ export function FileManager({ projectId }: FileManagerProps) {
       await fileStorage.deleteFile(file.storagePath);
       await setData(`v6/files/${file.id}`, null);
     } catch (error) {
-      console.error('Delete failed:', error);
       alert('Failed to delete file');
     }
   };

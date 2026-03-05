@@ -61,7 +61,6 @@ class SimplyPrintAPI {
       const data = await this.request('get_printers');
       return data.printers || data.data || [];
     } catch (error) {
-      console.error('Failed to fetch printers:', error);
       return [];
     }
   }
@@ -71,7 +70,6 @@ class SimplyPrintAPI {
       const data = await this.request('get_printer', { printer_id: printerId });
       return data.printer || data.data || null;
     } catch (error) {
-      console.error(`Failed to fetch printer ${printerId} status:`, error);
       return null;
     }
   }
@@ -81,7 +79,6 @@ class SimplyPrintAPI {
       await this.request('start_print', { printer_id: printerId, file_id: fileId });
       return true;
     } catch (error) {
-      console.error('Failed to start print:', error);
       return false;
     }
   }
@@ -91,7 +88,6 @@ class SimplyPrintAPI {
       await this.request('pause_print', { printer_id: printerId });
       return true;
     } catch (error) {
-      console.error('Failed to pause print:', error);
       return false;
     }
   }
@@ -101,7 +97,6 @@ class SimplyPrintAPI {
       await this.request('cancel_print', { printer_id: printerId });
       return true;
     } catch (error) {
-      console.error('Failed to cancel print:', error);
       return false;
     }
   }
@@ -111,7 +106,6 @@ class SimplyPrintAPI {
       const data = await this.request('get_files', { printer_id: printerId });
       return data.files || data.data || [];
     } catch (error) {
-      console.error('Failed to fetch files:', error);
       return [];
     }
   }

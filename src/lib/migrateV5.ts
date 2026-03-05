@@ -9,7 +9,6 @@ import { setData, pushData } from './firebase';
  * V6: Flat array with status field
  */
 export async function migrateV5Projects(v5Projects: any) {
-  console.log('Migrating V5 projects...');
   
   const allProjects: any[] = [];
   
@@ -54,7 +53,6 @@ export async function migrateV5Projects(v5Projects: any) {
     }
   }
   
-  console.log(`Migrated ${allProjects.length} projects`);
   return allProjects;
 }
 
@@ -64,10 +62,8 @@ export async function migrateV5Projects(v5Projects: any) {
  * V6: Organized by status in Firebase
  */
 export async function migrateV5Priorities(v5Priorities: any[]) {
-  console.log('Migrating V5 priorities...');
   
   if (!Array.isArray(v5Priorities)) {
-    console.error('v5Priorities must be an array');
     return [];
   }
   
@@ -107,7 +103,6 @@ export async function migrateV5Priorities(v5Priorities: any[]) {
     migratedTasks.push({ id: newRef.key, ...v6Task });
   }
   
-  console.log(`Migrated ${migratedTasks.length} priorities as tasks`);
   return migratedTasks;
 }
 
@@ -121,7 +116,6 @@ export async function migrateV5ToV6(v5Data: {
   events?: any[];
   notes?: any[];
 }) {
-  console.log('Starting V5 to V6 migration...');
   
   const results: Record<string, any> = {};
   
@@ -171,7 +165,6 @@ export async function migrateV5ToV6(v5Data: {
     results.notes = v5Data.notes.length;
   }
   
-  console.log('Migration complete!', results);
   return results;
 }
 
@@ -190,7 +183,6 @@ export function exportV5FromLocalStorage() {
   if (priorities) v5Data.priorities = JSON.parse(priorities);
   if (revenue) v5Data.revenueHistory = JSON.parse(revenue);
   
-  console.log('V5 data from localStorage:', v5Data);
   return v5Data;
 }
 

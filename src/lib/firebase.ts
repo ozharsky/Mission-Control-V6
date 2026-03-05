@@ -22,17 +22,14 @@ export function initFirebase() {
   const config = getFirebaseConfig();
   
   if (!config.databaseURL) {
-    console.log('⚠️ Firebase not configured - set credentials in Settings');
     return null;
   }
   
   try {
     app = initializeApp(config);
     db = getDatabase(app);
-    console.log('✅ Firebase initialized');
     return { app, db };
   } catch (error) {
-    console.error('❌ Firebase initialization failed:', error);
     return null;
   }
 }
@@ -49,7 +46,6 @@ export { db, app };
 // Helper functions
 export const subscribeToData = (path: string, callback: (data: any) => void) => {
   if (!db) {
-    console.warn('Firebase not initialized');
     return () => {};
   }
   const dataRef = ref(db, path);

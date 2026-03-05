@@ -21,7 +21,6 @@ export const AgentDocuments: React.FC<AgentDocumentsProps> = ({ firebaseDb }) =>
       const data = await service.listDocuments();
       setDocuments(data);
     } catch (err) {
-      console.error('Failed to load documents:', err);
     } finally {
       setLoading(false);
     }
@@ -46,7 +45,6 @@ export const AgentDocuments: React.FC<AgentDocumentsProps> = ({ firebaseDb }) =>
       if (selectedDoc?.id === docId) setSelectedDoc(null);
     } catch (err) {
       alert('Failed to delete document');
-      console.error(err);
     } finally {
       setDeleting(null);
     }

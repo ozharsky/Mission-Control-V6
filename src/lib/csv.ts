@@ -82,16 +82,12 @@ function parseEtsyDate(dateStr: string): Date | null {
 
 export function parseEtsyCSV(csvText: string): EtsyOrder[] {
   const rows = parseCSV(csvText);
-  console.log('Parsed CSV rows:', rows.length);
   
   if (rows.length === 0) {
-    console.log('No rows found in CSV');
     return [];
   }
 
   // Log first row to see column names
-  console.log('First row columns:', Object.keys(rows[0]));
-  console.log('First row sample:', rows[0]);
 
   const results: EtsyOrder[] = [];
 
@@ -100,13 +96,11 @@ export function parseEtsyCSV(csvText: string): EtsyOrder[] {
     const dateStr = row['Sale Date'] || row['Date'] || row['date'] || row['SaleDate'];
     
     if (!dateStr) {
-      console.log(`Row ${idx}: No date found`, row);
       return;
     }
 
     const date = parseEtsyDate(dateStr);
     if (!date) {
-      console.log(`Row ${idx}: Could not parse date: ${dateStr}`);
       return;
     }
 
@@ -141,7 +135,6 @@ export function parseEtsyCSV(csvText: string): EtsyOrder[] {
     });
   });
 
-  console.log('Successfully parsed orders:', results.length);
   return results;
 }
 

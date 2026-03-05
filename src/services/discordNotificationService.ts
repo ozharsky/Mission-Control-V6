@@ -56,7 +56,6 @@ export class DiscordNotificationService {
     const channelId = AGENT_CHANNELS[task.assignee];
     const agentDiscordId = AGENT_DISCORD_IDS[task.assignee];
     if (!channelId) {
-      console.error(`No channel configured for agent: ${task.assignee}`);
       return;
     }
 
@@ -92,11 +91,9 @@ export class DiscordNotificationService {
       });
       
       if (response.ok) {
-        console.log(`[DISCORD SENT] ${task.assignee}: ${task.title}`);
         return;
       }
     } catch (error) {
-      console.log('[WEBHOOK] Server unavailable, falling back to queue');
     }
     
     // Fallback: queue to Firebase
@@ -144,10 +141,7 @@ export class DiscordNotificationService {
 
     try {
       await set(ref(this.db, `v6/discordNotifications/${notification.id}`), notification);
-      console.log(`[DISCORD QUEUED → ${channelId}]: ${message.substring(0, 100)}...`);
     } catch (error) {
-      console.error('Failed to queue Discord notification:', error);
-      console.log(`[DISCORD FAILED → ${channelId}]: ${message}`);
     }
   }
 

@@ -100,7 +100,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateTask: async (id, updates) => {
     if (!id) {
-      console.error('updateTask: id is required');
       return;
     }
     const { tasks } = get();
@@ -113,13 +112,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (path && id) {
       await updateData(path, updates);
     } else {
-      console.error('Task not found for update:', id);
     }
   },
 
   moveTask: async (id, fromStatus, toStatus) => {
     if (!id) {
-      console.error('moveTask: id is required');
       return;
     }
     const { tasks } = get();
@@ -140,7 +137,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     if (!task) {
-      console.error('Task not found for move:', id);
       return;
     }
 
@@ -158,7 +154,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteTask: async (id, status) => {
     if (!id) {
-      console.error('deleteTask: id is required');
       return;
     }
     try {
@@ -183,7 +178,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addProject: async (project) => {
     if (!project?.name) {
-      console.error('addProject: project name is required');
       return;
     }
     try {
@@ -210,7 +204,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateProject: async (id, updates) => {
     if (!id) {
-      console.error('updateProject: id is required');
       return;
     }
     await updateData(`v6/data/projects/${id}`, updates);
@@ -218,7 +211,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteProject: async (id) => {
     if (!id) {
-      console.error('deleteProject: id is required');
       return;
     }
     try {
@@ -240,11 +232,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addProjectTask: async (projectId, task) => {
     if (!projectId) {
-      console.error('addProjectTask: projectId is required');
       return;
     }
     if (!task?.title) {
-      console.error('addProjectTask: task title is required');
       return;
     }
     const { projects } = get();
@@ -257,13 +247,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         tasksTotal: updatedTasks.length,
       });
     } else {
-      console.error('Project not found:', projectId);
     }
   },
 
   toggleProjectTask: async (projectId, taskId) => {
     if (!projectId || !taskId) {
-      console.error('toggleProjectTask: projectId and taskId are required');
       return;
     }
     const { projects } = get();
@@ -282,13 +270,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         status: progress === 100 ? 'completed' : project.status,
       });
     } else {
-      console.error('Project or tasks not found:', projectId);
     }
   },
 
   markNotificationRead: async (id) => {
     if (!id) {
-      console.error('markNotificationRead: id is required');
       return;
     }
     await updateData(`v6/notifications/${id}`, { read: true });
@@ -299,7 +285,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     // Prevent double subscription
     if (_isSubscribed) {
-      console.log('Subscriptions already initialized');
       return;
     }
 
@@ -441,7 +426,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Store unsubscribers
     unsubscribers = newUnsubscribers;
     set({ _isSubscribed: true });
-    console.log('Firebase subscriptions initialized');
   },
 
   cleanupSubscriptions: () => {
@@ -449,17 +433,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       try {
         unsub();
       } catch (e) {
-        console.error('Error unsubscribing:', e);
       }
     });
     unsubscribers = [];
     set({ _isSubscribed: false });
-    console.log('Firebase subscriptions cleaned up');
   },
 
   addJob: async (job) => {
     if (!job?.title) {
-      console.error('addJob: job title is required');
       return;
     }
     try {
@@ -489,7 +470,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateJob: async (id, updates) => {
     if (!id) {
-      console.error('updateJob: id is required');
       return;
     }
     await updateData(`v6/jobs/${id}`, updates);
@@ -497,7 +477,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteJob: async (id) => {
     if (!id) {
-      console.error('deleteJob: id is required');
       return;
     }
     try {
@@ -519,7 +498,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addInventoryItem: async (item) => {
     if (!item?.name) {
-      console.error('addInventoryItem: item name is required');
       return;
     }
     try {
@@ -548,7 +526,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateInventoryItem: async (id, updates) => {
     if (!id) {
-      console.error('updateInventoryItem: id is required');
       return;
     }
     await updateData(`v6/inventory/${id}`, {
@@ -559,7 +536,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteInventoryItem: async (id) => {
     if (!id) {
-      console.error('deleteInventoryItem: id is required');
       return;
     }
     try {
@@ -581,7 +557,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addInventoryTransaction: async (transaction) => {
     if (!transaction?.itemId) {
-      console.error('addInventoryTransaction: itemId is required');
       return;
     }
     await pushData('v6/inventory/transactions', transaction);
@@ -589,7 +564,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   generateReport: async (config) => {
     if (!config?.sections || !Array.isArray(config.sections)) {
-      console.error('generateReport: config.sections array is required');
       return;
     }
     // Get current state from get() provided by Zustand
@@ -805,7 +779,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteReport: async (id) => {
     if (!id) {
-      console.error('deleteReport: id is required');
       return;
     }
     await setData(`v6/reports/${id}`, null);
@@ -813,7 +786,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addReportSchedule: async (schedule) => {
     if (!schedule) {
-      console.error('addReportSchedule: schedule is required');
       return;
     }
     await pushData('v6/reportSchedules', schedule);
@@ -821,7 +793,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateReportSchedule: async (id, updates) => {
     if (!id) {
-      console.error('updateReportSchedule: id is required');
       return;
     }
     await updateData(`v6/reportSchedules/${id}`, updates);
@@ -829,7 +800,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteReportSchedule: async (id) => {
     if (!id) {
-      console.error('deleteReportSchedule: id is required');
       return;
     }
     await setData(`v6/reportSchedules/${id}`, null);

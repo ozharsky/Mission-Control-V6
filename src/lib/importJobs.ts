@@ -65,16 +65,12 @@ const jobsToImport = [
 ];
 
 export async function importJobs() {
-  console.log('Importing jobs...');
   for (const job of jobsToImport) {
     try {
       await pushData('v6/jobs', job);
-      console.log('✅ Added:', job.title);
     } catch (err) {
-      console.error('❌ Failed:', job.title, err);
     }
   }
-  console.log('Done! Refresh to see jobs.');
   alert('Jobs imported! Refresh the page to see them.');
 }
 

@@ -249,7 +249,6 @@ export class AgentTaskService {
 
     const workflow = await this.getWorkflow(task.workflowId);
     if (!workflow) {
-      console.error(`Workflow ${task.workflowId} not found`);
       return { ...task, output };
     }
 
@@ -270,10 +269,8 @@ export class AgentTaskService {
         if (nextTask) {
           const previousOutput = typeof output === 'string' ? output : output?.result;
           await this.discord.notifyAgentOfTask(nextTask, previousOutput);
-          console.log(`[WORKFLOW] Notified ${nextTask.assignee} of new task`);
         }
       } catch (error) {
-        console.error('[WORKFLOW] Error advancing workflow:', error);
         throw error;
       }
     } else {
@@ -283,7 +280,6 @@ export class AgentTaskService {
         output,
         currentTaskId: null
       });
-      console.log(`[WORKFLOW] Workflow ${workflow.id} completed`);
       
       // Compile and save final document
       try {
@@ -291,10 +287,8 @@ export class AgentTaskService {
         const completionService = new WorkflowCompletionService(this.db);
         const document = await completionService.compileWorkflowDocument(workflow.id);
         if (document) {
-          console.log(`[WORKFLOW] Final document compiled: ${document.id}`);
         }
       } catch (compileError) {
-        console.error('[WORKFLOW] Failed to compile final document:', compileError);
       }
     }
 
@@ -323,9 +317,7 @@ export class AgentTaskService {
 
       // Delete the workflow
       await remove(workflowRef);
-      console.log(`[DELETE] Workflow ${workflowId} and ${workflow?.tasks?.length || 0} tasks deleted`);
     } catch (error) {
-      console.error('[DELETE] Error deleting workflow:', error);
       throw error;
     }
   }
@@ -337,9 +329,7 @@ export class AgentTaskService {
     try {
       const taskRef = ref(this.db, `${this.taskPath}/${taskId}`);
       await remove(taskRef);
-      console.log(`[DELETE] Task ${taskId} deleted`);
     } catch (error) {
-      console.error('[DELETE] Error deleting task:', error);
       throw error;
     }
   }

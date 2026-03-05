@@ -60,7 +60,6 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
       setError(null);
     } catch (err) {
       setError('Failed to load tasks');
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -71,7 +70,6 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
       const data = await service.listAgentWorkflows();
       setWorkflows(data.sort((a, b) => b.createdAt - a.createdAt));
     } catch (err) {
-      console.error('Failed to load workflows:', err);
     }
   }, [firebaseDb]);
 
@@ -106,7 +104,6 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
       await loadTasks();
     } catch (err) {
       alert('Failed to delete workflow');
-      console.error(err);
     } finally {
       setDeletingWorkflow(null);
     }

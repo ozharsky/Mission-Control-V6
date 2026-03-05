@@ -62,7 +62,6 @@ function App() {
         const api = getSimplyPrint();
         if (api) {
           const printerList = await api.getPrinters();
-          console.log('Raw printer data:', printerList);
 
           // The proxy already returns data in the correct format
           const transformed = printerList.map((printer: any) => {

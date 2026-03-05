@@ -74,7 +74,6 @@ class FileStorage {
 
       return fileItem;
     } catch (error) {
-      console.error('Upload failed:', error);
       throw error;
     }
   }
@@ -88,7 +87,6 @@ class FileStorage {
       const fileRef = ref(this.storage, storagePath);
       await deleteObject(fileRef);
     } catch (error) {
-      console.error('Delete failed:', error);
       throw error;
     }
   }
@@ -121,7 +119,6 @@ class FileStorage {
 
       return files;
     } catch (error) {
-      console.error('List files failed:', error);
       return [];
     }
   }
