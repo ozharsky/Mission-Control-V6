@@ -227,23 +227,22 @@ export function TradesView() {
           return price >= 1 && price <= 25 && volume > 100; // Cheap + liquid
         });
         
-        // Calculate R-Score for each and filter to decent trades (R-Score >= 0.5)
-        // Using realistic probability estimates
-        const plusEVMarkets = filteredMarkets.map((m: any) => {
+        // Calculate R-Score for each for sorting and display
+        // Show ALL trades, just sort by R-Score
+        const marketsWithRScore = filteredMarkets.map((m: any) => {
           const price = m.yes_ask || m.yes_price || m.last_price || 50;
-          // Realistic probability estimate (price * 2 for potential edge)
           const estimatedProb = Math.min(price * 2, 95) / 100;
           const marketPrice = price / 100;
           const variance = estimatedProb * (1 - estimatedProb);
           const rScore = variance > 0 ? (estimatedProb - marketPrice) / Math.sqrt(variance) : 0;
           return { ...m, calculatedRScore: rScore };
-        }).filter((m: any) => m.calculatedRScore >= 0.5); // Lower threshold to show more trades
+        });
         
         // Sort by R-Score (best opportunities first)
-        plusEVMarkets.sort((a: any, b: any) => b.calculatedRScore - a.calculatedRScore);
+        marketsWithRScore.sort((a: any, b: any) => b.calculatedRScore - a.calculatedRScore);
         
-        // Take top 20 +EV trades only
-        const topTrades = plusEVMarkets.slice(0, 20);
+        // Take top 30 trades (show all, sorted by R-Score)
+        const topTrades = marketsWithRScore.slice(0, 30);
         
         // Process the +EV trades
         const processedTrades: KalshiTrade[] = topTrades.map((m: any, idx: number) => {
