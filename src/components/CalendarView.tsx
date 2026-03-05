@@ -40,6 +40,9 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<string | 'all'>('all');
   const [isMobile, setIsMobile] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickAddTitle, setQuickAddTitle] = useState('');
+  const [quickAddType, setQuickAddType] = useState<CalendarEvent['type']>('meeting');
 
   // Detect mobile on mount
   useEffect(() => {
@@ -409,12 +412,66 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
 
       {/* Floating Add Button - Mobile Only */}
       <button
-        onClick={() => setSelectedDate(new Date())}
+        onClick={() => setShowQuickAdd(true)}
         className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30 transition-transform hover:scale-110 active:scale-95 lg:hidden touch-feedback"
         aria-label="Add event"
       >
         <Plus className="h-5 w-5" />
       </button>
+
+      {/* Quick Add Modal */}
+      {showQuickAdd && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 lg:items-center lg:p-4" onClick={() => setShowQuickAdd(false)}>
+          <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl border border-surface-hover bg-surface p-4" onClick={e => e.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-surface-hover lg:hidden" />
+            
+            <h3 className="mb-4 text-lg font-bold">Quick Add Event</h3>
+            
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={quickAddTitle}
+                onChange={(e) => setQuickAddTitle(e.target.value)}
+                placeholder="Event title"
+                className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                autoFocus
+              />
+              
+              <select
+                value={quickAddType}
+                onChange={(e) => setQuickAddType(e.target.value as CalendarEvent['type'])}
+                className="w-full rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+              >
+                {Object.keys(EVENT_COLORS).map((type) => (
+                  <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
+                ))}
+              </select>
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowQuickAdd(false)}
+                  className="flex-1 rounded-xl border border-surface-hover py-2.5 text-gray-400 hover:bg-surface-hover touch-feedback"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (quickAddTitle.trim()) {
+                      // Here you would add the event to your data source
+                      console.log('Adding event:', { title: quickAddTitle, type: quickAddType, date: new Date().toISOString() });
+                      setQuickAddTitle('');
+                      setShowQuickAdd(false);
+                    }
+                  }}
+                  className="flex-1 rounded-xl bg-primary py-2.5 font-medium text-white hover:bg-primary-hover touch-feedback"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
