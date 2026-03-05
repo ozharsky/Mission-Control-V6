@@ -161,63 +161,23 @@ export function TradesView() {
     try {
       const KALSHI_PROXY_URL = 'https://mission-control-v6-kappa.vercel.app/api/kalshi';
       
-      // Fetch specific series: crypto, weather, government, finance, companies, economics, science, world, politics
-      // NOTE: Many series exist but have no active markets currently (markets settled)
+      // Fetch ONLY series with active markets (reduced to prevent 500 errors)
       const seriesToFetch = [
-        // Weather (5) - These have active markets
+        // Weather (5) - Active markets
         { series: 'KXHIGHTSEA', category: 'weather', name: 'Seattle Weather' },
         { series: 'KXHIGHNY', category: 'weather', name: 'NYC Weather' },
         { series: 'KXHIGHCHI', category: 'weather', name: 'Chicago Weather' },
         { series: 'KXHIGHMIA', category: 'weather', name: 'Miami Weather' },
         { series: 'KXHIGHTPHX', category: 'weather', name: 'Phoenix Weather' },
-        // Crypto (5) - These exist but may not have cheap liquid markets
+        // Crypto (3) - Major coins only
         { series: 'KXBTC', category: 'crypto', name: 'Bitcoin' },
         { series: 'KXETH', category: 'crypto', name: 'Ethereum' },
         { series: 'KXSOL', category: 'crypto', name: 'Solana' },
-        { series: 'KXADA', category: 'crypto', name: 'Cardano' },
-        { series: 'KXDOT', category: 'crypto', name: 'Polkadot' },
-        // Companies (5) - Tech stocks, acquisitions
-        { series: 'TESLAROADSTER', category: 'companies', name: 'Tesla Roadster' },
-        { series: 'KXTIKTOKSELL', category: 'companies', name: 'TikTok Sale' },
-        { series: 'KXDANAWHITEFB', category: 'companies', name: 'Dana White Meta' },
-        { series: 'KXACQUIREMANU', category: 'companies', name: 'ManU Acquisition' },
-        { series: 'KXSTOCKXTEST', category: 'companies', name: 'StockX' },
-        // Economics (5) - Fed, inflation, jobs
-        { series: 'KXRATECUTE', category: 'economics', name: 'Fed Rate Cut' },
-        { series: 'KXLCPIMIN', category: 'economics', name: 'High Inflation Ends' },
-        { series: 'NGASMAX', category: 'economics', name: 'Natural Gas Price' },
-        { series: 'SPRMAX', category: 'economics', name: 'SPR Release' },
-        { series: 'KXDIESELM', category: 'economics', name: 'Diesel Price' },
-        // Science & Technology (5) - SpaceX, AI, rockets
-        { series: 'KXCHOPSTICKS', category: 'science', name: 'SpaceX Chopsticks' },
-        { series: 'KXCOLONIZEMARS', category: 'science', name: 'Colonize Mars' },
-        { series: 'KXELONMARS', category: 'science', name: 'Elon Mars' },
-        { series: 'KXNEUTRONORBIT', category: 'science', name: 'Neutron Rocket' },
-        { series: 'KXALTMAN', category: 'science', name: 'Sam Altman Company' },
-        // World (5) - International events
-        { series: 'KXGDPCN', category: 'world', name: 'China GDP' },
-        { series: 'MAERSK', category: 'world', name: 'Maersk Red Sea' },
-        { series: 'VONCUK', category: 'world', name: 'UK Vote of No Confidence' },
-        { series: 'PMLA', category: 'world', name: 'LA Pollution' },
-        { series: 'KXCTCS', category: 'world', name: 'Child Tax Credit' },
-        // Politics (5) - Trump Truth Social, etc
+        // Politics/Economics (4) - Active markets
         { series: 'KXTRUTHSOCIAL', category: 'politics', name: 'Trump Truth Social' },
         { series: 'KXFED', category: 'economics', name: 'Fed Rate' },
         { series: 'KXGDP', category: 'economics', name: 'GDP Growth' },
         { series: 'KXCPI', category: 'economics', name: 'CPI Inflation' },
-        { series: 'KXJAN6PARDONDAY1', category: 'politics', name: 'Jan 6 Pardons' },
-        // Government (5) - Series exist but NO ACTIVE MARKETS currently
-        { series: 'KXBIDENMENTION', category: 'government', name: 'Biden Speech' },
-        { series: 'KXBILL', category: 'government', name: 'Bill Becomes Law' },
-        { series: 'KXASSOCAG', category: 'government', name: 'Associate AG' },
-        { series: 'KXFEDCHAIRCONFIRMED', category: 'government', name: 'Fed Chair Confirm' },
-        { series: 'KXADMINNASA', category: 'government', name: 'NASA Admin' },
-        // Finance (5) - Series exist but NO ACTIVE MARKETS currently
-        { series: 'KXIPO', category: 'finance', name: 'IPOs' },
-        { series: 'KXFREDDIE', category: 'finance', name: 'Freddie Mac IPO' },
-        { series: 'KXACQUIRECOINBASE', category: 'finance', name: 'Coinbase Acquisition' },
-        { series: 'KXIPOANDURIL', category: 'finance', name: 'Anduril IPO' },
-        { series: 'KXIPOAIRTABLE', category: 'finance', name: 'AirTable IPO' },
       ];
       
       let allMarkets: any[] = [];
