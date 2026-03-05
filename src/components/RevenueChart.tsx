@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   TrendingUp, TrendingDown, DollarSign, ShoppingCart, Calendar, 
   BarChart3, Table, Plus, X, Upload, Download, FileText, 
@@ -100,6 +100,15 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
     value: '',
     orders: '',
   });
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   const [importPreview, setImportPreview] = useState<{ month: string; value: number; orders: number }[] | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -328,8 +337,32 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         </div>
       )}
 
-      {/* Main Chart Card */}
-      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
+      {/* Mobile Summary View */}
+      {isMobile && viewMode === 'chart' && filteredData.length > 0 && (
+        <div className="rounded-xl border border-surface-hover bg-surface p-4 lg:hidden">
+          <h3 className="mb-3 font-semibold">Recent Months</h3>
+          <div className="space-y-3">
+            {filteredData.slice(-6).reverse().map((item) => {
+              const isGoalMet = item.value >= goal;
+              return (
+                <div key={item.month} className="flex items-center justify-between rounded-lg bg-background p-3">
+                  <div>
+                    <div className="font-medium">{new Date(item.month + '-01').toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</div>
+                    <div className="text-xs text-gray-400">{item.orders} orders</div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`font-semibold ${isGoalMet ? 'text-success' : ''}`}>{formatCurrency(item.value)}</div>
+                    <div className={`text-xs ${isGoalMet ? 'text-success' : 'text-warning'}`}>{isGoalMet ? '✓ Goal' : 'Below'}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Main Chart Card - Hidden on mobile */}
+      <div className="hidden lg:block rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
