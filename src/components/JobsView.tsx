@@ -563,6 +563,26 @@ export function JobsView({ jobs }: JobsViewProps) {
                       </div>
 
                       <div className="space-y-4 max-w-full overflow-x-hidden">
+                        {/* Status Update */}
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400 mb-2">Application Status</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {(['new', 'applied', 'interview', 'offer', 'rejected', 'archived'] as const).map((status) => (
+                              <button
+                                key={status}
+                                onClick={() => updateJob(job.id, { status })}
+                                className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-colors touch-feedback ${
+                                  job.status === status
+                                    ? JOB_STATUS_COLORS[status]
+                                    : 'bg-surface-hover text-gray-400 hover:text-white'
+                                }`}
+                              >
+                                {JOB_STATUS_LABELS[status]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
                         <div className="flex items-center gap-2 text-sm">
                           <Calendar className="h-4 w-4 text-gray-400" />
                           <span>Posted: {new Date(job.datePosted).toLocaleDateString()}</span>
