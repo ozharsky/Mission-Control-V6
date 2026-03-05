@@ -269,6 +269,9 @@ export function TradesView() {
             let title = m.title || `${m.series_name || m.ticker} Market`;
             title = title.replace(/yes /gi, '').replace(/,yes /gi, ' + ').replace(/,no /gi, ' / ');
             
+            // Detect category from ticker prefix first (needed for subtitle check)
+            const tickerPrefix = m.ticker.split('-')[0].toUpperCase();
+            
             // Add subtitle for crypto markets (shows price range)
             if (m.subtitle && ['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
               title = `${title} - ${m.subtitle}`;
@@ -281,7 +284,6 @@ export function TradesView() {
             const urlTicker = seriesTicker;
             
             // Detect category from ticker prefix
-            const tickerPrefix = m.ticker.split('-')[0].toUpperCase();
             let detectedCategory: KalshiTrade['category'] = 'economics';
             if (['KXHIGHTSEA', 'KXHIGHNY', 'KXHIGHCHI', 'KXHIGHMIA', 'KXHIGHTPHX', 'KXRAINSEA', 'KXRAINSFO', 'KXSNOW NYC'].includes(tickerPrefix)) {
               detectedCategory = 'weather';
