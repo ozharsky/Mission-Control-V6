@@ -1,5 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Filter, CloudRain, Zap, Target, BarChart3, Activity, Shield, DollarSign, Building2, Rocket, Globe } from 'lucide-react';
+import {
+  RefreshCw, BookOpen, Filter, ChevronDown, ChevronUp,
+  X, ArrowUpRight, CloudRain, Zap, Target, BarChart3, Activity,
+  Shield, DollarSign, Building2, Rocket, Globe
+} from 'lucide-react';
 import { RESEARCHED_TRADES } from './trades-data';
 
 const CATEGORY_ICONS = {
@@ -9,9 +13,26 @@ const CATEGORY_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-  weather: '#3b82f6', crypto: '#f97316', politics: '#ef4444', economics: '#22c55e',
-  sports: '#a855f7', government: '#6366f1', finance: '#10b981', companies: '#06b6d4',
-  science: '#8b5cf6', world: '#14b8a6'
+  weather: 'bg-blue-500/20 text-blue-400',
+  crypto: 'bg-orange-500/20 text-orange-400',
+  politics: 'bg-red-500/20 text-red-400',
+  economics: 'bg-green-500/20 text-green-400',
+  sports: 'bg-purple-500/20 text-purple-400',
+  government: 'bg-indigo-500/20 text-indigo-400',
+  finance: 'bg-emerald-500/20 text-emerald-400',
+  companies: 'bg-cyan-500/20 text-cyan-400',
+  science: 'bg-violet-500/20 text-violet-400',
+  world: 'bg-teal-500/20 text-teal-400'
+};
+
+const EDUCATION_CONTENT = {
+  rScore: "R-Score measures edge vs market. >1.5 = strong +EV trade, 1.0-1.5 = decent, <1.0 = marginal.",
+  kelly: "Kelly % is the optimal position size. Bet this % of your bankroll (we use half-Kelly for safety).",
+  multiplier: "Multiplier shows payout potential. 10x means $1 bet wins $10. Higher multipliers come with lower probability.",
+  pay: "Pay is the contract price in cents. 5¢ = $0.05 per share. Lower prices = higher multipliers but lower probability.",
+  volume: "Volume shows how much is being traded. Higher = more liquid = easier to buy/sell at fair prices.",
+  confidence: "High = strong data. Medium = decent data. Low = limited data. Higher confidence = more reliable edge estimate.",
+  yesNo: "👍 BUY YES if you think the event WILL happen. 👎 Buy NO if you think it WON'T happen."
 };
 
 export function TradesView() {
@@ -30,9 +51,10 @@ export function TradesView() {
       const seriesToFetch = [
         { series: 'KXHIGHTSEA', category: 'weather' }, { series: 'KXHIGHNY', category: 'weather' },
         { series: 'KXHIGHCHI', category: 'weather' }, { series: 'KXHIGHMIA', category: 'weather' },
-        { series: 'KXBTC', category: 'crypto' }, { series: 'KXETH', category: 'crypto' },
-        { series: 'KXSOL', category: 'crypto' }, { series: 'KXTRUTHSOCIAL', category: 'politics' },
-        { series: 'KXFED', category: 'economics' }, { series: 'KXGDP', category: 'economics' },
+        { series: 'KXHIGHTPHX', category: 'weather' }, { series: 'KXBTC', category: 'crypto' },
+        { series: 'KXETH', category: 'crypto' }, { series: 'KXSOL', category: 'crypto' },
+        { series: 'KXTRUTHSOCIAL', category: 'politics' }, { series: 'KXFED', category: 'economics' },
+        { series: 'KXGDP', category: 'economics' }, { series: 'KXCPI', category: 'economics' },
       ];
       
       let allMarkets = [];
@@ -72,6 +94,13 @@ export function TradesView() {
     setIsLoading(false);
   };
 
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    fetchLiveData();
+    const interval = setInterval(fetchLiveData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const tradesWithMetrics = useMemo(() => trades.map(trade => {
     const price = trade.yesPrice;
     const trueProb = trade.research.trueProbability;
@@ -103,100 +132,240 @@ export function TradesView() {
   }), [sortedTrades]);
 
   return (
-    <div style={{ width: '100%', boxSizing: 'border-box' }}>
+    <div className="space-y-4 w-full min-w-0">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <div>
-          <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Kalshi Trades</h1>
-          <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0 0 0' }}>{lastUpdated ? '✓ Live' : 'Static'}</p>
+      <div className="flex flex-col gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold truncate">Kalshi Trades</h1>
+          <p className="text-sm text-gray-400 truncate">
+            {lastUpdated ? '✓ Live data' : 'Static data'} {lastUpdated && `• Updated ${lastUpdated.toLocaleTimeString()}`}
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <button onClick={fetchLiveData} disabled={isLoading} style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid #374151', background: '#374151', color: 'white' }}>{isLoading ? '...' : '↻'}</button>
-          <button onClick={() => setShowEducation(!showEducation)} style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid #374151', background: '#374151', color: 'white' }}>?</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button 
+            onClick={fetchLiveData} 
+            disabled={isLoading}
+            className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isLoading ? 'Updating...' : 'Refresh'}</span>
+            <span className="sm:hidden">{isLoading ? '...' : '↻'}</span>
+          </button>
+          <button 
+            onClick={() => setShowEducation(!showEducation)} 
+            className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">{showEducation ? 'Hide' : 'Learn'}</span>
+          </button>
+          <a 
+            href="https://kalshi.com" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/20 ml-auto sm:ml-0"
+          >
+            <span className="hidden sm:inline">Kalshi</span>
+            <ArrowUpRight className="h-4 w-4" />
+          </a>
         </div>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
-        <div style={{ padding: '8px', borderRadius: '8px', border: '1px solid #374151', background: '#1f2937' }}>
-          <div style={{ fontSize: '9px', color: '#9ca3af' }}>Trades</div>
-          <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{stats.total}</div>
+      {/* Education Panel */}
+      {showEducation && (
+        <div className="rounded-xl border border-surface-hover bg-surface p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="font-semibold">📚 How to Read Trade Cards</h3>
+            <button onClick={() => setShowEducation(false)} className="text-gray-400 hover:text-white"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div className="space-y-1">
+              <div className="font-medium text-gray-300">R-Score</div>
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">R:1.5+</span> 
+                <span className="text-gray-400">Strong +EV</span>
+              </div>
+              <div className="text-gray-500 mt-1 text-xs">{EDUCATION_CONTENT.rScore}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="font-medium text-gray-300">Kelly %</div>
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">K:2.5%</span> 
+                <span className="text-gray-400">Position size</span>
+              </div>
+              <div className="text-gray-500 mt-1 text-xs">{EDUCATION_CONTENT.kelly}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="font-medium text-gray-300">Pay → Multiplier</div>
+              <div className="flex items-center gap-1">
+                <span className="text-emerald-400">5¢ → 20x</span>
+              </div>
+              <div className="text-gray-500 mt-1 text-xs">{EDUCATION_CONTENT.multiplier}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="font-medium text-gray-300">Volume</div>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-400">💰 1,240 vol</span>
+              </div>
+              <div className="text-gray-500 mt-1 text-xs">{EDUCATION_CONTENT.volume}</div>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-white/5">
+            <div className="font-medium text-gray-300 mb-2">What to Do</div>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span className="flex items-center gap-1 text-gray-400">
+                <span className="text-emerald-400">👍 BUY YES</span> if you think it WILL happen
+              </span>
+              <span className="flex items-center gap-1 text-gray-400">
+                <span className="text-red-400">👎 BUY NO</span> if you think it WON'T happen
+              </span>
+            </div>
+            <p className="text-gray-500 mt-2 text-xs">{EDUCATION_CONTENT.yesNo}</p>
+          </div>
         </div>
-        <div style={{ padding: '8px', borderRadius: '8px', border: '1px solid #374151', background: '#1f2937' }}>
-          <div style={{ fontSize: '9px', color: '#9ca3af' }}>R&gt;1.5</div>
-          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#4ade80' }}>{stats.highRScoreTrades}</div>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-surface-hover bg-surface p-3">
+          <div className="text-xs text-gray-400">Trades</div>
+          <div className="text-xl font-bold">{stats.total}</div>
+        </div>
+        <div className="rounded-xl border border-surface-hover bg-surface p-3">
+          <div className="text-xs text-gray-400">Avg R-Score</div>
+          <div className={`text-xl font-bold ${parseFloat(stats.avgRScore) > 1.5 ? 'text-success' : 'text-warning'}`}>{stats.avgRScore}</div>
+        </div>
+        <div className="rounded-xl border border-surface-hover bg-surface p-3">
+          <div className="text-xs text-gray-400">+EV Trades (R&gt;1.5)</div>
+          <div className="text-xl font-bold text-success">{stats.highRScoreTrades}</div>
+        </div>
+        <div className="rounded-xl border border-surface-hover bg-surface p-3">
+          <div className="text-xs text-gray-400">Avg Mult</div>
+          <div className="text-xl font-bold text-primary">{stats.avgMultiplier || '0.0'}x</div>
         </div>
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
-        {['all', 'weather', 'crypto', 'economics', 'politics'].map(cat => {
-          const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
-          const selected = selectedCategory === cat;
-          return (
-            <button key={cat} onClick={() => setSelectedCategory(cat)} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '4px 8px', fontSize: '10px', borderRadius: '4px', border: 'none', whiteSpace: 'nowrap', background: selected ? '#3b82f6' : '#374151', color: 'white' }}>
-              <Icon size={10} /> {cat}
-            </button>
-          );
-        })}
-      </div>
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+          {(['all', 'weather', 'crypto', 'companies', 'economics', 'science', 'world', 'politics', 'government', 'finance'] as const).map(cat => {
+            const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
+            const isSelected = selectedCategory === cat;
+            return (
+              <button 
+                key={cat} 
+                onClick={() => setSelectedCategory(cat)}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm whitespace-nowrap transition-all ${
+                  isSelected 
+                    ? 'bg-primary text-white shadow-lg shadow-primary/25' 
+                    : 'border border-surface-hover hover:bg-surface-hover'
+                }`}
+              >
+                {Icon && <Icon className="h-4 w-4" />}
+                <span className="capitalize">{cat}</span>
+                {isSelected && <span className="ml-1 text-xs opacity-75">({filteredTrades.length})</span>}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Sort */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ flex: 1, padding: '4px', fontSize: '11px', borderRadius: '4px', border: '1px solid #374151', background: '#1f2937', color: 'white' }}>
-          <option value="edge">Sort: Edge</option>
-          <option value="multiplier">Sort: Mult</option>
-        </select>
-        <button onClick={() => setSortDirection(d => d === 'desc' ? 'asc' : 'desc')} style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid #374151', background: '#1f2937', color: 'white' }}>{sortDirection === 'desc' ? '↓' : '↑'}</button>
+        {/* Sort Controls */}
+        <div className="flex items-center gap-2">
+          <select 
+            value={sortBy} 
+            onChange={(e) => setSortBy(e.target.value as any)} 
+            className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm flex-1 sm:flex-none"
+          >
+            <option value="edge">Sort by Edge</option>
+            <option value="multiplier">Sort by Multiplier</option>
+          </select>
+          <button 
+            onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')} 
+            className="rounded-lg border border-surface-hover p-2 hover:bg-surface-hover"
+            title={sortDirection === 'desc' ? 'Descending' : 'Ascending'}
+          >
+            {sortDirection === 'desc' ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
 
       {/* Trade Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {sortedTrades.map(trade => {
+      <div className="grid gap-3">
+        {sortedTrades.map((trade, index) => {
           const Icon = CATEGORY_ICONS[trade.category];
+          const price = trade.yesPrice;
+          const multiplier = trade.payout.multiplier;
           const rScore = trade.rScore || 0;
-          const borderColor = rScore >= 1.5 ? '#10b981' : rScore >= 1.0 ? '#f59e0b' : '#374151';
-          const bgColor = rScore >= 1.5 ? '#10b98115' : rScore >= 1.0 ? '#f59e0b15' : '#1f2937';
+          const kelly = trade.kellyFraction || 0;
           
+          const dealColor = rScore >= 1.5 ? 'bg-emerald-500/10 border-emerald-500/50' : 
+                           rScore >= 1.0 ? 'bg-amber-500/10 border-amber-500/50' : 
+                           'bg-surface border-surface-hover';
+          
+          let recommendation = '✅ +EV Trade';
+          let recColor = 'text-emerald-400';
+
           return (
-            <div key={trade.id} style={{ padding: '10px', borderRadius: '8px', border: `2px solid ${borderColor}`, background: bgColor }}>
-              {/* Title */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ width: '24px', height: '24px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: CATEGORY_COLORS[trade.category] + '30' }}>
-                  <Icon size={14} color={CATEGORY_COLORS[trade.category]} />
+            <div key={trade.id} className={`rounded-xl border-2 p-3 sm:p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
+              {/* TOP ROW: Icon + Title + Trade Button */}
+              <div className="flex items-start gap-2 sm:gap-3">
+                <div className={`flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[trade.category]}`}>
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 500, lineHeight: 1.4 }}>{trade.title}</div>
-                  <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})} • {trade.category}</div>
+                
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-xs sm:text-sm leading-tight">{trade.title}</h3>
+                  <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-gray-400 mt-1">
+                    <span>{new Date(trade.expiration).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
+                    <span>•</span>
+                    <span className="capitalize">{trade.category}</span>
+                  </div>
                 </div>
-                <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" style={{ padding: '4px 8px', fontSize: '12px', borderRadius: '4px', background: '#3b82f6', color: 'white', textDecoration: 'none', flexShrink: 0 }}>↗</a>
+                
+                <a 
+                  href={trade.kalshiUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center gap-1 rounded-lg bg-primary px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white hover:bg-primary/90 shrink-0"
+                >
+                  <span className="hidden sm:inline">Trade</span>
+                  <ArrowUpRight className="h-3 w-3" />
+                </a>
               </div>
 
-              {/* Metrics - 2x2 Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
-                <div style={{ textAlign: 'center', padding: '6px', borderRadius: '4px', background: '#37415180' }}>
-                  <div style={{ fontSize: '9px', color: '#9ca3af' }}>Pay</div>
-                  <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{trade.yesPrice}¢</div>
+              {/* MIDDLE: Key Metrics Grid - 2x2 on mobile, 4x1 on desktop */}
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
+                  <div className="text-[10px] text-gray-400 uppercase">Pay</div>
+                  <div className="text-base sm:text-lg font-bold">{price}¢</div>
                 </div>
-                <div style={{ textAlign: 'center', padding: '6px', borderRadius: '4px', background: '#37415180' }}>
-                  <div style={{ fontSize: '9px', color: '#9ca3af' }}>Win</div>
-                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#4ade80' }}>${trade.payout.multiplier}</div>
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
+                  <div className="text-[10px] text-gray-400 uppercase">Win</div>
+                  <div className="text-base sm:text-lg font-bold text-emerald-400">${multiplier}</div>
                 </div>
-                <div style={{ textAlign: 'center', padding: '6px', borderRadius: '4px', background: rScore >= 1.5 ? '#10b98140' : '#37415180' }}>
-                  <div style={{ fontSize: '9px', color: '#9ca3af' }}>R-Score</div>
-                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: rScore >= 1.5 ? '#4ade80' : 'white' }}>{rScore.toFixed(1)}</div>
+                <div className={`text-center rounded-lg p-2 ${rScore >= 1.5 ? 'bg-emerald-500/20' : 'bg-surface-hover/50'}`}>
+                  <div className="text-[10px] text-gray-400 uppercase">R-Score</div>
+                  <div className={`text-base sm:text-lg font-bold ${rScore >= 1.5 ? 'text-emerald-400' : 'text-gray-300'}`}>{rScore.toFixed(1)}</div>
                 </div>
-                <div style={{ textAlign: 'center', padding: '6px', borderRadius: '4px', background: '#37415180' }}>
-                  <div style={{ fontSize: '9px', color: '#9ca3af' }}>Kelly</div>
-                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#60a5fa' }}>{(trade.kellyFraction || 0).toFixed(1)}%</div>
+                <div className="text-center bg-surface-hover/50 rounded-lg p-2">
+                  <div className="text-[10px] text-gray-400 uppercase">Kelly</div>
+                  <div className="text-base sm:text-lg font-bold text-blue-400">{kelly.toFixed(1)}%</div>
                 </div>
               </div>
 
-              {/* Bottom */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#4ade80' }}>✅ +EV Trade</span>
-                <span style={{ fontSize: '10px', color: '#6b7280' }}>💰 {trade.volume?.toLocaleString()}</span>
-                <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '4px', background: '#10b98130', color: '#4ade80', border: '1px solid #10b98150', textDecoration: 'none' }}>👍 BUY YES</a>
+              {/* BOTTOM: Why This Trade + Yes/No Recommendation */}
+              <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`text-xs font-medium shrink-0 ${recColor}`}>{recommendation}</span>
+                  <span className="text-xs text-gray-500 truncate">💰 {trade.volume?.toLocaleString()} vol</span>
+                </div>
+                <a 
+                  href={trade.kalshiUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1 rounded-lg bg-emerald-500/20 px-3 py-2 text-sm font-bold text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 shrink-0"
+                >
+                  👍 BUY YES
+                </a>
               </div>
             </div>
           );
