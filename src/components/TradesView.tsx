@@ -265,10 +265,16 @@ export function TradesView() {
             const price = m.yes_ask || m.yes_price || m.last_price || 50;
             const multiplier = parseFloat((100 / price).toFixed(1));
             
-            // Clean title
+            // Clean title - include subtitle for crypto/price range markets
             let title = m.title || `${m.series_name || m.ticker} Market`;
             title = title.replace(/yes /gi, '').replace(/,yes /gi, ' + ').replace(/,no /gi, ' / ');
-            if (title.length > 60) title = title.substring(0, 60) + '...';
+            
+            // Add subtitle for crypto markets (shows price range)
+            if (m.subtitle && ['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
+              title = `${title} - ${m.subtitle}`;
+            }
+            
+            if (title.length > 80) title = title.substring(0, 80) + '...';
             
             // Build URL using series ticker (trade bot format)
             const seriesTicker = m.ticker.split('-')[0].toLowerCase();
