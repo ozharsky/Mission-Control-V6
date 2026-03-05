@@ -316,8 +316,8 @@ export function TradesView() {
             // Detect category from ticker prefix first (needed for subtitle check)
             const tickerPrefix = m.ticker.split('-')[0].toUpperCase();
             
-            // Add subtitle for crypto markets (shows price range)
-            if (m.subtitle && ['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
+            // Add subtitle for markets that have them (crypto price ranges, company details, etc)
+            if (m.subtitle) {
               title = `${title} - ${m.subtitle}`;
             }
             
