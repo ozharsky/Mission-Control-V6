@@ -222,11 +222,12 @@ export function TradesView() {
       }
       
       if (allMarkets.length > 0) {
-        // Process markets: filter cheap ones with volume
+        // Process markets: filter cheap ones with volume (matching trade agent criteria)
         const filteredMarkets = allMarkets.filter((m: any) => {
           const price = m.yes_ask || m.yes_price || m.last_price || 50;
           const volume = m.volume || m.trade_volume || 0;
-          return price >= 1 && price <= 25 && volume > 100; // Cheap + liquid
+          // Match trade agent criteria: 1¢-25¢ price, >=50 volume, active, no MVE
+          return price >= 1 && price <= 25 && volume >= 50 && m.status === 'active' && !m.mve_collection_ticker;
         });
         
         // Calculate R-Score for each for sorting and display
