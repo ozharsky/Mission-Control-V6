@@ -200,12 +200,12 @@ export function TradesView() {
         { series: 'VONCUK', category: 'world', name: 'UK Vote of No Confidence' },
         { series: 'PMLA', category: 'world', name: 'LA Pollution' },
         { series: 'KXCTCS', category: 'world', name: 'Child Tax Credit' },
-        // Politics (5) - Trump, bills, appointments
+        // Politics (5) - Trump Truth Social, etc
+        { series: 'KXTRUTHSOCIAL', category: 'politics', name: 'Trump Truth Social' },
+        { series: 'KXFED', category: 'economics', name: 'Fed Rate' },
+        { series: 'KXGDP', category: 'economics', name: 'GDP Growth' },
+        { series: 'KXCPI', category: 'economics', name: 'CPI Inflation' },
         { series: 'KXJAN6PARDONDAY1', category: 'politics', name: 'Jan 6 Pardons' },
-        { series: 'KXCORPTAXCUT', category: 'politics', name: 'Corporate Tax Cut' },
-        { series: 'KXSECARMY', category: 'politics', name: 'Secretary of Army' },
-        { series: 'KXMETGALA', category: 'politics', name: 'Met Gala Attendees' },
-        { series: 'KXDJTUNFOLLOWMUSK', category: 'politics', name: 'Trump Unfollows Musk' },
         // Government (5) - Series exist but NO ACTIVE MARKETS currently
         { series: 'KXBIDENMENTION', category: 'government', name: 'Biden Speech' },
         { series: 'KXBILL', category: 'government', name: 'Bill Becomes Law' },
@@ -354,13 +354,13 @@ export function TradesView() {
               detectedCategory = 'crypto';
             } else if (['TESLAROADSTER', 'KXTIKTOKSELL', 'KXDANAWHITEFB', 'KXACQUIREMANU', 'KXSTOCKXTEST'].includes(tickerPrefix)) {
               detectedCategory = 'companies';
-            } else if (['KXRATECUTE', 'KXLCPIMIN', 'NGASMAX', 'SPRMAX', 'KXDIESELM'].includes(tickerPrefix)) {
+            } else if (['KXFED', 'KXGDP', 'KXCPI', 'KXRATECUTE', 'KXLCPIMIN', 'NGASMAX', 'SPRMAX', 'KXDIESELM'].includes(tickerPrefix)) {
               detectedCategory = 'economics';
             } else if (['KXCHOPSTICKS', 'KXCOLONIZEMARS', 'KXELONMARS', 'KXNEUTRONORBIT', 'KXALTMAN', 'SUPERCON'].includes(tickerPrefix)) {
               detectedCategory = 'science';
             } else if (['KXGDPCN', 'MAERSK', 'VONCUK', 'PMLA', 'KXCTCS'].includes(tickerPrefix)) {
               detectedCategory = 'world';
-            } else if (['KXJAN6PARDONDAY1', 'KXCORPTAXCUT', 'KXSECARMY', 'KXMETGALA', 'KXDJTUNFOLLOWMUSK', 'KXBIDENMENTION', 'KXBILL', 'KXASSOCAG'].includes(tickerPrefix)) {
+            } else if (['KXTRUTHSOCIAL', 'KXJAN6PARDONDAY1', 'KXCORPTAXCUT', 'KXSECARMY', 'KXMETGALA', 'KXDJTUNFOLLOWMUSK', 'KXBIDENMENTION', 'KXBILL', 'KXASSOCAG'].includes(tickerPrefix)) {
               detectedCategory = 'politics';
             } else if (['KXFEDCHAIRCONFIRMED', 'KXADMINNASA'].includes(tickerPrefix)) {
               detectedCategory = 'government';
