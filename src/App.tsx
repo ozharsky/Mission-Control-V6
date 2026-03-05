@@ -275,7 +275,7 @@ function App() {
           </header>
 
           <main className="p-4 pb-28 lg:p-6 lg:pb-6">
-            <div className="mx-auto max-w-7xl w-full min-w-0">
+            <div className="mx-auto w-full min-w-0 max-w-full sm:max-w-full md:max-w-full lg:max-w-7xl">
               {renderSection()}
             </div>
           </main>
