@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { Plus, X, Filter, Calendar, CheckCircle2, Clock, Circle, MoreHorizontal, ArrowRight, Trash2, Edit2 } from 'lucide-react';
+import { Plus, X, Filter, Calendar, CheckCircle2, Clock, Circle, MoreHorizontal, ArrowRight, Trash2, Edit2, List, Columns } from 'lucide-react';
 import { LoadingButton } from '../components/Loading';
 import { ProjectDetails } from './ProjectDetails';
 import type { Project } from '../types';
@@ -45,6 +45,16 @@ export function ProjectsList({ projects }: ProjectsListProps) {
     priority: 'medium' as 'low' | 'medium' | 'high',
     board: 'general' as Project['board'],
   });
+  const [mobileView, setMobileView] = useState<'list' | 'board'>('list');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Filter projects
   const filteredProjects = useMemo(() => {
@@ -231,17 +241,99 @@ export function ProjectsList({ projects }: ProjectsListProps) {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary-hover"
-        >
-          <Plus className="h-4 w-4" />
-          New Project
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Mobile View Toggle */}
+          {isMobile && (
+            <div className="flex rounded-lg border border-surface-hover bg-surface p-1">
+              <button
+                onClick={() => setMobileView('list')}
+                className={`flex items-center gap-1 rounded px-2 py-1 text-sm ${mobileView === 'list' ? 'bg-primary text-white' : 'text-gray-400'}`}
+              >
+                <List className="h-4 w-4" />
+                List
+              </button>
+              <button
+                onClick={() => setMobileView('board')}
+                className={`flex items-center gap-1 rounded px-2 py-1 text-sm ${mobileView === 'board' ? 'bg-primary text-white' : 'text-gray-400'}`}
+              >
+                <Columns className="h-4 w-4" />
+                Board
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary-hover"
+          >
+            <Plus className="h-4 w-4" />
+            New Project
+          </button>
+        </div>
       </div>
 
-      {/* Kanban Board */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Mobile List View */}
+      {isMobile && mobileView === 'list' ? (
+        <div className="space-y-3">
+          {filteredProjects.map(project => {
+            const daysUntilDue = getDaysUntilDue(project.dueDate);
+            const isOverdue = daysUntilDue !== null && daysUntilDue < 0 && project.status !== 'done';
+            const column = COLUMNS.find(c => c.id === project.status) || COLUMNS[0];
+            const ColumnIcon = column.icon;
+
+            return (
+              <div
+                key={project.id}
+                onClick={() => setSelectedProject(project)}
+                className="flex items-center gap-3 rounded-xl border border-surface-hover bg-surface p-4 touch-feedback"
+              >
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${column.color}`}>
+                  <ColumnIcon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate font-medium">{project.name}</h3>
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <span className={getBoardColor(project.board)}>{project.board || 'general'}</span>
+                    {project.dueDate && (
+                      <span className={isOverdue ? 'text-danger' : ''}>
+                        {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` : `${daysUntilDue}d left`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingProject(project);
+                      setNewProject({
+                        name: project.name,
+                        description: project.description || '',
+                        dueDate: project.dueDate || '',
+                        tags: project.tags?.join(', ') || '',
+                        priority: project.priority || 'medium',
+                        board: project.board || 'general',
+                      });
+                      setShowModal(true);
+                    }}
+                    className="rounded-lg p-2 text-gray-400 hover:bg-surface-hover"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {filteredProjects.length === 0 && (
+            <div className="py-12 text-center text-gray-500">
+              <Circle className="mx-auto mb-2 h-8 w-8 opacity-50" />
+              <p>No projects found</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Kanban Board */
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {COLUMNS.map(column => (
           <div
             key={column.id}
@@ -385,6 +477,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
           </div>
         ))}
       </div>
+      )}
 
       {/* Add/Edit Project Modal */}
       {showModal && (
