@@ -106,11 +106,13 @@ const CATEGORY_COLORS = {
 };
 
 const EDUCATION_CONTENT = {
-  edge: "Edge is the difference between the market's implied probability and your estimated true probability. Higher edge = better value.",
-  multiplier: "Multiplier shows how much you win relative to your bet. 10x means a $1 bet returns $10 if you win.",
-  yesPrice: "The price to buy a YES contract. Prices are in cents ($0.01). A 5¢ price means you pay $0.05 to potentially win $1.",
-  confidence: "High = strong data supporting our model. Medium = decent data with some uncertainty. Low = limited or conflicting data.",
-  volume: "Total contracts traded. Higher volume = more liquid market = easier to enter/exit at fair prices."
+  rScore: "R-Score measures edge vs market. >1.5 = strong +EV trade, 1.0-1.5 = decent, <1.0 = marginal.",
+  kelly: "Kelly % is the optimal position size. Bet this % of your bankroll (we use half-Kelly for safety).",
+  multiplier: "Multiplier shows payout potential. 10x means $1 bet wins $10. Higher multipliers come with lower probability.",
+  pay: "Pay is the contract price in cents. 5¢ = $0.05 per share. Lower prices = higher multipliers but lower probability.",
+  volume: "Volume shows how much is being traded. Higher = more liquid = easier to buy/sell at fair prices.",
+  confidence: "High = strong data. Medium = decent data. Low = limited data. Higher confidence = more reliable edge estimate.",
+  yesNo: "👍 BUY YES if you think the event WILL happen. 👎 Buy NO if you think it WON'T happen."
 };
 
 function PredictionMeter({ probability, marketPrice }: { probability: number; marketPrice: number }) {
@@ -481,14 +483,67 @@ export function TradesView() {
       {showEducation && (
         <div className="rounded-xl border border-surface-hover bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-semibold">📚 How to Read Trades</h3>
+            <h3 className="font-semibold">📚 How to Read Trade Cards</h3>
             <button onClick={() => setShowEducation(false)} className="text-gray-400 hover:text-white"><X className="h-4 w-4" /></button>
           </div>
-          <div className="grid gap-3 text-sm md:grid-cols-2">
-            <div className="rounded-lg bg-surface-hover/50 p-3"><div className="mb-1 font-medium text-success">Edge</div><p className="text-gray-400">{EDUCATION_CONTENT.edge}</p></div>
-            <div className="rounded-lg bg-surface-hover/50 p-3"><div className="mb-1 font-medium text-primary">Multiplier</div><p className="text-gray-400">{EDUCATION_CONTENT.multiplier}</p></div>
-            <div className="rounded-lg bg-surface-hover/50 p-3"><div className="mb-1 font-medium text-info">Yes Price</div><p className="text-gray-400">{EDUCATION_CONTENT.yesPrice}</p></div>
-            <div className="rounded-lg bg-surface-hover/50 p-3"><div className="mb-1 font-medium text-warning">Confidence</div><p className="text-gray-400">{EDUCATION_CONTENT.confidence}</p></div>
+          
+          {/* Legend Grid */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {/* R-Score */}
+            <div className="space-y-1">
+              <div className="font-medium text-gray-300">R-Score</div>
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">R:1.5+</span> 
+                <span className="text-gray-400">Strong +EV</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">R:1.0</span> 
+                <span className="text-gray-400">Decent</span>
+              </div>
+              <div className="text-gray-500 mt-1 text-xs">{EDUCATION_CONTENT.rScore}</div>
+            </div>
+            
+            {/* Kelly % */}
+            <div className="space-y-1">
+              <div className="font-medium text-gray-300">Kelly %</div>
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">K:2.5%</span> 
+                <span className="text-gray-400">Position size</span>
+              </div>
+              <div className="text-gray-500 mt-1 text-xs">{EDUCATION_CONTENT.kelly}</div>
+            </div>
+            
+            {/* Pay → Multiplier */}
+            <div className="space-y-1">
+              <div className="font-medium text-gray-300">Pay → Multiplier</div>
+              <div className="flex items-center gap-1">
+                <span className="text-emerald-400">5¢ → 20x</span>
+              </div>
+              <div className="text-gray-500 mt-1 text-xs">{EDUCATION_CONTENT.multiplier}</div>
+            </div>
+            
+            {/* Volume */}
+            <div className="space-y-1">
+              <div className="font-medium text-gray-300">Volume</div>
+              <div className="flex items-center gap-1">
+                💰 <span className="text-gray-400">1,240 vol</span>
+              </div>
+              <div className="text-gray-500 mt-1 text-xs">{EDUCATION_CONTENT.volume}</div>
+            </div>
+          </div>
+          
+          {/* YES/NO Explanation */}
+          <div className="mt-4 pt-3 border-t border-white/5">
+            <div className="font-medium text-gray-300 mb-2">What to Do</div>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span className="flex items-center gap-1 text-gray-400">
+                <span className="text-emerald-400">👍 BUY YES</span> if you think it WILL happen
+              </span>
+              <span className="flex items-center gap-1 text-gray-400">
+                <span className="text-red-400">👎 BUY NO</span> if you think it WON'T happen
+              </span>
+            </div>
+            <p className="text-gray-500 mt-2 text-xs">{EDUCATION_CONTENT.yesNo}</p>
           </div>
         </div>
       )}
@@ -551,50 +606,6 @@ export function TradesView() {
           >
             {sortDirection === 'desc' ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </button>
-        </div>
-      </div>
-
-      {/* COMPREHENSIVE LEGEND */}
-      <div className="rounded-xl bg-surface-hover/50 p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <BookOpen className="h-4 w-4 text-primary" />
-          <span>How to Read Trade Cards</span>
-        </div>
-        
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          {/* R-Score */}
-          <div className="space-y-1">
-            <div className="font-medium text-gray-300">R-Score</div>
-            <div className="flex items-center gap-1"><span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">R:1.5+</span> <span className="text-gray-400">+EV trade</span></div>
-            <div className="flex items-center gap-1"><span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">R:1.0</span> <span className="text-gray-400">Marginal</span></div>
-            <div className="text-gray-500 mt-1">Higher = better edge vs market</div>
-          </div>
-          
-          {/* Kelly % */}
-          <div className="space-y-1">
-            <div className="font-medium text-gray-300">Kelly %</div>
-            <div className="flex items-center gap-1"><span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">K:2.5%</span> <span className="text-gray-400">Position size</span></div>
-            <div className="text-gray-500 mt-1">% of bankroll to bet (half-Kelly)</div>
-          </div>
-          
-          {/* Price/Multiplier */}
-          <div className="space-y-1">
-            <div className="font-medium text-gray-300">Price → Multiplier</div>
-            <div className="flex items-center gap-1"><span className="text-emerald-400">5¢ → 20x</span></div>
-            <div className="text-gray-500 mt-1">Lower price = higher payout</div>
-          </div>
-          
-          {/* Volume */}
-          <div className="space-y-1">
-            <div className="font-medium text-gray-300">Volume</div>
-            <div className="flex items-center gap-1">💰 <span className="text-gray-400">1,240 vol</span></div>
-            <div className="text-gray-500 mt-1">Higher = easier to trade</div>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
-          <span className="flex items-center gap-1 text-xs text-gray-400"><span className="text-emerald-400">👍</span> Buy YES if you think it happens</span>
-          <span className="flex items-center gap-1 text-xs text-gray-400"><span className="text-red-400">👎</span> Buy NO if you think it won't</span>
         </div>
       </div>
 
