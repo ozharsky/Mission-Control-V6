@@ -525,7 +525,7 @@ export function TradesView() {
           let recColor = 'text-emerald-400';
 
           return (
-            <div key={trade.id} className={`rounded-xl border-2 p-3 sm:p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
+            <div key={trade.id} className={`rounded-xl border-2 p-2 sm:p-4 transition-all hover:scale-[1.01] ${dealColor}`}>
               
               {/* TOP ROW: Icon + Title + Trade Button */}
               <div className="flex items-start gap-1.5 sm:p-2 sm:gap-3">
@@ -586,7 +586,7 @@ export function TradesView() {
                 
                 {/* BUY YES Button - Only shown for +EV trades */}
                 <a href={trade.kalshiUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1 rounded-lg bg-emerald-500/20 px-3 py-2 text-sm font-bold text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 shrink-0"
+                  className="flex items-center justify-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 shrink-0"
                   title="R >= 1.5 - This is a +EV trade. Click to buy YES on Kalshi."
                 >
                   👍 BUY YES
