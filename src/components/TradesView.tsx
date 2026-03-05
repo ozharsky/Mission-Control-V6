@@ -347,6 +347,42 @@ export function TradesView() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch markets by category from Kalshi API
+  const fetchByCategory = async (category: string) => {
+    const KALSHI_API_URL = 'https://api.elections.kalshi.com/trade-api/v2';
+    try {
+      // Get all series in this category
+      const response = await fetch(`${KALSHI_API_URL}/series?category=${category}&limit=100`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      const series = data.series || [];
+      
+      // Fetch markets from each series
+      let allMarkets: any[] = [];
+      for (const s of series.slice(0, 10)) { // Limit to top 10 series per category
+        try {
+          const marketResponse = await fetch(`${KALSHI_API_URL}/series/${s.ticker}`);
+          if (marketResponse.ok) {
+            const marketData = await marketResponse.json();
+            if (marketData.markets) {
+              marketData.markets.forEach((m: any) => {
+                m.category = category.toLowerCase();
+                m.series_name = s.title;
+              });
+              allMarkets = allMarkets.concat(marketData.markets);
+            }
+          }
+        } catch (e) {
+          console.log(`Failed to fetch ${s.ticker}:`, e);
+        }
+      }
+      return allMarkets;
+    } catch (error) {
+      console.error(`Failed to fetch category ${category}:`, error);
+      return [];
+    }
+  };
+
   const filteredTrades = useMemo(() => {
     let result = selectedCategory === 'all' ? trades : trades.filter(t => t.category === selectedCategory);
     result = [...result].sort((a, b) => {
