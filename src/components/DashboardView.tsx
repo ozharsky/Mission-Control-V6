@@ -263,28 +263,28 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <button
           onClick={() => onNavigate('tasks')}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-2 py-2.5 text-xs md:text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+          className="flex items-center justify-center gap-1.5 rounded-lg ripple touch-feedback bg-primary/10 px-2 py-2.5 text-xs md:text-sm font-medium text-primary transition-colors hover:bg-primary/20"
         >
           <Plus className="h-3.5 w-3.5 md:h-4 md:w-4" />
           <span className="truncate">Add Task</span>
         </button>
         <button
           onClick={() => onNavigate('projects')}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-500/10 px-2 py-2.5 text-xs md:text-sm font-medium text-blue-400 transition-colors hover:bg-blue-500/20"
+          className="flex items-center justify-center gap-1.5 rounded-lg ripple touch-feedback bg-blue-500/10 px-2 py-2.5 text-xs md:text-sm font-medium text-blue-400 transition-colors hover:bg-blue-500/20"
         >
           <Plus className="h-3.5 w-3.5 md:h-4 md:w-4" />
           <span className="truncate">Add Proj</span>
         </button>
         <button
           onClick={() => onNavigate('jobs')}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-success/10 px-2 py-2.5 text-xs md:text-sm font-medium text-success transition-colors hover:bg-success/20"
+          className="flex items-center justify-center gap-1.5 rounded-lg ripple touch-feedback bg-success/10 px-2 py-2.5 text-xs md:text-sm font-medium text-success transition-colors hover:bg-success/20"
         >
           <Briefcase className="h-3.5 w-3.5 md:h-4 md:w-4" />
           <span className="truncate">Jobs</span>
         </button>
         <button
           onClick={() => onNavigate('inventory')}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-warning/10 px-2 py-2.5 text-xs md:text-sm font-medium text-warning transition-colors hover:bg-warning/20"
+          className="flex items-center justify-center gap-1.5 rounded-lg ripple touch-feedback bg-warning/10 px-2 py-2.5 text-xs md:text-sm font-medium text-warning transition-colors hover:bg-warning/20"
         >
           <Package className="h-3.5 w-3.5 md:h-4 md:w-4" />
           <span className="truncate">Inventory</span>
@@ -296,7 +296,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         {/* Tasks */}
         <button
           onClick={() => onNavigate('tasks')}
-          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50"
+          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
         >
           <div className="flex items-center justify-between">
             <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -319,7 +319,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         {/* Projects */}
         <button
           onClick={() => onNavigate('projects')}
-          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50"
+          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
         >
           <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-blue-500/10">
             <Briefcase className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
@@ -334,7 +334,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         {/* Revenue */}
         <button
           onClick={() => onNavigate('revenue')}
-          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50"
+          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
         >
           <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-success/10">
             <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-success" />
@@ -349,7 +349,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         {/* Inventory */}
         <button
           onClick={() => onNavigate('inventory')}
-          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50"
+          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
         >
           <div className="flex items-center justify-between">
             <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-warning/10">
@@ -371,7 +371,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       <div className="rounded-xl border border-surface-hover bg-surface p-3 md:p-4">
         <button 
           onClick={() => setPrintersExpanded(!printersExpanded)}
-          className="w-full flex items-center justify-between"
+          className="w-full flex items-center justify-between touch-feedback"
         >
           <div className="flex items-center gap-2">
             <Printer className="h-4 w-4 md:h-5 md:w-5 text-primary" />
