@@ -344,7 +344,7 @@ function AIInsightsCard({
             <div className="mt-0.5 shrink-0">{insight.icon}</div>
             <div className="min-w-0 flex-1">
               <div className="font-medium text-sm">{insight.title}</div>
-              <div className="text-xs opacity-80 mt-0.5">{insight.message}</div>
+              <div className="text-xs opacity-80 mt-0.5 truncate">{insight.message}</div>
             </div>
             {insight.action && (
               <button
