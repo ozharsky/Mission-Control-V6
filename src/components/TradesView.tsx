@@ -43,7 +43,10 @@ export function TradesView() {
           if (res.ok) {
             const data = await res.json();
             if (data.markets) {
-              data.markets.forEach(m => { m.category = category; });
+              data.markets.forEach(m => { 
+                m.category = category; 
+                m.seriesTicker = series;
+              });
               allMarkets = [...allMarkets, ...data.markets];
             }
           }
@@ -51,10 +54,15 @@ export function TradesView() {
       }
       
       const transformed = allMarkets.map(m => ({
-        id: m.ticker, ticker: m.ticker, title: m.title, category: m.category,
-        yesPrice: m.yes_ask || m.yes_price || 50, noPrice: m.no_ask || 50, volume: m.volume || 0,
+        id: m.ticker, 
+        ticker: m.ticker, 
+        title: m.title, 
+        category: m.category,
+        yesPrice: m.yes_ask || m.yes_price || 50, 
+        noPrice: m.no_ask || 50, 
+        volume: m.volume || 0,
         expiration: m.expiration_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        kalshiUrl: `https://kalshi.com/events/${series.toLowerCase()}`,
+        kalshiUrl: `https://kalshi.com/events/${(m.seriesTicker || '').toLowerCase()}`,
         research: { trueProbability: 50, edge: 0, confidence: 'medium', catalyst: 'Live market data', sources: [] },
         payout: { buyPrice: m.yes_ask || 50, potentialReturn: (100 - (m.yes_ask || 50)) / 100, multiplier: Math.round(100 / (m.yes_ask || 50)) }
       }));
