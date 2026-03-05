@@ -480,13 +480,13 @@ export function InventoryView({ items }: InventoryViewProps) {
                       <div className="space-y-4 max-w-full overflow-x-hidden">
                         <div>
                           <h4 className="text-sm font-medium text-gray-400 mb-2">Description</h4>
-                          <p className="text-sm">{item.description || 'No description'}</p>
+                          <p className="text-sm truncate min-w-0">{item.description || 'No description'}</p>
                         </div>
 
                         {item.notes && (
                           <div>
                             <h4 className="text-sm font-medium text-gray-400 mb-2">Notes</h4>
-                            <p className="text-sm">{item.notes}</p>
+                            <p className="text-sm truncate min-w-0">{item.notes}</p>
                           </div>
                         )}
 
@@ -503,7 +503,7 @@ export function InventoryView({ items }: InventoryViewProps) {
 
                       <div className="space-y-4 max-w-full overflow-x-hidden">
                         {item.supplier && (
-                          <div className="text-sm">
+                          <div className="text-sm truncate min-w-0">
                             <span className="text-gray-400">Supplier: </span>
                             {item.supplierUrl ? (
                               <a href={item.supplierUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{item.supplier}</a>
@@ -514,13 +514,13 @@ export function InventoryView({ items }: InventoryViewProps) {
                         )}
 
                         {item.printTime > 0 && (
-                          <div className="text-sm">
+                          <div className="text-sm truncate min-w-0">
                             <span className="text-gray-400">Print Time: </span>{item.printTime} min
                           </div>
                         )}
 
                         {item.weight > 0 && (
-                          <div className="text-sm">
+                          <div className="text-sm truncate min-w-0">
                             <span className="text-gray-400">Weight: </span>{item.weight}g
                           </div>
                         )}

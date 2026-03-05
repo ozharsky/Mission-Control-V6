@@ -574,7 +574,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate font-medium">{printer.name}</span>
+                      <span className="truncate font-medium min-w-0">{printer.name}</span>
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
                         printer.status === 'printing' ? 'bg-primary/10 text-primary' :
                         printer.status === 'operational' ? 'bg-success/10 text-success' :
@@ -587,7 +587,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                     {printer.job ? (
                       <div className="mt-2">
                         <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span className="truncate">{printer.job.name || 'Printing'}</span>
+                          <span className="truncate min-w-0">{printer.job.name || 'Printing'}</span>
                           <span>{printer.job.progress || 0}%</span>
                         </div>
                         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-hover">
@@ -755,7 +755,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                 <div className="pt-2 border-t border-surface-hover">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Total Items</span>
-                    <span className="font-medium">{total}</span>
+                    <span className="font-medium truncate min-w-0">{total}</span>
                   </div>
                 </div>
               </div>

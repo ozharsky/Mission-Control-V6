@@ -102,7 +102,7 @@ export function SettingsPage() {
         <div>
           <label className="mb-1 block text-sm text-gray-400">Database URL</label>
           <input
-            type="text"
+            type="text" style={{maxWidth: "100%"}}
             value={config.databaseURL}
             onChange={(e) => setConfig({ ...config, databaseURL: e.target.value })}
             placeholder="https://your-project.firebaseio.com"
@@ -113,7 +113,7 @@ export function SettingsPage() {
         <div>
           <label className="mb-1 block text-sm text-gray-400">API Key</label>
           <input
-            type="text"
+            type="text" style={{maxWidth: "100%"}}
             value={config.apiKey}
             onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
             placeholder="AIzaSy..."
@@ -124,7 +124,7 @@ export function SettingsPage() {
         <div>
           <label className="mb-1 block text-sm text-gray-400">Auth Domain</label>
           <input
-            type="text"
+            type="text" style={{maxWidth: "100%"}}
             value={config.authDomain}
             onChange={(e) => setConfig({ ...config, authDomain: e.target.value })}
             placeholder="your-project.firebaseapp.com"
@@ -135,7 +135,7 @@ export function SettingsPage() {
         <div>
           <label className="mb-1 block text-sm text-gray-400">Project ID</label>
           <input
-            type="text"
+            type="text" style={{maxWidth: "100%"}}
             value={config.projectId}
             onChange={(e) => setConfig({ ...config, projectId: e.target.value })}
             placeholder="your-project"
@@ -146,7 +146,7 @@ export function SettingsPage() {
         <div>
           <label className="mb-1 block text-sm text-gray-400">Storage Bucket</label>
           <input
-            type="text"
+            type="text" style={{maxWidth: "100%"}}
             value={config.storageBucket}
             onChange={(e) => setConfig({ ...config, storageBucket: e.target.value })}
             placeholder="your-project.appspot.com"
@@ -157,7 +157,7 @@ export function SettingsPage() {
         <div>
           <label className="mb-1 block text-sm text-gray-400">Messaging Sender ID</label>
           <input
-            type="text"
+            type="text" style={{maxWidth: "100%"}}
             value={config.messagingSenderId}
             onChange={(e) => setConfig({ ...config, messagingSenderId: e.target.value })}
             placeholder="123456789"
@@ -168,7 +168,7 @@ export function SettingsPage() {
         <div>
           <label className="mb-1 block text-sm text-gray-400">App ID</label>
           <input
-            type="text"
+            type="text" style={{maxWidth: "100%"}}
             value={config.appId}
             onChange={(e) => setConfig({ ...config, appId: e.target.value })}
             placeholder="1:123456789:web:abcdef"

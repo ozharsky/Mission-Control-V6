@@ -515,7 +515,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                       <div className="space-y-4 max-w-full overflow-x-hidden">
                         <div>
                           <h4 className="text-sm font-medium text-gray-400 mb-2">Description</h4>
-                          <p className="text-sm">{job.description || 'No description'}</p>
+                          <p className="text-sm truncate min-w-0">{job.description || 'No description'}</p>
                         </div>
 
                         {(job.requirements || []).length > 0 && (
@@ -532,7 +532,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                         {job.notes && (
                           <div>
                             <h4 className="text-sm font-medium text-gray-400 mb-2">Notes</h4>
-                            <p className="text-sm">{job.notes}</p>
+                            <p className="text-sm truncate min-w-0">{job.notes}</p>
                           </div>
                         )}
                       </div>
