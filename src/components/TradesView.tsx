@@ -615,7 +615,7 @@ export function TradesView() {
           <div className="text-4xl mb-4">🔍</div>
           <h3 className="text-lg font-medium mb-2">No +EV Trades Found</h3>
           <p className="text-sm text-gray-400 mb-4">
-            No markets currently meet the R-Score >= 0.5 threshold.
+            No markets currently meet the R-Score {`>=`} 0.5 threshold.
           </p>
           <button 
             onClick={fetchLiveData}
