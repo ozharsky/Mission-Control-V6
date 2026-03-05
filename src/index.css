@@ -36,7 +36,7 @@ body {
 
 /* Prevent horizontal overflow */
 html, body {
-  overflow-x: hidden;
+  /* overflow handled by sections */
   max-width: 100%;
 }
 
