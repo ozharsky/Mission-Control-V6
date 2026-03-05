@@ -132,7 +132,7 @@ export function TradesView() {
   }), [sortedTrades]);
 
   return (
-    <div className="space-y-4 w-full min-w-0 max-w-full overflow-x-hidden">
+    <div className="space-y-4 w-full max-w-[100vw] overflow-hidden px-2">
       {/* Header */}
       <div className="flex flex-col gap-3 w-full max-w-full overflow-hidden">
         <div className="min-w-0">
