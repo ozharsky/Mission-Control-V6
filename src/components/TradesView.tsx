@@ -4,7 +4,8 @@ import {
   DollarSign, Percent, Calendar, ExternalLink,
   CloudRain, Zap, BarChart3, Activity,
   RefreshCw, BookOpen, Filter, ChevronDown, ChevronUp,
-  HelpCircle, X, ArrowUpRight, Info, Shield
+  HelpCircle, X, ArrowUpRight, Info, Shield,
+  Building2, Rocket, Globe
 } from 'lucide-react';
 import { RESEARCHED_TRADES } from './trades-data';
 
@@ -85,7 +86,10 @@ const CATEGORY_ICONS = {
   economics: BarChart3,
   sports: Activity,
   government: Shield,
-  finance: DollarSign
+  finance: DollarSign,
+  companies: Building2,
+  science: Rocket,
+  world: Globe
 };
 
 const CATEGORY_COLORS = {
@@ -95,7 +99,10 @@ const CATEGORY_COLORS = {
   economics: 'bg-green-500/20 text-green-400',
   sports: 'bg-purple-500/20 text-purple-400',
   government: 'bg-indigo-500/20 text-indigo-400',
-  finance: 'bg-emerald-500/20 text-emerald-400'
+  finance: 'bg-emerald-500/20 text-emerald-400',
+  companies: 'bg-cyan-500/20 text-cyan-400',
+  science: 'bg-violet-500/20 text-violet-400',
+  world: 'bg-teal-500/20 text-teal-400'
 };
 
 const EDUCATION_CONTENT = {
@@ -154,7 +161,7 @@ export function TradesView() {
     try {
       const KALSHI_PROXY_URL = 'https://mission-control-v6-kappa.vercel.app/api/kalshi';
       
-      // Fetch specific series: crypto, weather, politics, economics, government, finance
+      // Fetch specific series: crypto, weather, government, finance, companies, economics, science, world, politics
       // NOTE: Many series exist but have no active markets currently (markets settled)
       const seriesToFetch = [
         // Weather (5) - These have active markets
@@ -169,6 +176,36 @@ export function TradesView() {
         { series: 'KXSOL', category: 'crypto', name: 'Solana' },
         { series: 'KXADA', category: 'crypto', name: 'Cardano' },
         { series: 'KXDOT', category: 'crypto', name: 'Polkadot' },
+        // Companies (5) - Tech stocks, acquisitions
+        { series: 'TESLAROADSTER', category: 'companies', name: 'Tesla Roadster' },
+        { series: 'KXTIKTOKSELL', category: 'companies', name: 'TikTok Sale' },
+        { series: 'KXDANAWHITEFB', category: 'companies', name: 'Dana White Meta' },
+        { series: 'KXACQUIREMANU', category: 'companies', name: 'ManU Acquisition' },
+        { series: 'KXSTOCKXTEST', category: 'companies', name: 'StockX' },
+        // Economics (5) - Fed, inflation, jobs
+        { series: 'KXRATECUTE', category: 'economics', name: 'Fed Rate Cut' },
+        { series: 'KXLCPIMIN', category: 'economics', name: 'High Inflation Ends' },
+        { series: 'NGASMAX', category: 'economics', name: 'Natural Gas Price' },
+        { series: 'SPRMAX', category: 'economics', name: 'SPR Release' },
+        { series: 'KXDIESELM', category: 'economics', name: 'Diesel Price' },
+        // Science & Technology (5) - SpaceX, AI, rockets
+        { series: 'KXCHOPSTICKS', category: 'science', name: 'SpaceX Chopsticks' },
+        { series: 'KXCOLONIZEMARS', category: 'science', name: 'Colonize Mars' },
+        { series: 'KXELONMARS', category: 'science', name: 'Elon Mars' },
+        { series: 'KXNEUTRONORBIT', category: 'science', name: 'Neutron Rocket' },
+        { series: 'KXALTMAN', category: 'science', name: 'Sam Altman Company' },
+        // World (5) - International events
+        { series: 'KXGDPCN', category: 'world', name: 'China GDP' },
+        { series: 'MAERSK', category: 'world', name: 'Maersk Red Sea' },
+        { series: 'VONCUK', category: 'world', name: 'UK Vote of No Confidence' },
+        { series: 'PMLA', category: 'world', name: 'LA Pollution' },
+        { series: 'KXCTCS', category: 'world', name: 'Child Tax Credit' },
+        // Politics (5) - Trump, bills, appointments
+        { series: 'KXJAN6PARDONDAY1', category: 'politics', name: 'Jan 6 Pardons' },
+        { series: 'KXCORPTAXCUT', category: 'politics', name: 'Corporate Tax Cut' },
+        { series: 'KXSECARMY', category: 'politics', name: 'Secretary of Army' },
+        { series: 'KXMETGALA', category: 'politics', name: 'Met Gala Attendees' },
+        { series: 'KXDJTUNFOLLOWMUSK', category: 'politics', name: 'Trump Unfollows Musk' },
         // Government (5) - Series exist but NO ACTIVE MARKETS currently
         { series: 'KXBIDENMENTION', category: 'government', name: 'Biden Speech' },
         { series: 'KXBILL', category: 'government', name: 'Bill Becomes Law' },
@@ -291,12 +328,22 @@ export function TradesView() {
             const urlTicker = seriesTicker;
             
             // Detect category from ticker prefix
-            let detectedCategory: KalshiTrade['category'] = 'finance';
+            let detectedCategory: KalshiTrade['category'] = 'companies';
             if (['KXHIGHTSEA', 'KXHIGHNY', 'KXHIGHCHI', 'KXHIGHMIA', 'KXHIGHTPHX', 'KXRAINSEA', 'KXRAINSFO', 'KXSNOW NYC'].includes(tickerPrefix)) {
               detectedCategory = 'weather';
             } else if (['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].includes(tickerPrefix)) {
               detectedCategory = 'crypto';
-            } else if (['KXBIDENMENTION', 'KXBILL', 'KXASSOCAG', 'KXFEDCHAIRCONFIRMED', 'KXADMINNASA'].includes(tickerPrefix)) {
+            } else if (['TESLAROADSTER', 'KXTIKTOKSELL', 'KXDANAWHITEFB', 'KXACQUIREMANU', 'KXSTOCKXTEST'].includes(tickerPrefix)) {
+              detectedCategory = 'companies';
+            } else if (['KXRATECUTE', 'KXLCPIMIN', 'NGASMAX', 'SPRMAX', 'KXDIESELM'].includes(tickerPrefix)) {
+              detectedCategory = 'economics';
+            } else if (['KXCHOPSTICKS', 'KXCOLONIZEMARS', 'KXELONMARS', 'KXNEUTRONORBIT', 'KXALTMAN', 'SUPERCON'].includes(tickerPrefix)) {
+              detectedCategory = 'science';
+            } else if (['KXGDPCN', 'MAERSK', 'VONCUK', 'PMLA', 'KXCTCS'].includes(tickerPrefix)) {
+              detectedCategory = 'world';
+            } else if (['KXJAN6PARDONDAY1', 'KXCORPTAXCUT', 'KXSECARMY', 'KXMETGALA', 'KXDJTUNFOLLOWMUSK', 'KXBIDENMENTION', 'KXBILL', 'KXASSOCAG'].includes(tickerPrefix)) {
+              detectedCategory = 'politics';
+            } else if (['KXFEDCHAIRCONFIRMED', 'KXADMINNASA'].includes(tickerPrefix)) {
               detectedCategory = 'government';
             } else if (['KXIPO', 'KXFREDDIE', 'KXACQUIRECOINBASE', 'KXIPOANDURIL', 'KXIPOAIRTABLE', 'KXGREENTERRITORY', 'KXCANTERRITORY'].includes(tickerPrefix)) {
               detectedCategory = 'finance';
@@ -507,7 +554,7 @@ export function TradesView() {
       <div className="flex flex-col gap-3">
         {/* Category Filters - Horizontal scroll on mobile */}
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
-          {(['all', 'weather', 'crypto', 'government', 'finance'] as const).map(cat => {
+          {(['all', 'weather', 'crypto', 'companies', 'economics', 'science', 'world', 'politics', 'government', 'finance'] as const).map(cat => {
             const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
             const isSelected = selectedCategory === cat;
             return (
@@ -628,9 +675,19 @@ export function TradesView() {
                 </div>
               </div>
 
-              {/* BOTTOM: Recommendation + Details */}
+              {/* BOTTOM: Recommendation + R-Score/Kelly + Details */}
               <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
-                <div className={`text-sm font-medium ${recColor}`}>{recommendation}</div>
+                <div className="flex items-center gap-3">
+                  <div className={`text-sm font-medium ${recColor}`}>{recommendation}</div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className={`px-2 py-0.5 rounded ${(trade.rScore || 0) > 1.5 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700 text-gray-400'}`}>
+                      R:{trade.rScore?.toFixed(1)}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-gray-700 text-gray-400">
+                      K:{(trade.kellyFraction || 0).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
                 <div className="flex items-center gap-3 text-xs text-gray-400">
                   <span title="How much is being traded">💰 {trade.volume?.toLocaleString()} vol</span>
                   <span title="Our confidence level">🎯 {trade.research.confidence}</span>
