@@ -29,6 +29,17 @@ body {
   color: var(--text-primary);
 }
 
+/* Box sizing for all elements */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Prevent horizontal overflow */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 /* Smooth theme transition */
 * {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
@@ -48,69 +59,50 @@ body {
 }
 
 :root.light .text-gray-600 {
-  color: #495057;
+  color: var(--text-muted);
 }
 
-:root.light .border-surface-hover {
-  border-color: var(--border-color);
+:root.light .text-gray-700 {
+  color: var(--text-secondary);
 }
 
-:root.light .bg-surface {
+:root.light .bg-gray-800 {
   background-color: var(--bg-secondary);
 }
 
-:root.light .bg-surface-hover {
-  background-color: var(--bg-tertiary);
-}
-
-:root.light .bg-background {
+:root.light .bg-gray-900 {
   background-color: var(--bg-primary);
 }
 
-/* Mobile safe area support */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+:root.light .border-gray-700 {
+  border-color: var(--border-color);
 }
 
-/* Touch targets - minimum 44px */
-button, 
-a, 
-input, 
-select, 
-textarea {
-  min-height: 44px;
-  min-width: 44px;
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-/* Prevent text selection on UI elements */
-button, 
-nav, 
-header {
-  user-select: none;
-  -webkit-user-select: none;
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
 }
 
-/* Hide scrollbar on mobile for cleaner look */
-@media (max-width: 1023px) {
-  ::-webkit-scrollbar {
-    display: none;
-  }
-  
-  body {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-color);
 }
 
-/* Prevent zoom on input focus (iOS) */
-@media screen and (max-width: 768px) {
-  input, select, textarea {
-    font-size: 16px;
-  }
+/* Hide scrollbar for mobile */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
