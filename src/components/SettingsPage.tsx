@@ -106,7 +106,7 @@ export function SettingsPage() {
             value={config.databaseURL}
             onChange={(e) => setConfig({ ...config, databaseURL: e.target.value })}
             placeholder="https://your-project.firebaseio.com"
-            className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
+            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -117,7 +117,7 @@ export function SettingsPage() {
             value={config.apiKey}
             onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
             placeholder="AIzaSy..."
-            className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
+            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -128,7 +128,7 @@ export function SettingsPage() {
             value={config.authDomain}
             onChange={(e) => setConfig({ ...config, authDomain: e.target.value })}
             placeholder="your-project.firebaseapp.com"
-            className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
+            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -139,7 +139,7 @@ export function SettingsPage() {
             value={config.projectId}
             onChange={(e) => setConfig({ ...config, projectId: e.target.value })}
             placeholder="your-project"
-            className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
+            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -150,7 +150,7 @@ export function SettingsPage() {
             value={config.storageBucket}
             onChange={(e) => setConfig({ ...config, storageBucket: e.target.value })}
             placeholder="your-project.appspot.com"
-            className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
+            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -161,7 +161,7 @@ export function SettingsPage() {
             value={config.messagingSenderId}
             onChange={(e) => setConfig({ ...config, messagingSenderId: e.target.value })}
             placeholder="123456789"
-            className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
+            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -172,7 +172,7 @@ export function SettingsPage() {
             value={config.appId}
             onChange={(e) => setConfig({ ...config, appId: e.target.value })}
             placeholder="1:123456789:web:abcdef"
-            className="w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
+            className="w-full max-w-full rounded-lg border border-surface-hover bg-background px-4 py-2 text-white placeholder-gray-600 focus:border-primary focus:outline-none"
           />
         </div>
       </div>
