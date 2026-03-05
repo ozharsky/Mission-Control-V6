@@ -132,7 +132,7 @@ export function TradesView() {
   }), [sortedTrades]);
 
   return (
-    <div className="space-y-4 w-full min-w-0">
+    <div className="space-y-4 w-full min-w-0 overflow-hidden">
       {/* Header */}
       <div className="flex flex-col gap-3">
         <div className="min-w-0">
@@ -225,7 +225,7 @@ export function TradesView() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-surface-hover bg-surface p-3">
           <div className="text-xs text-gray-400">Trades</div>
           <div className="text-xl font-bold">{stats.total}</div>
@@ -333,7 +333,7 @@ export function TradesView() {
               </div>
 
               {/* MIDDLE: Key Metrics Grid - 2x2 on mobile, 4x1 on desktop */}
-              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <div className="text-center bg-surface-hover/50 rounded-lg p-2">
                   <div className="text-[10px] text-gray-400 uppercase">Pay</div>
                   <div className="text-base sm:text-lg font-bold">{price}¢</div>
