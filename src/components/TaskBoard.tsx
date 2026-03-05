@@ -630,10 +630,10 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
       {/* Floating Add Button - Mobile Only */}
       <button
         onClick={() => setShowForm(true)}
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30 transition-transform hover:scale-110 active:scale-95 lg:hidden touch-feedback"
+        className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30 transition-transform hover:scale-110 active:scale-95 lg:hidden touch-feedback"
         aria-label="Add task"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-5 w-5" />
       </button>
     </div>
   );
