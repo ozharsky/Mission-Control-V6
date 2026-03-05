@@ -97,7 +97,7 @@ export const AgentDocuments: React.FC<AgentDocumentsProps> = ({ firebaseDb }) =>
           </div>
         </div>
 
-        <div className="rounded-xl border border-surface-hover bg-surface p-6">
+        <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-6">
           <h2 className="text-xl font-semibold mb-2">{selectedDoc.name}</h2>
           <p className="text-sm text-gray-400 mb-4">
             Created {formatDate(selectedDoc.createdAt)} · {selectedDoc.sections.length} sections
@@ -131,7 +131,7 @@ export const AgentDocuments: React.FC<AgentDocumentsProps> = ({ firebaseDb }) =>
       {loading ? (
         <div className="text-center py-12 text-gray-400">Loading documents...</div>
       ) : documents.length === 0 ? (
-        <div className="rounded-xl border border-surface-hover bg-surface p-12 text-center">
+        <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-12 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-hover mx-auto mb-4">
             <FileText className="h-8 w-8 text-gray-400" />
           </div>
@@ -143,7 +143,7 @@ export const AgentDocuments: React.FC<AgentDocumentsProps> = ({ firebaseDb }) =>
           {documents.map(doc => (
             <div
               key={doc.id}
-              className="rounded-xl border border-surface-hover bg-surface p-4 hover:border-primary/50 cursor-pointer transition-colors"
+              className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4 hover:border-primary/50 cursor-pointer transition-colors"
               onClick={() => setSelectedDoc(doc)}
             >
               <div className="flex items-start justify-between gap-4">

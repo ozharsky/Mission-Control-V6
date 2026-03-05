@@ -276,7 +276,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
                     return (
                       <div
                         key={event.id}
-                        className="rounded-xl border border-surface-hover bg-background p-4 transition-colors hover:border-primary"
+                        className="rounded-xl touch-feedback border border-surface-hover bg-background p-4 transition-colors hover:border-primary"
                       >
                         <div className="mb-2 flex items-start justify-between">
                           <div className="flex items-center gap-2">

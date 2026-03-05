@@ -159,15 +159,15 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="rounded-xl border border-surface-hover bg-surface p-4">
+        <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
           <div className="text-2xl font-bold">{stats.total}</div>
           <div className="text-sm text-gray-400">Total Tasks</div>
         </div>
-        <div className="rounded-xl border border-surface-hover bg-surface p-4">
+        <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
           <div className="text-2xl font-bold text-blue-400">{stats.active}</div>
           <div className="text-sm text-gray-400">Active</div>
         </div>
-        <div className="rounded-xl border border-surface-hover bg-surface p-4">
+        <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
           <div className="text-2xl font-bold text-yellow-400">{stats.pending}</div>
           <div className="text-sm text-gray-400">Pending</div>
         </div>
@@ -258,7 +258,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
           {/* Task List */}
           <div className="space-y-3">
             {tasks.length === 0 ? (
-              <div className="rounded-xl border border-surface-hover bg-surface p-12 text-center">
+              <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-12 text-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-hover mx-auto mb-4">
                   <Bot className="h-8 w-8 text-gray-400" />
                 </div>
@@ -266,7 +266,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
                 <p className="text-gray-400 mb-4">Create a workflow to get started with AI agents</p>
                 <button 
                   onClick={() => setIsModalOpen(true)}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+                  className="rounded-lg touch-feedback bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
                 >
                   Start a Workflow
                 </button>
@@ -275,7 +275,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
               tasks.map(task => (
                 <div
                   key={task.id}
-                  className="rounded-xl border border-surface-hover bg-surface p-3 sm:p-4 hover:border-primary/50 cursor-pointer transition-colors"
+                  className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 sm:p-4 hover:border-primary/50 cursor-pointer transition-colors"
                   onClick={() => setSelectedTaskId(task.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -319,7 +319,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
         /* Workflows Tab */
         <div className="space-y-3">
           {workflows.length === 0 ? (
-            <div className="rounded-xl border border-surface-hover bg-surface p-12 text-center">
+            <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-12 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-hover mx-auto mb-4">
                 <Bot className="h-8 w-8 text-gray-400" />
               </div>
@@ -327,7 +327,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
               <p className="text-gray-400 mb-4">Create a workflow to get started with AI agents</p>
               <button 
                 onClick={() => setIsModalOpen(true)}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+                className="rounded-lg touch-feedback bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
               >
                 Start a Workflow
               </button>
@@ -336,7 +336,7 @@ export const AgentTaskList: React.FC<AgentTaskListProps> = ({ firebaseDb, onTask
             workflows.map(workflow => (
               <div
                 key={workflow.id}
-                className="rounded-xl border border-surface-hover bg-surface p-4"
+                className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">

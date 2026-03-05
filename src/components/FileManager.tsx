@@ -366,7 +366,7 @@ export function FileManager({ projectId }: FileManagerProps) {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="rounded-xl border border-surface-hover bg-background px-4 py-2.5 text-white focus:border-primary focus:outline-none"
+            className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2.5 text-white focus:border-primary focus:outline-none"
           >
             <option value="all">All Categories</option>
             {CATEGORIES.map((cat) => (
@@ -378,7 +378,7 @@ export function FileManager({ projectId }: FileManagerProps) {
             <select
               value={linkToProject}
               onChange={(e) => setLinkToProject(e.target.value)}
-              className="rounded-xl border border-surface-hover bg-background px-4 py-2.5 text-white focus:border-primary focus:outline-none"
+              className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2.5 text-white focus:border-primary focus:outline-none"
             >
               <option value="">Link to Project (Optional)</option>
               {projects.map((project) => (

@@ -314,7 +314,7 @@ export function JobsView({ jobs }: JobsViewProps) {
       </div>
 
       {/* Search and Filters */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
           <div className="flex-1 min-w-0 w-full min-w-0">
             <div className="relative">
@@ -428,7 +428,7 @@ export function JobsView({ jobs }: JobsViewProps) {
       {/* Jobs List */}
       <div className="space-y-4 max-w-full overflow-x-hidden">
         {filteredJobs.length === 0 ? (
-          <div className="rounded-xl border border-surface-hover bg-surface p-12 text-center">
+          <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-12 text-center">
             <Briefcase className="mx-auto mb-4 h-12 w-12 text-gray-500" />
             <p className="text-gray-400">No jobs found</p>
             <p className="text-sm text-gray-500">Add a job or adjust your filters</p>
@@ -439,7 +439,7 @@ export function JobsView({ jobs }: JobsViewProps) {
             return (
               <div
                 key={job.id}
-                className="rounded-xl border border-surface-hover bg-surface overflow-hidden"
+                className="rounded-xl touch-feedback border border-surface-hover bg-surface overflow-hidden"
               >
                 {/* Job Header */}
                 <div

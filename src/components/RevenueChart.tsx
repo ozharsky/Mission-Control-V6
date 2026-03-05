@@ -272,7 +272,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
       </div>
 
       {/* Goal Progress */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="h-5 w-5 text-primary" />
@@ -291,7 +291,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
       {/* Mini Charts Row */}
       {filteredData.length > 1 && (
         <div className="grid grid-cols-1 gap-4 grid-cols-1">
-          <div className="rounded-xl border border-surface-hover bg-surface p-4">
+          <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
             <div className="mb-2 flex items-center gap-2">
               <Activity className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">Revenue Trend</span>
@@ -301,7 +301,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
             </div>
           </div>
           
-          <div className="rounded-xl border border-surface-hover bg-surface p-4">
+          <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
             <div className="mb-2 flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-success" />
               <span className="text-sm font-medium">Orders Trend</span>
@@ -311,7 +311,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
             </div>
           </div>
           
-          <div className="rounded-xl border border-surface-hover bg-surface p-4">
+          <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
             <div className="mb-2 flex items-center gap-2">
               <Award className="h-4 w-4 text-warning" />
               <span className="text-sm font-medium">Best Month</span>
@@ -329,7 +329,7 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
       )}
 
       {/* Main Chart Card */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">

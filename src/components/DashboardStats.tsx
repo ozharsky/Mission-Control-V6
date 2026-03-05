@@ -108,7 +108,7 @@ export function DashboardStats({ pendingTasks, inProgressTasks, completedTasks }
       </div>
 
       {/* Progress Bar - Compact for mobile */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-medium">Task Distribution</h3>
           <span className="text-xs text-gray-400">{total} total</span>

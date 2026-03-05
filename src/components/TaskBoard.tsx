@@ -378,7 +378,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-            className="rounded-xl border border-surface-hover bg-surface px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
+            className="rounded-xl touch-feedback border border-surface-hover bg-surface px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
           >
             <option value="all">All Projects</option>
             {projects.map(p => (
@@ -456,7 +456,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                 <select
                   value={newTask.priority}
                   onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as Task['priority'] })}
-                  className="rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
                 >
                   <option value="low">Low Priority</option>
                   <option value="medium">Medium Priority</option>
@@ -467,14 +467,14 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                   type="date"
                   value={newTask.dueDate}
                   onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                  className="rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <select
                   value={newTask.projectId}
                   onChange={(e) => setNewTask({ ...newTask, projectId: e.target.value })}
-                  className="rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
                 >
                   <option value="">No Project</option>
                   {projects.map(p => (
@@ -485,7 +485,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                 <select
                   value={newTask.assignee}
                   onChange={(e) => setNewTask({ ...newTask, assignee: e.target.value as Task['assignee'] })}
-                  className="rounded-xl border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
+                  className="rounded-xl touch-feedback border border-surface-hover bg-background px-4 py-2 text-white focus:border-primary focus:outline-none"
                 >
                   <option value="">Unassigned</option>
                   <option value="Oleg">Oleg</option>
@@ -559,7 +559,7 @@ export function TaskBoard({ tasks, projects = [] }: TaskBoardProps) {
                   />
                 ))}
                 {column.tasks.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-surface-hover py-8 text-center text-gray-500">
+                  <div className="rounded-xl touch-feedback border border-dashed border-surface-hover py-8 text-center text-gray-500">
                     Drop tasks here
                   </div>
                 )}

@@ -97,7 +97,7 @@ export function ActivityLog({ limit = 50, showFilters = true }: ActivityLogProps
 
   if (activities.length === 0) {
     return (
-      <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-8 text-center">
         <History className="mx-auto mb-3 h-12 w-12 text-gray-600" />
         <p className="text-gray-400">No activity yet</p>
         <p className="mt-1 text-sm text-gray-600">Activities will appear as you use Mission Control</p>

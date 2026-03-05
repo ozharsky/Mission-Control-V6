@@ -168,7 +168,7 @@ function AIInsightsCard({
   };
 
   return (
-    <div className="rounded-xl border border-surface-hover bg-surface p-3 md:p-4">
+    <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
       <div className="mb-3 flex items-center gap-2">
         <div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-lg bg-primary/10">
           <Sparkles className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
@@ -296,7 +296,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         {/* Tasks */}
         <button
           onClick={() => onNavigate('tasks')}
-          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
+          className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
         >
           <div className="flex items-center justify-between">
             <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -319,7 +319,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         {/* Projects */}
         <button
           onClick={() => onNavigate('projects')}
-          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
+          className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
         >
           <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-blue-500/10">
             <Briefcase className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
@@ -334,7 +334,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         {/* Revenue */}
         <button
           onClick={() => onNavigate('revenue')}
-          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
+          className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
         >
           <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-success/10">
             <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-success" />
@@ -349,7 +349,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         {/* Inventory */}
         <button
           onClick={() => onNavigate('inventory')}
-          className="rounded-xl border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
+          className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 text-left transition-all hover:border-primary/50 card-press touch-feedback"
         >
           <div className="flex items-center justify-between">
             <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-warning/10">
@@ -368,7 +368,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* Printers - Collapsible on mobile */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-3 md:p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
         <button 
           onClick={() => setPrintersExpanded(!printersExpanded)}
           className="w-full flex items-center justify-between touch-feedback"
@@ -451,7 +451,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       <RevenueMiniChart revenue={revenue} onNavigate={onNavigate} />
 
       {/* Task Completion - Compact */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-3 md:p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-success" />
@@ -486,7 +486,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* Inventory Status - Compact */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-3 md:p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Package className="h-4 w-4 md:h-5 md:w-5 text-warning" />
@@ -522,7 +522,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* Recent Tasks - Compact List */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-3 md:p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 md:h-5 md:w-5 text-primary" />

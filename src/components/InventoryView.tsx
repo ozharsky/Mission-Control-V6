@@ -280,7 +280,7 @@ export function InventoryView({ items }: InventoryViewProps) {
       </div>
 
       {/* Filters and Actions */}
-      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
           <div className="flex-1 min-w-0 w-full min-w-0">
             <div className="relative">
@@ -356,7 +356,7 @@ export function InventoryView({ items }: InventoryViewProps) {
       {/* Items List */}
       <div className="space-y-4 max-w-full overflow-x-hidden">
         {filteredItems.length === 0 ? (
-          <div className="rounded-xl border border-surface-hover bg-surface p-12 text-center">
+          <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-12 text-center">
             <Package className="mx-auto mb-4 h-12 w-12 text-gray-500" />
             <p className="text-gray-400">No inventory items found</p>
             <p className="text-sm text-gray-500">Add items or adjust filters</p>

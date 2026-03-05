@@ -63,7 +63,7 @@ export function RevenueGoals({ currentRevenue, currentOrders }: RevenueGoalsProp
   };
 
   return (
-    <div className="rounded-xl border border-surface-hover bg-surface p-4 lg:p-6">
+    <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4 lg:p-6">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -85,7 +85,7 @@ export function RevenueGoals({ currentRevenue, currentOrders }: RevenueGoalsProp
             </button>
             <button
               onClick={() => { setIsEditing(false); setEditValues(goals); }}
-              className="rounded-lg bg-surface-hover p-2 hover:bg-surface"
+              className="rounded-lg touch-feedback bg-surface-hover p-2 hover:bg-surface"
             >
               <X className="h-4 w-4" />
             </button>

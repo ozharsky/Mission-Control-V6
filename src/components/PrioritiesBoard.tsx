@@ -27,7 +27,7 @@ export function PrioritiesBoard({ priorities }: PrioritiesBoardProps) {
   const completedPriorities = priorities.filter(p => p.completed);
 
   return (
-    <div className="rounded-xl border border-surface-hover bg-surface p-6">
+    <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-6">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Priorities</h2>
         <div className="flex gap-2">

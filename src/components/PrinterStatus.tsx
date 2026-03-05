@@ -173,7 +173,7 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
 
         {/* Temperatures - Mobile: single row, smaller text */}
         <div className="mb-2 grid grid-cols-2 gap-1 sm:mb-4 sm:gap-3">
-          <div className="rounded-lg bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
+          <div className="rounded-lg touch-feedback bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
             <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:gap-2 sm:text-xs">
               <Flame className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"></Flame>
               <span className="hidden sm:inline">Nozzle</span>
@@ -186,7 +186,7 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
             </div>
           </div>
 
-          <div className="rounded-lg bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
+          <div className="rounded-lg touch-feedback bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
             <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:gap-2 sm:text-xs">
               <Layers className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"></Layers>
               <span className="hidden sm:inline">Bed</span>

@@ -317,13 +317,13 @@ export function ProjectDetails({ project, onBack }: ProjectDetailsProps) {
             <button
               type="button"
               onClick={() => setShowAddTask(false)}
-              className="rounded-xl border border-surface-hover px-4 py-3 text-gray-400 hover:bg-surface-hover"
+              className="rounded-xl touch-feedback border border-surface-hover px-4 py-3 text-gray-400 hover:bg-surface-hover"
             >
               <X className="h-5 w-5" />
             </button>
             <button
               type="submit"
-              className="rounded-xl bg-primary px-6 py-3 font-medium text-white hover:bg-primary-hover"
+              className="rounded-xl touch-feedback bg-primary px-6 py-3 font-medium text-white hover:bg-primary-hover"
             >
               Add
             </button>

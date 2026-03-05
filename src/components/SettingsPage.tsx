@@ -82,7 +82,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="rounded-xl border border-surface-hover bg-surface p-6">
+    <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-6">
       <div className="mb-6">
         <h2 className="text-xl font-semibold">Settings</h2>
         <p className="mt-1 text-gray-400">Configure Firebase connection</p>

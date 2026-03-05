@@ -167,7 +167,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
             {/* Input / Prompt */}
             {task.input && (
-              <div className="rounded-lg bg-surface-hover p-4">
+              <div className="rounded-lg touch-feedback bg-surface-hover p-4">
                 <h4 className="text-sm font-medium text-gray-400 mb-2">
                   {task.previousAgentTaskId ? 'Input from Previous Agent' : 'Prompt'}
                 </h4>

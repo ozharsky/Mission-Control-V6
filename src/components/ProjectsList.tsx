@@ -375,7 +375,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                 );
               })}
               {projectsByStatus[column.id].length === 0 && (
-                <div className="rounded-xl border border-dashed border-surface-hover py-8 text-center text-gray-500">
+                <div className="rounded-xl touch-feedback border border-dashed border-surface-hover py-8 text-center text-gray-500">
                   <Circle className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   <p className="text-sm">No projects</p>
                   <p className="text-xs opacity-70">Drag projects here</p>

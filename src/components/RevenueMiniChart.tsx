@@ -25,7 +25,7 @@ export function RevenueMiniChart({ revenue, onNavigate }: RevenueMiniChartProps)
   
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-success" />
@@ -82,7 +82,7 @@ export function RevenueMiniChart({ revenue, onNavigate }: RevenueMiniChartProps)
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="rounded-lg bg-surface border border-surface-hover p-3 shadow-lg">
+        <div className="rounded-lg touch-feedback bg-surface border border-surface-hover p-3 shadow-lg">
           <p className="text-sm font-medium mb-1">{data.fullMonth}</p>
           <p className="text-sm text-success">Revenue: ${data.revenue.toLocaleString()}</p>
           <p className="text-xs text-gray-500">{data.orders} orders</p>
@@ -119,7 +119,7 @@ export function RevenueMiniChart({ revenue, onNavigate }: RevenueMiniChartProps)
           </div>
           <button 
             onClick={() => onNavigate('revenue')}
-            className="rounded-lg bg-surface-hover px-3 py-1.5 text-sm text-primary hover:bg-surface-hover/80 transition-colors"
+            className="rounded-lg touch-feedback bg-surface-hover px-3 py-1.5 text-sm text-primary hover:bg-surface-hover/80 transition-colors"
           >
             View Details
           </button>

@@ -123,7 +123,7 @@ export function DataMigration({ onClose }: DataMigrationProps) {
       {/* Migrate Tab */}
       {activeTab === 'migrate' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-surface-hover bg-surface p-6">
+          <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-6">
             <h3 className="mb-4 text-lg font-semibold">Migrate from V5</h3>
             
             <p className="mb-4 text-sm text-gray-400">
@@ -188,7 +188,7 @@ export function DataMigration({ onClose }: DataMigrationProps) {
       {/* Export Tab */}
       {activeTab === 'export' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-surface-hover bg-surface p-6">
+          <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-6">
             <h3 className="mb-4 text-lg font-semibold">Export Data</h3>
             
             <p className="mb-4 text-sm text-gray-400">
@@ -229,7 +229,7 @@ export function DataMigration({ onClose }: DataMigrationProps) {
       {/* Import Tab */}
       {activeTab === 'import' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-surface-hover bg-surface p-6">
+          <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-6">
             <h3 className="mb-4 text-lg font-semibold">Import Data</h3>
             
             <p className="mb-4 text-sm text-gray-400">
