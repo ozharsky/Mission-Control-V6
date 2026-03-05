@@ -316,7 +316,7 @@ export function JobsView({ jobs }: JobsViewProps) {
       {/* Search and Filters */}
       <div className="rounded-xl border border-surface-hover bg-surface p-4">
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-          <div className="flex-1 min-w-0 w-full sm:min-w-[200px]">
+          <div className="flex-1 min-w-0 w-full min-w-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input

@@ -394,8 +394,8 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
             <div className="py-12 text-center text-gray-500">No revenue data</div>
           )
         ) : (
-          <div className="overflow-x-auto -mx-4 px-4">
-            <table className="w-full min-w-[500px]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-0">
               <thead><tr className="border-b border-surface-hover text-left"><th className="pb-3 text-sm text-gray-400">Month</th><th className="pb-3 text-right text-sm text-gray-400">Revenue</th><th className="pb-3 text-right text-sm text-gray-400">Orders</th><th className="pb-3 text-center text-sm text-gray-400">Status</th><th className="pb-3 text-right text-sm text-gray-400">Actions</th></tr></thead>
               <tbody>
                 {[...filteredData].reverse().map((item) => {

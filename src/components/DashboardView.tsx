@@ -454,7 +454,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="grid grid-cols-2 gap-3">
         {/* Tasks */}
         <button
           onClick={() => onNavigate('tasks')}
@@ -537,7 +537,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4">
         {/* Printers */}
         <div className="rounded-xl border border-surface-hover bg-surface p-4">
           <div className="mb-4 flex items-center justify-between">
@@ -626,7 +626,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* Two Column Layout - Additional Charts */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4">
         {/* Task Completion Chart */}
         <div className="rounded-xl border border-surface-hover bg-surface p-4">
           <div className="mb-4 flex items-center justify-between">
