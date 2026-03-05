@@ -124,6 +124,8 @@ export function TradesView() {
     highRScoreTrades: sortedTrades.filter(t => (t.rScore || 0) >= 1.5).length
   }), [sortedTrades]);
 
+  const allCategories = ['all', 'weather', 'crypto', 'companies', 'economics', 'science', 'world', 'politics', 'government', 'finance'];
+
   return (
     <div style={{ 
       width: '100%', 
@@ -209,41 +211,69 @@ export function TradesView() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '6px', 
-        marginBottom: '12px', 
-        overflowX: 'auto',
-        paddingBottom: '4px'
-      }}>
-        {['all', 'weather', 'crypto', 'economics'].map(cat => {
-          const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
-          const selected = selectedCategory === cat;
-          return (
-            <button 
-              key={cat} 
-              onClick={() => setSelectedCategory(cat)}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '4px', 
-                padding: '6px 10px', 
-                fontSize: '11px', 
-                borderRadius: '6px', 
-                border: 'none', 
-                whiteSpace: 'nowrap',
-                background: selected ? '#3b82f6' : '#374151', 
-                color: 'white',
-                flexShrink: 0
-              }}
-            >
-              <Icon size={12} />
-              {cat}
-              {selected && <span style={{ fontSize: '10px', opacity: 0.8 }}>({filteredTrades.length})</span>}
-            </button>
-          );
-        })}
+      {/* Filters - Mobile: Dropdown, Desktop: Buttons */}
+      <div style={{ marginBottom: '12px' }}>
+        {/* Mobile Dropdown */}
+        <div className="md:hidden">
+          <select 
+            value={selectedCategory} 
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            style={{ 
+              width: '100%',
+              padding: '8px 12px', 
+              fontSize: '12px', 
+              borderRadius: '6px', 
+              border: '1px solid #374151', 
+              background: '#1f2937', 
+              color: 'white'
+            }}
+          >
+            {allCategories.map(cat => (
+              <option key={cat} value={cat}>
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {selectedCategory === cat ? ` (${filteredTrades.length})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        {/* Desktop Buttons */}
+        <div 
+          className="hidden md:flex"
+          style={{ 
+            gap: '6px', 
+            overflowX: 'auto',
+            paddingBottom: '4px'
+          }}
+        >
+          {allCategories.map(cat => {
+            const Icon = cat === 'all' ? Filter : CATEGORY_ICONS[cat];
+            const selected = selectedCategory === cat;
+            return (
+              <button 
+                key={cat} 
+                onClick={() => setSelectedCategory(cat)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px', 
+                  padding: '6px 10px', 
+                  fontSize: '11px', 
+                  borderRadius: '6px', 
+                  border: 'none', 
+                  whiteSpace: 'nowrap',
+                  background: selected ? '#3b82f6' : '#374151', 
+                  color: 'white',
+                  flexShrink: 0
+                }}
+              >
+                <Icon size={12} />
+                {cat}
+                {selected && <span style={{ fontSize: '10px', opacity: 0.8 }}>({filteredTrades.length})</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Sort */}
