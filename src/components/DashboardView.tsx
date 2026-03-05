@@ -664,7 +664,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                 {data.map((item) => (
                   <div key={item.label} className="flex items-center gap-3">
                     <div className={`h-3 w-3 rounded-full ${item.color}`} />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between text-sm">
                         <span>{item.label}</span>
                         <span className={item.textColor}>{item.value}</span>
@@ -735,7 +735,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                 {data.map((item) => (
                   <div key={item.label} className="flex items-center gap-3">
                     <div className={`h-3 w-3 rounded-full ${item.color}`} />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between text-sm">
                         <span>{item.label}</span>
                         <span className={item.textColor}>{item.value}</span>

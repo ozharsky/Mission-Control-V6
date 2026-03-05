@@ -380,7 +380,7 @@ export function InventoryView({ items }: InventoryViewProps) {
                 >
                   <div className="flex items-start justify-between"
 >
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="font-mono text-sm text-gray-500">{item.sku}</span>
                         <h3 className="font-semibold">{item.name}</h3>
@@ -652,7 +652,7 @@ export function InventoryView({ items }: InventoryViewProps) {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="flex-1 rounded-lg border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
+                  className="flex-1 min-w-0 rounded-lg border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
                 >
                   Cancel
                 </button>
@@ -660,7 +660,7 @@ export function InventoryView({ items }: InventoryViewProps) {
                   type="submit"
                   isLoading={isSubmitting}
                   loadingText={editingItem ? 'Saving...' : 'Adding...'}
-                  className="flex-1 rounded-lg bg-primary py-2 font-medium text-white disabled:opacity-50"
+                  className="flex-1 min-w-0 rounded-lg bg-primary py-2 font-medium text-white disabled:opacity-50"
                 >
                   {editingItem ? 'Save Changes' : 'Add Item'}
                 </LoadingButton>
@@ -694,13 +694,13 @@ export function InventoryView({ items }: InventoryViewProps) {
             <div className="mt-4 flex gap-3">
               <button
                 onClick={() => setShowImportModal(false)}
-                className="flex-1 rounded-lg border border-surface-hover py-2 text-gray-400"
+                className="flex-1 min-w-0 rounded-lg border border-surface-hover py-2 text-gray-400"
               >
                 Cancel
               </button>
               <button
                 onClick={handleImport}
-                className="flex-1 rounded-lg bg-primary py-2 font-medium text-white"
+                className="flex-1 min-w-0 rounded-lg bg-primary py-2 font-medium text-white"
               >
                 Import
               </button>

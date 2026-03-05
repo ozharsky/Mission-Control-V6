@@ -447,7 +447,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                   className="cursor-pointer p-4 hover:bg-surface-hover/50"
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-semibold">{job.title}</h3>
                         <span className={`rounded-full border px-2 py-0.5 text-xs ${JOB_STATUS_COLORS[job.status]}`}>
@@ -758,7 +758,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="flex-1 rounded-lg border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
+                  className="flex-1 min-w-0 rounded-lg border border-surface-hover py-2 text-gray-400 hover:bg-surface-hover"
                 >
                   Cancel
                 </button>
@@ -766,7 +766,7 @@ export function JobsView({ jobs }: JobsViewProps) {
                   type="submit"
                   isLoading={isSubmitting}
                   loadingText={editingJob ? 'Saving...' : 'Adding...'}
-                  className="flex-1 rounded-lg bg-primary py-2 font-medium text-white disabled:opacity-50"
+                  className="flex-1 min-w-0 rounded-lg bg-primary py-2 font-medium text-white disabled:opacity-50"
                 >
                   {editingJob ? 'Save Changes' : 'Add Job'}
                 </LoadingButton>
