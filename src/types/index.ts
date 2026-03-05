@@ -6,6 +6,19 @@ export * from './inventory';
 export * from './reports';
 export * from './agentTask';
 
+// Calendar Event type
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;
+  time?: string;
+  allDay?: boolean;
+  type: 'print' | 'meeting' | 'deadline' | 'delivery' | 'maintenance' | 'project' | 'task';
+  description?: string;
+  projectId?: string;
+  status?: string;
+}
+
 export interface Task {
   id: string;
   title: string;

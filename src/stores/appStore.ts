@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeToData, updateData, setData, pushData } from '../lib/firebase';
-import type { Task, Project, ProjectTask, Notification, Job, InventoryItem, InventoryTransaction, Report, ReportSchedule } from '../types';
+import type { Task, Project, ProjectTask, Notification, Job, InventoryItem, InventoryTransaction, Report, ReportSchedule, CalendarEvent } from '../types';
 import { cleanForFirebase } from '../types';
 import { useToastStore } from '../components/Toast';
 import { logActivity } from './activityStore';
@@ -24,6 +24,7 @@ interface AppState {
   inventory: InventoryItem[];
   reports: Report[];
   reportSchedules: ReportSchedule[];
+  calendarEvents: CalendarEvent[];
   _lastPrinterUpdate?: number;
   _isSubscribed: boolean;
 
@@ -66,6 +67,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   inventory: [],
   reports: [],
   reportSchedules: [],
+  calendarEvents: [],
   _lastPrinterUpdate: 0,
   _isSubscribed: false,
 
@@ -419,6 +421,23 @@ export const useAppStore = create<AppState>((set, get) => ({
               ...schedule,
             }));
           set({ reportSchedules });
+        }
+      })
+    );
+
+    // Subscribe to calendar events
+    newUnsubscribers.push(
+      subscribeToData('v6/calendar/events', (data) => {
+        if (data) {
+          const calendarEvents = Object.entries(data)
+            .filter(([_, event]) => event != null)
+            .map(([id, event]: [string, any]) => ({
+              id,
+              ...event,
+            }));
+          set({ calendarEvents });
+        } else {
+          set({ calendarEvents: [] });
         }
       })
     );
@@ -803,5 +822,25 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     await setData(`v6/reportSchedules/${id}`, null);
+  },
+
+  // Calendar Events
+  addCalendarEvent: async (event) => {
+    const eventWithMeta = {
+      ...event,
+      createdAt: new Date().toISOString(),
+    };
+    const id = await pushData('v6/calendar/events', eventWithMeta);
+    return id;
+  },
+
+  updateCalendarEvent: async (id, updates) => {
+    if (!id) return;
+    await updateData(`v6/calendar/events/${id}`, updates);
+  },
+
+  deleteCalendarEvent: async (id) => {
+    if (!id) return;
+    await setData(`v6/calendar/events/${id}`, null);
   },
 }));

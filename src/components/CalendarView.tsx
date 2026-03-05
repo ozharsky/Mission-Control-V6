@@ -1,28 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Clock, Printer, Briefcase, AlertCircle, Filter, CheckCircle, Folder } from 'lucide-react';
-import type { Project, Task } from '../types';
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  date: string;
-  time?: string;
-  allDay?: boolean;
-  type: 'print' | 'meeting' | 'deadline' | 'delivery' | 'maintenance' | 'project' | 'task';
-  description?: string;
-  projectId?: string;
-  status?: string;
-}
-
-interface CalendarViewProps {
-  events?: CalendarEvent[];
-  projects?: Project[];
-  tasks?: {
-    pending: Task[];
-    inProgress: Task[];
-    completed: Task[];
-  };
-}
+import { useAppStore } from '../stores/appStore';
+import type { CalendarEvent } from '../types';
 
 const EVENT_COLORS = {
   print: { bg: 'bg-blue-500', light: 'bg-blue-500/10', text: 'text-blue-400', icon: Printer },
@@ -34,7 +13,8 @@ const EVENT_COLORS = {
   task: { bg: 'bg-cyan-500', light: 'bg-cyan-500/10', text: 'text-cyan-400', icon: CheckCircle },
 };
 
-export function CalendarView({ events = [], projects = [], tasks }: CalendarViewProps) {
+export function CalendarView() {
+  const { projects, tasks, calendarEvents, addCalendarEvent } = useAppStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -43,7 +23,6 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [quickAddType, setQuickAddType] = useState<CalendarEvent['type']>('meeting');
-  const [customEvents, setCustomEvents] = useState<CalendarEvent[]>([]);
 
   // Detect mobile on mount
   useEffect(() => {
@@ -60,9 +39,9 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
     }
   }, [isMobile]);
 
-  // Generate events from projects and tasks
+  // Generate events from projects, tasks, and stored calendar events
   const allEvents = useMemo(() => {
-    const generatedEvents: CalendarEvent[] = [...events, ...customEvents];
+    const generatedEvents: CalendarEvent[] = [...calendarEvents];
 
     // Add project due dates
     projects.forEach(project => {
@@ -98,7 +77,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
     }
 
     return generatedEvents;
-  }, [events, projects, tasks, customEvents]);
+  }, [projects, tasks, calendarEvents]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -458,14 +437,12 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
                 <button
                   onClick={() => {
                     if (quickAddTitle.trim()) {
-                      const newEvent: CalendarEvent = {
-                        id: `custom-${Date.now()}`,
+                      addCalendarEvent({
                         title: quickAddTitle,
                         type: quickAddType,
                         date: new Date().toISOString().split('T')[0],
                         description: 'Added via quick add',
-                      };
-                      setCustomEvents(prev => [...prev, newEvent]);
+                      });
                       setQuickAddTitle('');
                       setShowQuickAdd(false);
                     }
