@@ -7,6 +7,7 @@ interface CalendarEvent {
   title: string;
   date: string;
   time?: string;
+  allDay?: boolean;
   type: 'print' | 'meeting' | 'deadline' | 'delivery' | 'maintenance' | 'project' | 'task';
   description?: string;
   projectId?: string;
@@ -296,7 +297,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
               {/* Calendar Days */}
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: startingDay }).map((_, i) => (
-                  <div key={`empty-${i}`} className="min-h-[60px] lg:min-h-[100px] p-1" />
+                  <div key={`empty-${i}`} className="min-h-[80px] lg:min-h-[100px] p-1" />
                 ))}
 
                 {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -308,7 +309,7 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
                     <button
                       key={day}
                       onClick={() => setSelectedDate(new Date(year, month, day))}
-                      className={`min-h-[60px] lg:min-h-[100px] rounded-lg lg:rounded-xl border p-1 lg:p-2 text-left transition-all ${
+                      className={`min-h-[80px] lg:min-h-[100px] rounded-lg lg:rounded-xl border p-2 text-left transition-all touch-feedback ${
                         isSelected(day)
                           ? 'border-primary bg-primary/10'
                           : isToday(day)
@@ -405,6 +406,15 @@ export function CalendarView({ events = [], projects = [], tasks }: CalendarView
           </div>
         </div>
       </div>
+
+      {/* Floating Add Button - Mobile Only */}
+      <button
+        onClick={() => setSelectedDate(new Date())}
+        className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30 transition-transform hover:scale-110 active:scale-95 lg:hidden touch-feedback"
+        aria-label="Add event"
+      >
+        <Plus className="h-5 w-5" />
+      </button>
     </div>
   );
 }
