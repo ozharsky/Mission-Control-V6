@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { 
   Plus, CheckCircle, Clock, Circle, Calendar, Folder, 
   ArrowRight, ArrowLeft, Trash2, Edit2, X, User, Bot, Filter,
-  List, Columns
+  List, Columns, GripVertical
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { LoadingButton } from '../components/Loading';
@@ -79,11 +79,16 @@ function TaskCard({
     <div
       draggable
       onDragStart={onDragStart}
-      className={`group relative rounded-xl border border-surface-hover bg-background p-4 transition-all duration-200 hover:border-primary hover:shadow-lg ${isDragging ? 'opacity-50' : ''} cursor-move`}
+      className={`group relative rounded-xl border border-surface-hover bg-background p-4 transition-all duration-200 hover:border-primary hover:shadow-lg ${isDragging ? 'opacity-50' : ''} cursor-move touch-feedback`}
       style={{ animationDelay: `${index * 50}ms` }}
     >
+      {/* Drag handle - visible on mobile */}
+      <div className="absolute left-1 top-1/2 -translate-y-1/2 lg:hidden">
+        <GripVertical className="h-5 w-5 text-gray-600" />
+      </div>
+
       {/* Header with actions - Always visible action buttons */}
-      <div className="mb-3">
+      <div className="mb-3 pl-6 lg:pl-0">
         <div className="flex items-start justify-between gap-2">
           <span className="flex-1 text-sm font-medium leading-relaxed">{task.title}</span>
           
@@ -91,14 +96,14 @@ function TaskCard({
           <div className="flex items-center gap-1 shrink-0">
             <button 
               onClick={() => onEdit()}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-primary/20 hover:text-primary transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-primary/20 hover:text-primary transition-colors touch-feedback"
               title="Edit task"
             >
               <Edit2 className="h-4 w-4" />
             </button>
             <button 
               onClick={() => onDelete()}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-danger/20 hover:text-danger transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-danger/20 hover:text-danger transition-colors touch-feedback"
               title="Delete task"
             >
               <Trash2 className="h-4 w-4" />
@@ -111,17 +116,17 @@ function TaskCard({
           {canMoveBackward && (
             <button 
               onClick={() => onMove('backward')}
-              className="flex items-center gap-1 rounded-lg bg-surface-hover px-2 py-1 text-xs text-gray-400 hover:bg-surface-hover/80 hover:text-white transition-colors"
+              className="flex items-center gap-1 rounded-lg bg-surface-hover px-2 py-1.5 text-xs text-gray-400 hover:bg-surface-hover/80 hover:text-white transition-colors touch-feedback min-h-[36px]"
             >
-              <ArrowLeft className="h-3 w-3" /> Move Back
+              <ArrowLeft className="h-3 w-3" /> Back
             </button>
           )}
           {canMoveForward && (
             <button 
               onClick={() => onMove('forward')}
-              className="flex items-center gap-1 rounded-lg bg-surface-hover px-2 py-1 text-xs text-gray-400 hover:bg-surface-hover/80 hover:text-white transition-colors"
+              className="flex items-center gap-1 rounded-lg bg-surface-hover px-2 py-1.5 text-xs text-gray-400 hover:bg-surface-hover/80 hover:text-white transition-colors touch-feedback min-h-[36px]"
             >
-              Move Forward <ArrowRight className="h-3 w-3" />
+              Forward <ArrowRight className="h-3 w-3" />
             </button>
           )}
         </div>
