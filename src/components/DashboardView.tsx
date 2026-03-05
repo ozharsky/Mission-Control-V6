@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { 
   CheckCircle2, Clock, Circle, TrendingUp, AlertCircle,
   Briefcase, Package, DollarSign, Printer, Zap, Flame, Thermometer,
