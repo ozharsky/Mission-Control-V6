@@ -370,10 +370,10 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                     key={project.id}
                     draggable
                     onDragStart={() => handleDragStart(project)}
-                    className="group relative rounded-lg border border-surface-hover bg-background p-3 transition-all hover:border-primary hover:shadow-md"
+                    className="group relative rounded-lg border border-surface-hover bg-background p-2 sm:p-3 transition-all hover:border-primary hover:shadow-md"
                   >
                     {/* Action Buttons - Always visible on mobile, hover on desktop */}
-                    <div className="absolute right-2 top-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <div className="absolute right-1 top-1 sm:right-2 sm:top-2 flex items-center gap-0.5 sm:gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -388,10 +388,10 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                           });
                           setShowModal(true);
                         }}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-primary/20 hover:text-primary"
+                        className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-primary/20 hover:text-primary"
                         title="Edit project"
                       >
-                        <Edit2 className="h-4 w-4" />
+                        <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -400,20 +400,20 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                             deleteProject(project.id);
                           }
                         }}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-danger/20 hover:text-danger"
+                        className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-surface-hover text-gray-400 hover:bg-danger/20 hover:text-danger"
                         title="Delete project"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
                     </div>
 
                     {/* Clickable area for details */}
                     <div onClick={() => setSelectedProject(project)} className="cursor-pointer">
                       {/* Header */}
-                      <div className="mb-2 flex items-start justify-between pr-16">
-                        <h3 className="flex-1 pr-2 text-sm font-medium">{project.name}</h3>
+                      <div className="mb-1 sm:mb-2 flex items-start justify-between pr-12 sm:pr-16">
+                        <h3 className="flex-1 pr-2 text-xs sm:text-sm font-medium">{project.name}</h3>
                         {project.priority && (
-                          <span className={`rounded-full border px-2 py-0.5 text-xs ${getPriorityColor(project.priority)}`}>
+                          <span className={`rounded-full border px-1.5 py-0.5 text-[10px] sm:text-xs ${getPriorityColor(project.priority)}`}>
                             {project.priority}
                           </span>
                         )}
