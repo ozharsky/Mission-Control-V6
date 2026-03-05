@@ -72,6 +72,24 @@ export interface Printer {
   lastSeen?: string;
 }
 
+export interface Revenue {
+  [key: string]: {
+    month: string;
+    value: number;
+    orders: number;
+    expenses?: number;
+  };
+}
+
+export interface Priority {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'active' | 'completed';
+  order: number;
+  createdAt: string;
+}
+
 // Helper to clean undefined values before Firebase save
 export function cleanForFirebase<T extends Record<string, any>>(obj: T): Partial<T> {
   return Object.fromEntries(

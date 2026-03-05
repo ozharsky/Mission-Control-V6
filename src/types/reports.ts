@@ -46,7 +46,7 @@ export interface ReportSection {
   id: string;
   title: string;
   type: 'revenue' | 'tasks' | 'projects' | 'inventory' | 'jobs' | 'text';
-  data: any;
+  data: unknown;
   insights: string[];
 }
 
@@ -70,4 +70,4 @@ export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
 
 export const WEEKDAYS = [
   'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
-];
+];export interface ReportConfig { type: ReportType; dateRange: { start: string; end: string; }; sections?: string[]; }

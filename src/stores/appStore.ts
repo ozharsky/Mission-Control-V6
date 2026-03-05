@@ -16,9 +16,9 @@ interface AppState {
   };
   notifications: Notification[];
   unreadCount: number;
-  printers: any[];
-  revenue: any;
-  priorities: any[];
+  printers: Printer[];
+  revenue: Revenue;
+  priorities: Priority[];
   projects: Project[];
   jobs: Job[];
   inventory: InventoryItem[];
@@ -27,7 +27,7 @@ interface AppState {
   _lastPrinterUpdate?: number;
   _isSubscribed: boolean;
 
-  setPrinters: (printers: any[]) => void;
+  setPrinters: (printers: Printer[]) => void;
   addTask: (task: Omit<Task, 'id'>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   moveTask: (id: string, fromStatus: Task['status'], toStatus: Task['status']) => Promise<void>;
@@ -44,7 +44,7 @@ interface AppState {
   updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
   addInventoryTransaction: (transaction: Omit<InventoryTransaction, 'id'>) => Promise<void>;
-  generateReport: (config: any) => Promise<void>;
+  generateReport: (config: ReportConfig) => Promise<void>;
   deleteReport: (id: string) => Promise<void>;
   addReportSchedule: (schedule: Omit<ReportSchedule, 'id'>) => Promise<void>;
   updateReportSchedule: (id: string, updates: Partial<ReportSchedule>) => Promise<void>;
