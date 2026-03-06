@@ -362,16 +362,68 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
         
         // Map SimplyPrint data to our Printer interface
         const mappedPrinters: Printer[] = livePrinters.map((sp: any) => {
-          console.log('Mapping printer:', sp);
+          // Debug temperature fields
+          console.log('Printer temps raw:', {
+            name: sp.name,
+            temperature: sp.temperature,
+            nozzle_temp: sp.nozzle_temp,
+            tool0: sp.tool0,
+            bed_temp: sp.bed_temp,
+            bed: sp.bed,
+            chamber_temp: sp.chamber_temp,
+            temps: sp.temps,
+          });
+          
+          // Try multiple possible temperature field names
+          const nozzleTemp = sp.temperature?.nozzle 
+            ?? sp.temperature?.tool0 
+            ?? sp.nozzle_temp 
+            ?? sp.tool0?.actual 
+            ?? sp.tool0?.temperature 
+            ?? sp.temps?.tool0?.actual 
+            ?? sp.temps?.tool0?.temp 
+            ?? 0;
+            
+          const targetNozzleTemp = sp.temperature?.targetNozzle 
+            ?? sp.temperature?.tool0Target 
+            ?? sp.target_nozzle_temp 
+            ?? sp.tool0?.target 
+            ?? sp.temps?.tool0?.target 
+            ?? 0;
+            
+          const bedTemp = sp.temperature?.bed 
+            ?? sp.temperature?.bedActual 
+            ?? sp.bed_temp 
+            ?? sp.bed?.actual 
+            ?? sp.bed?.temperature 
+            ?? sp.temps?.bed?.actual 
+            ?? sp.temps?.bed?.temp 
+            ?? 0;
+            
+          const targetBedTemp = sp.temperature?.targetBed 
+            ?? sp.temperature?.bedTarget 
+            ?? sp.target_bed_temp 
+            ?? sp.bed?.target 
+            ?? sp.temps?.bed?.target 
+            ?? 0;
+            
+          const chamberTemp = sp.chamber_temp 
+            ?? sp.temperature?.chamber 
+            ?? sp.temperature?.chamberActual 
+            ?? sp.chamber?.actual 
+            ?? sp.chamber?.temperature 
+            ?? sp.temps?.chamber?.actual 
+            ?? sp.temps?.chamber?.temp;
+          
           return {
             id: sp.id || sp.printer_id,
             name: sp.name || sp.printer_name,
             status: sp.status || 'offline',
-            temp: sp.temperature?.nozzle || sp.nozzle_temp || sp.tool0?.actual || 0,
-            targetTemp: sp.temperature?.targetNozzle || sp.target_nozzle_temp || sp.tool0?.target,
-            bedTemp: sp.temperature?.bed || sp.bed_temp || sp.bed?.actual || 0,
-            targetBedTemp: sp.temperature?.targetBed || sp.target_bed_temp || sp.bed?.target,
-            chamberTemp: sp.chamber_temp || sp.temperature?.chamber || sp.chamber?.actual,
+            temp: nozzleTemp,
+            targetTemp: targetNozzleTemp,
+            bedTemp: bedTemp,
+            targetBedTemp: targetBedTemp,
+            chamberTemp: chamberTemp,
             job: sp.currentJob || sp.job ? {
               name: sp.currentJob?.name || sp.job?.name || sp.job_name,
               progress: sp.progress || sp.currentJob?.progress || sp.job?.progress || 0,
