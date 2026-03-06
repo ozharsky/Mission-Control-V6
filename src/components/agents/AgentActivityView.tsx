@@ -170,7 +170,7 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
                 </div>
                 <div className="rounded-lg bg-surface p-2 text-center">
                   <div className="text-lg font-bold text-green-400">
-                    ${Number(metric.totalCostEstimate || 0).toFixed(2)}
+                    ${isNaN(Number(metric.totalCostEstimate)) ? '0.00' : Number(metric.totalCostEstimate || 0).toFixed(2)}
                   </div>
                   <div className="text-xs text-gray-400">Cost</div>
                 </div>
