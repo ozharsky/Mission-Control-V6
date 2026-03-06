@@ -28,6 +28,16 @@ const CATEGORY_ICONS: Record<string, any> = {
   workflow: Activity,
 };
 
+const CATEGORY_EMOJIS: Record<string, string> = {
+  task: '✅',
+  decision: '🤔',
+  api_call: '🔌',
+  file_upload: '📎',
+  notification: '🔔',
+  error: '❌',
+  workflow: '⚡',
+};
+
 export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
   const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
   const [metrics, setMetrics] = useState<AgentMetrics[]>([]);
@@ -129,32 +139,37 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
 
       {/* Agent Metrics */}
       <div className="rounded-xl border border-surface-hover bg-surface p-6">
-        <h3 className="mb-4 text-lg font-semibold">Agent Performance</h3>
+        <h3 className="mb-4 text-lg font-semibold flex items-center gap-2">
+          🤖 Agent Performance
+        </h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric) => (
-            <div key={metric.agentId} className="rounded-lg border border-surface-hover bg-background p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">{AGENT_EMOJIS[metric.agentId as keyof typeof AGENT_EMOJIS] || '🤖'}</span>
-                <span className="font-medium">{AGENT_NAMES[metric.agentId as keyof typeof AGENT_NAMES] || metric.agentId}</span>
+            <div key={metric.agentId} className="rounded-xl border border-surface-hover bg-background p-4 hover:border-primary/30 transition-colors">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-3xl">{AGENT_EMOJIS[metric.agentId as keyof typeof AGENT_EMOJIS] || '🤖'}</span>
+                <div>
+                  <div className="font-semibold">{AGENT_NAMES[metric.agentId as keyof typeof AGENT_NAMES] || metric.agentId}</div>
+                  <div className="text-xs text-gray-400">{metric.totalActions || 0} actions</div>
+                </div>
               </div>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Actions:</span>
-                  <span>{metric.totalActions || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Success Rate:</span>
-                  <span className={(metric.successRate || 0) >= 90 ? 'text-green-400' : 'text-yellow-400'}>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-surface p-2 text-center">
+                  <div className="text-lg font-bold {(metric.successRate || 0) >= 90 ? 'text-green-400' : 'text-yellow-400'}">
                     {metric.successRate || 0}%
-                  </span>
+                  </div>
+                  <div className="text-xs text-gray-400">Success</div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Tokens:</span>
-                  <span>{Number(metric.totalTokensUsed || 0).toLocaleString()}</span>
+                <div className="rounded-lg bg-surface p-2 text-center">
+                  <div className="text-lg font-bold text-orange-400">
+                    {Number(metric.totalTokensUsed || 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-400">Tokens</div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Cost:</span>
-                  <span>${Number(metric.totalCostEstimate || 0).toFixed(2)}</span>
+                <div className="rounded-lg bg-surface p-2 text-center col-span-2">
+                  <div className="text-lg font-bold text-green-400">
+                    ${Number(metric.totalCostEstimate || 0).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-gray-400">Est. Cost</div>
                 </div>
               </div>
             </div>
@@ -197,41 +212,46 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
         <h3 className="mb-4 text-lg font-semibold">Recent Activity ({filteredLogs.length})</h3>
         <div className="space-y-2 max-h-[600px] overflow-y-auto">
           {filteredLogs.map((log) => {
-            const Icon = CATEGORY_ICONS[log.category] || Activity;
+            const emoji = CATEGORY_EMOJIS[log.category] || '📋';
+            const agentEmoji = AGENT_EMOJIS[log.agentId as keyof typeof AGENT_EMOJIS] || '🤖';
             return (
               <div
                 key={log.id}
-                className="flex items-start gap-3 rounded-lg border border-surface-hover bg-background p-3"
+                className="flex items-start gap-3 rounded-xl border border-surface-hover bg-background p-4 hover:border-primary/50 transition-colors"
               >
-                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${CATEGORY_COLORS[log.category]}`}>
-                  <Icon className="h-4 w-4" />
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${CATEGORY_COLORS[log.category]}`}>
+                  {emoji}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-lg">{agentEmoji}</span>
                     <span className="font-medium">{AGENT_NAMES[log.agentId as keyof typeof AGENT_NAMES] || log.agentId}</span>
                     <span className="text-xs text-gray-400">{formatTime(log.timestamp)}</span>
-                    <span className={`rounded px-2 py-0.5 text-xs ${CATEGORY_COLORS[log.category]}`}>
-                      {log.category}
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CATEGORY_COLORS[log.category]}`}>
+                      {log.category.replace('_', ' ')}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-300 mt-1">{log.description}</p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                  <p className="text-sm text-gray-200 mt-1">{log.description}</p>
+                  <div className="flex items-center gap-4 mt-2 text-xs">
                     {log.metadata?.duration && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDuration(log.metadata.duration)}
+                      <span className="flex items-center gap-1 text-gray-400">
+                        ⏱️ {formatDuration(log.metadata.duration)}
                       </span>
                     )}
-                    {log.metadata?.tokensUsed && (
-                      <span className="flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" />
-                        {Number(log.metadata.tokensUsed).toLocaleString()} tokens
+                    {log.metadata?.tokensUsed && Number(log.metadata.tokensUsed) > 0 && (
+                      <span className="flex items-center gap-1 text-orange-400">
+                        🔢 {Number(log.metadata.tokensUsed).toLocaleString()} tokens
                       </span>
                     )}
-                    {log.metadata?.costEstimate && (
-                      <span className="flex items-center gap-1">
-                        <DollarSign className="h-3 w-3" />
-                        ${Number(log.metadata.costEstimate).toFixed(3)}
+                    {log.metadata?.costEstimate && Number(log.metadata.costEstimate) > 0 && (
+                      <span className="flex items-center gap-1 text-green-400">
+                        💰 ${Number(log.metadata.costEstimate).toFixed(3)}
+                      </span>
+                    )}
+                    {log.metadata?.success === false && (
+                      <span className="text-red-400 font-medium">❌ Failed</span>
+                    )}
+                  </div>
                       </span>
                     )}
                     {log.metadata?.success === false && (
