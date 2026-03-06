@@ -342,8 +342,8 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
   const [error, setError] = useState<string | null>(null);
 
   // Fetch live data from SimplyPrint API
-  const fetchLivePrinters = async () => {
-    setLoading(true);
+  const fetchLivePrinters = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError(null);
     try {
       const api = getSimplyPrint();
@@ -384,7 +384,8 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
         setPrinters(mappedPrinters);
         setLastUpdate(Date.now());
       } else {
-        // Fallback to initial printers if API not initialized
+        // API not initialized - use Firebase data
+        setError('SimplyPrint not connected');
         setPrinters(initialPrinters);
       }
     } catch (err) {
@@ -392,15 +393,15 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
       setError('Failed to fetch live data');
       setPrinters(initialPrinters);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   // Fetch on mount
   useEffect(() => {
-    fetchLivePrinters();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchLivePrinters, 30000);
+    fetchLivePrinters(true);
+    // Auto-refresh every 30 seconds (no loading spinner)
+    const interval = setInterval(() => fetchLivePrinters(false), 30000);
     return () => clearInterval(interval);
   }, []);
 
