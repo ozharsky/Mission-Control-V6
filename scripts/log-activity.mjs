@@ -15,13 +15,23 @@ const API_KEY = 'Nxc4fUHTmPEzB2mAz7yfjYY2uwPR72n2pGyrX2qH';
 const API_URL = 'https://mission-control-v6-kappa.vercel.app/api/log-activity';
 
 async function logActivity(agentId, action, description, category = 'task', metadata = {}) {
+  // Parse metadata if string
+  const meta = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+  
+  // Normalize field names (accept tokens/cost or tokensUsed/costEstimate)
+  const normalized = {
+    ...meta,
+    tokensUsed: meta.tokensUsed || meta.tokens || 0,
+    costEstimate: meta.costEstimate || meta.cost || 0,
+  };
+  
   const entry = {
     timestamp: Date.now(),
     agentId,
     action,
     category,
     description,
-    metadata: typeof metadata === 'string' ? JSON.parse(metadata) : metadata,
+    metadata: normalized,
   };
 
   try {
@@ -58,7 +68,7 @@ if (!agentId || !action || !description) {
   console.log('Examples:');
   console.log('  node log-activity.mjs inventor task_start "Designing product"');
   console.log('  node log-activity.mjs inventor task_complete "Product designed" task \'{"duration":360000}\'');
-  console.log('  node log-activity.mjs analyst api_call "Called API" api_call \'{"tokens":1500}\'');
+  console.log('  node log-activity.mjs analyst api_call "Called API" api_call \'{"tokens":1500,"cost":0.03}\'');
   console.log('');
   console.log('Categories: task, decision, api_call, file_upload, notification, error');
   process.exit(1);
