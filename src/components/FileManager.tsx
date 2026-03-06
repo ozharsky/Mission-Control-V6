@@ -219,8 +219,6 @@ export function FileManager({ projectId }: FileManagerProps) {
     const matchesProject = !projectId || file?.projectId === projectId;
     return matchesCategory && matchesSearch && matchesProject && file != null;
   });
-    return matchesCategory && matchesSearch && matchesProject;
-  });
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
