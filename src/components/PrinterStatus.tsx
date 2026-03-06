@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Zap, Moon, AlertCircle, CheckCircle, Layers, Flame, Clock, MoreHorizontal, Settings, Power, Pause, Play, Square, Circle, Printer, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Zap, Moon, AlertCircle, CheckCircle, Layers, Flame, Clock, Circle, Printer, AlertTriangle } from 'lucide-react';
 import { getSimplyPrint } from '../lib/simplyprint';
 import type { SimplyPrintPrinter } from '../lib/simplyprint';
 
@@ -10,6 +10,7 @@ interface PrinterJob {
   layer?: string;
 }
 
+// Extended Printer interface with more fields
 interface Printer {
   id: string;
   name: string;
@@ -18,9 +19,17 @@ interface Printer {
   targetTemp?: number;
   bedTemp?: number;
   targetBedTemp?: number;
+  chamberTemp?: number;
   job?: PrinterJob;
   error?: string;
   lastSeen?: string;
+  printSpeed?: number;
+  fanSpeed?: number;
+  material?: string;
+  printTime?: number;
+  totalTime?: number;
+  zHeight?: number;
+  fileName?: string;
 }
 
 interface PrinterStatusProps {
@@ -30,7 +39,6 @@ interface PrinterStatusProps {
 }
 
 // Printer images mapping - served from public folder
-// For GitHub Pages, images are at /Mission-Control-V6/images/
 const BASE_PATH = window.location.pathname.includes('Mission-Control-V6') ? '/Mission-Control-V6' : '';
 
 const PRINTER_IMAGES: Record<string, string> = {
@@ -90,38 +98,12 @@ function StatusBadge({ status }: { status: string }) {
 function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [isControlling, setIsControlling] = useState(false);
   const isPrinting = printer.status === 'printing';
   const hasJob = printer.job?.name;
   const timeLeft = printer.job?.timeLeft ? formatDuration(printer.job.timeLeft) : null;
+  const elapsedTime = printer.printTime ? formatDuration(printer.printTime) : null;
+  const totalTime = printer.totalTime ? formatDuration(printer.totalTime) : null;
   const imageUrl = PRINTER_IMAGES[printer.name] || PRINTER_PLACEHOLDER;
-
-  const handlePause = async () => {
-    setIsControlling(true);
-    const api = getSimplyPrint();
-    if (api) {
-      await api.pausePrint(printer.id);
-    }
-    setIsControlling(false);
-  };
-
-  const handleResume = async () => {
-    setIsControlling(true);
-    const api = getSimplyPrint();
-    if (api) {
-      await api.startPrint(printer.id, '');
-    }
-    setIsControlling(false);
-  };
-
-  const handleCancel = async () => {
-    setIsControlling(true);
-    const api = getSimplyPrint();
-    if (api) {
-      await api.cancelPrint(printer.id);
-    }
-    setIsControlling(false);
-  };
 
   return (
     <div
@@ -136,11 +118,11 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
       }`}></div>
 
       <div className="p-2 sm:p-5">
-        {/* Header - Mobile: compact */}
+        {/* Header */}
         <div className="mb-2 flex items-start justify-between sm:mb-4">
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-xs font-semibold sm:text-lg">{printer.name}</h3>
-            <p className="hidden text-xs text-gray-500 sm:block">{printer.id}</p>
+            <p className="text-[10px] text-gray-500 sm:text-xs">{printer.id}</p>
           </div>
           <div className="hidden sm:block">
             <StatusBadge status={printer.status} />
@@ -153,9 +135,9 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
           }`}></div>
         </div>
 
-        {/* Printer Image - Mobile: smaller */}
+        {/* Printer Image */}
         <div className="mb-2 flex justify-center sm:mb-4">
-          <div className="relative h-16 w-16 sm:h-40 sm:w-40">
+          <div className="relative h-16 w-16 sm:h-32 sm:w-32">
             {!imageLoaded && !imageError && (
               <div className="flex h-full w-full items-center justify-center rounded-lg bg-surface sm:rounded-xl">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent sm:h-8 sm:w-8"></div>
@@ -171,12 +153,13 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
           </div>
         </div>
 
-        {/* Temperatures - Mobile: single row, smaller text */}
-        <div className="mb-2 grid grid-cols-2 gap-1 sm:mb-4 sm:gap-3">
+        {/* Temperatures Grid - 3 columns */}
+        <div className="mb-2 grid grid-cols-3 gap-1 sm:mb-4 sm:gap-3">
           <div className="rounded-lg touch-feedback bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
             <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:gap-2 sm:text-xs">
               <Flame className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"></Flame>
               <span className="hidden sm:inline">Nozzle</span>
+              <span className="sm:hidden">Noz</span>
             </div>
             <div className="flex items-baseline gap-0.5 sm:gap-1">
               <span className="text-sm font-bold sm:text-xl">{printer.temp || 0}°</span>
@@ -198,25 +181,38 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
               )}
             </div>
           </div>
+
+          <div className="rounded-lg touch-feedback bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
+            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:gap-2 sm:text-xs">
+              <Zap className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"></Zap>
+              <span className="hidden sm:inline">Chamber</span>
+              <span className="sm:hidden">Chm</span>
+            </div>
+            <div className="flex items-baseline gap-0.5 sm:gap-1">
+              <span className="text-sm font-bold sm:text-xl">{printer.chamberTemp || 0}°</span>
+            </div>
+          </div>
         </div>
 
-        {/* Job Progress - Mobile: compact */}
+        {/* Job Progress */}
         {isPrinting && hasJob ? (
           <div className="mb-2 rounded-lg bg-surface-hover p-2 sm:mb-4 sm:rounded-xl sm:p-4">
+            {/* File Name */}
             <div className="mb-1 flex items-center justify-between sm:mb-2">
-              <span className="max-w-[80px] truncate text-[10px] font-medium sm:max-w-[150px] sm:text-sm">
-                {truncateFilename(printer.job?.name)}
+              <span className="max-w-[100px] truncate text-[10px] font-medium sm:max-w-[180px] sm:text-sm" title={printer.job?.name}>
+                {truncateFilename(printer.job?.name, 20)}
               </span>
               {timeLeft && (
                 <span className="flex items-center gap-1 text-[10px] text-gray-400 sm:text-xs">
                   <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3"></Clock>
-                  {timeLeft}
+                  {timeLeft} left
                 </span>
               )}
             </div>
 
-            <div className="mb-1 flex items-center gap-2 sm:mb-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface sm:h-2.5">
+            {/* Progress Bar */}
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface sm:h-2.5">
                 <div
                   className="h-full rounded-full bg-primary transition-all duration-500"
                   style={{ width: `${printer.job?.progress || 0}%` }}
@@ -225,8 +221,27 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
               <span className="text-xs font-bold sm:text-sm">{printer.job?.progress || 0}%</span>
             </div>
 
+            {/* Time Info */}
+            <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-500 sm:text-xs">
+              {elapsedTime && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3"></Clock>
+                  <span>Elapsed: {elapsedTime}</span>
+                </div>
+              )}
+              {totalTime && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3"></Clock>
+                  <span>Total: {totalTime}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Layer Info */}
             {printer.job?.layer && (
-              <p className="hidden text-xs text-gray-500 sm:block">{printer.job.layer}</p>
+              <div className="mt-2 text-[10px] text-gray-500 sm:text-xs">
+                {printer.job.layer}
+              </div>
             )}
           </div>
         ) : printer.error ? (
@@ -237,47 +252,46 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
         ) : (
           <div className="mb-2 flex items-center gap-1 rounded-lg bg-success/10 p-2 text-[10px] text-success sm:mb-4 sm:gap-2 sm:rounded-xl sm:p-3 sm:text-sm">
             <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4"></CheckCircle>
-            <span>Ready</span>
+            <span>Ready for next job</span>
           </div>
         )}
 
-        {/* Actions - Mobile: icon only */}
-        <div className="flex gap-1 sm:gap-2">
-          {isPrinting ? (
-            <>
-              <button 
-                onClick={handlePause}
-                disabled={isControlling}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-warning/30 bg-warning/10 py-1.5 text-[10px] font-medium text-warning transition-colors hover:bg-warning/20 disabled:opacity-50 sm:rounded-xl sm:py-2.5 sm:text-sm"
-              >
-                <Pause className="h-3 w-3 sm:h-4 sm:w-4"></Pause>
-                <span className="hidden sm:inline">Pause</span>
-              </button>
-              <button 
-                onClick={handleCancel}
-                disabled={isControlling}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-danger/30 bg-danger/10 py-1.5 text-[10px] font-medium text-danger transition-colors hover:bg-danger/20 disabled:opacity-50 sm:rounded-xl sm:py-2.5 sm:text-sm"
-              >
-                <Square className="h-3 w-3 sm:h-4 sm:w-4"></Square>
-                <span className="hidden sm:inline">Stop</span>
-              </button>
-            </>
-          ) : printer.status === 'idle' || printer.status === 'operational' ? (
-            <>
-              <button className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-surface-hover py-1.5 text-[10px] font-medium transition-colors hover:bg-surface-hover sm:rounded-xl sm:py-2.5 sm:text-sm">
-                <Settings className="h-3 w-3 sm:h-4 sm:w-4"></Settings>
-                <span className="hidden sm:inline">Details</span>
-              </button>
-              <button className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover">
-                <Zap className="h-4 w-4"></Zap>
-                Print
-              </button>
-            </>
-          ) : (
-            <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-2.5 text-sm font-medium text-white transition-colors hover:bg-success/80">
-              <Power className="h-4 w-4"></Power>
-              Connect
-            </button>
+        {/* Print Settings Info - Only show when printing */}
+        {isPrinting && (
+          <div className="mb-2 grid grid-cols-3 gap-1 rounded-lg bg-surface-hover p-2 sm:mb-4 sm:gap-2 sm:rounded-xl sm:p-3">
+            <div className="text-center">
+              <div className="text-[10px] text-gray-400 sm:text-xs">Speed</div>
+              <div className="text-xs font-semibold sm:text-sm">{printer.printSpeed || 0}mm/s</div>
+            </div>
+            <div className="text-center">
+              <div className="text-[10px] text-gray-400 sm:text-xs">Fan</div>
+              <div className="text-xs font-semibold sm:text-sm">{printer.fanSpeed || 0}%</div>
+            </div>
+            <div className="text-center">
+              <div className="text-[10px] text-gray-400 sm:text-xs">Z-Height</div>
+              <div className="text-xs font-semibold sm:text-sm">{printer.zHeight?.toFixed(1) || 0}mm</div>
+            </div>
+          </div>
+        )}
+
+        {/* Material Info */}
+        {printer.material && (
+          <div className="mb-2 flex items-center justify-between rounded-lg bg-surface-hover p-2 sm:mb-4 sm:rounded-xl sm:p-3">
+            <div className="flex items-center gap-1 text-[10px] text-gray-400 sm:gap-2 sm:text-xs">
+              <Layers className="h-3 w-3 sm:h-4 sm:w-4"></Layers>
+              <span>Material</span>
+            </div>
+            <span className="text-xs font-semibold sm:text-sm">{printer.material}</span>
+          </div>
+        )}
+
+        {/* Last Seen */}
+        <div className="flex items-center justify-between text-[10px] text-gray-500 sm:text-xs">
+          <span>Last seen: {formatTimeAgo(printer.lastSeen ? Date.parse(printer.lastSeen) : undefined)}</span>
+          {printer.fileName && !isPrinting && (
+            <span className="truncate max-w-[100px]" title={printer.fileName}>
+              {truncateFilename(printer.fileName, 15)}
+            </span>
           )}
         </div>
       </div>
@@ -285,182 +299,56 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
   );
 }
 
-export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate }: PrinterStatusProps) {
-  const [filter, setFilter] = useState<'all' | 'printing' | 'idle' | 'error'>('all');
-  const [printers, setPrinters] = useState<Printer[]>(initialPrinters);
-  const [isLoading, setIsLoading] = useState(false);
-  const [useSimplyPrint, setUseSimplyPrint] = useState(false);
+export function PrinterStatus({ printers, onRefresh, lastUpdate }: PrinterStatusProps) {
+  const [loading, setLoading] = useState(false);
 
-  // Check if SimplyPrint is configured
-  useEffect(() => {
-    const apiKey = localStorage.getItem('simplyprint_api_key');
-    setUseSimplyPrint(!!apiKey);
-    if (apiKey) {
-      fetchSimplyPrintPrinters();
+  const handleRefresh = async () => {
+    setLoading(true);
+    if (onRefresh) {
+      await onRefresh();
     }
-  }, []);
-
-  // Sync with prop changes from parent
-  useEffect(() => {
-    setPrinters(initialPrinters);
-  }, [initialPrinters]);
-
-  const fetchSimplyPrintPrinters = async () => {
-    setIsLoading(true);
-    const api = getSimplyPrint();
-    if (api) {
-      const spPrinters = await api.getPrinters();
-      // The proxy already returns data in the correct flat format
-      const convertedPrinters: Printer[] = spPrinters.map((sp: any) => ({
-        id: sp.id?.toString(),
-        name: sp.name,
-        status: sp.status,
-        temp: sp.temp || 0,
-        targetTemp: sp.targetTemp || 0,
-        bedTemp: sp.bedTemp || 0,
-        targetBedTemp: sp.targetBedTemp || 0,
-        job: sp.job ? {
-          name: sp.job.file || sp.job.name,
-          progress: sp.job.percentage || sp.progress || 0,
-          timeLeft: sp.job.time,
-          layer: sp.job.layer,
-        } : undefined,
-        lastSeen: sp.lastSeen || new Date().toISOString(),
-      }));
-      setPrinters(convertedPrinters);
-    }
-    setIsLoading(false);
+    setTimeout(() => setLoading(false), 500);
   };
-
-  const handleRefresh = () => {
-    if (useSimplyPrint) {
-      fetchSimplyPrintPrinters();
-    } else if (onRefresh) {
-      onRefresh();
-    }
-  };
-
-  const onlineCount = printers.filter(p => 
-    p.status === 'operational' || p.status === 'printing' || p.status === 'idle'
-  ).length;
-  const printingCount = printers.filter(p => p.status === 'printing').length;
-  const errorCount = printers.filter(p => p.status === 'error' || p.status === 'offline').length;
-
-  const filteredPrinters = filter === 'all' 
-    ? printers 
-    : printers.filter(p => p.status === filter);
-
-  const filters = [
-    { id: 'all', label: 'All', icon: Layers, count: printers.length },
-    { id: 'printing', label: 'Printing', icon: Zap, count: printingCount },
-    { id: 'idle', label: 'Idle', icon: Moon, count: printers.filter(p => p.status === 'idle').length },
-    { id: 'error', label: 'Error', icon: AlertCircle, count: errorCount },
-  ];
 
   return (
-    <div className="space-y-4 max-w-full overflow-x-hidden">
-      {/* Header */}
-      <div className="rounded-2xl border border-surface-hover bg-surface p-6">
-        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Printers</h1>
-            <p className="text-sm text-gray-400">{onlineCount}/{printers.length} online</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {lastUpdate && !useSimplyPrint && (
-              <span className="text-sm text-gray-500">
-                Updated {formatTimeAgo(lastUpdate)}
-              </span>
-            )}
-            {useSimplyPrint && (
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                SimplyPrint
-              </span>
-            )}
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 py-2 font-medium text-white transition-all hover:bg-primary-hover hover:shadow-lg disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}></RefreshCw>
-              Refresh
-            </button>
-          </div>
+    <div className="space-y-4">
+      {/* Header with refresh */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold sm:text-2xl">Printers</h2>
+          <p className="text-xs text-gray-400 sm:text-sm">
+            {printers.filter(p => p.status === 'printing').length} printing, {printers.filter(p => p.status === 'operational' || p.status === 'idle').length} ready
+          </p>
         </div>
-
-        {/* Status Summary */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {errorCount > 0 ? (
-            <div className="flex items-center gap-2 rounded-xl bg-danger/10 p-3 text-danger">
-              <AlertCircle className="h-5 w-5"></AlertCircle>
-              <span className="font-medium">{errorCount} issue{errorCount > 1 ? 's' : ''}</span>
-            </div>
-          ) : printingCount > 0 ? (
-            <div className="flex items-center gap-2 rounded-xl bg-primary/10 p-3 text-primary">
-              <Zap className="h-5 w-5"></Zap>
-              <span className="font-medium">{printingCount} printing</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 rounded-xl bg-success/10 p-3 text-success">
-              <CheckCircle className="h-5 w-5"></CheckCircle>
-              <span className="font-medium">All online</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between rounded-xl bg-surface-hover p-3">
-            <span className="text-sm text-gray-400">Online</span>
-            <span className="text-lg font-bold">{onlineCount}</span>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl bg-surface-hover p-3">
-            <span className="text-sm text-gray-400">Printing</span>
-            <span className="text-lg font-bold">{printingCount}</span>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl bg-surface-hover p-3">
-            <span className="text-sm text-gray-400">Total</span>
-            <span className="text-lg font-bold">{printers.length}</span>
-          </div>
-        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Refresh</span>
+        </button>
       </div>
 
-      {/* Filter Buttons */}
-      <div className="flex flex-wrap gap-2">
-        {filters.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id as typeof filter)}
-            className={`flex min-h-[44px] items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
-              filter === f.id
-                ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                : 'border border-surface-hover bg-surface hover:bg-surface-hover'
-            }`}
-          >
-            <f.icon className="h-4 w-4"></f.icon>
-            {f.label}
-            <span className={`rounded-full px-2 py-0.5 text-xs ${
-              filter === f.id ? 'bg-white/20' : 'bg-surface-hover'
-            }`}>
-              {f.count}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Printer Grid - Mobile: 1 column, Tablet: 2 columns, Desktop: 3 columns */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredPrinters.map((printer, index) => (
-          <PrinterCard key={printer.id} printer={printer} index={index} />
-        ))}
-      </div>
-
-      {filteredPrinters.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-surface-hover py-16 text-center">
-          <Printer className="mx-auto mb-4 h-16 w-16 text-gray-600" />
-          <h3 className="mb-2 text-xl font-semibold">No printers found</h3>
-          <p className="text-gray-500">{filter === 'all' ? 'Add your first printer to get started' : 'Try a different filter'}</p>
+      {/* Printer Grid */}
+      {printers.length === 0 ? (
+        <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
+          <Printer className="mx-auto mb-4 h-12 w-12 text-gray-600" />
+          <p className="text-gray-400">No printers connected</p>
         </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {printers.map((printer, index) => (
+            <PrinterCard key={printer.id} printer={printer} index={index} />
+          ))}
+        </div>
+      )}
+
+      {/* Last update time */}
+      {lastUpdate && (
+        <p className="text-center text-xs text-gray-500">
+          Last updated: {formatTimeAgo(lastUpdate)}
+        </p>
       )}
     </div>
   );
