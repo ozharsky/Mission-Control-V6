@@ -21,6 +21,7 @@ import { ReportsView } from './components/ReportsView';
 import { TradesView } from './components/TradesView';
 import { AgentTaskList } from './components/agents/AgentTaskList';
 import { AgentDocuments } from './components/agents/AgentDocuments';
+import { AgentActivityView } from './components/agents/AgentActivityView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
 import { SkeletonCard, SkeletonList } from './components/Loading';
@@ -41,7 +42,7 @@ function App() {
   } = useAppStore();
 
   const [activeSection, setActiveSection] = useState('dashboard');
-  const [activeAgentTab, setActiveAgentTab] = useState<'tasks' | 'documents'>('tasks');
+  const [activeAgentTab, setActiveAgentTab] = useState<'tasks' | 'documents' | 'activity'>('tasks');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -212,12 +213,24 @@ function App() {
               >
                 Documents
               </button>
+              <button
+                onClick={() => setActiveAgentTab('activity')}
+                className={`pb-2 text-sm font-medium transition-colors ${
+                  activeAgentTab === 'activity'
+                    ? 'text-primary border-b-2 border-primary'
+                    : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                Activity
+              </button>
             </div>
             
             {activeAgentTab === 'tasks' ? (
               <AgentTaskList firebaseDb={db} onTaskSelect={(id) => console.log('Selected:', id)} />
-            ) : (
+            ) : activeAgentTab === 'documents' ? (
               <AgentDocuments firebaseDb={db} />
+            ) : (
+              <AgentActivityView firebaseDb={db} />
             )}
           </div>
         ) : (
