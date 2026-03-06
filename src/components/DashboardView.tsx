@@ -1,14 +1,121 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { 
   CheckCircle2, Clock, Circle, TrendingUp, AlertCircle,
   Briefcase, Package, DollarSign, Printer, Zap, Flame, Thermometer,
   ChevronRight, Sparkles, Target, Calendar, AlertTriangle, TrendingDown,
-  Activity, Award, BarChart3, Plus, ChevronDown, ChevronUp
+  Activity, Award, BarChart3, Plus, ChevronDown, ChevronUp, Bot
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { SkeletonCard } from "./Loading";
 import { RevenueMiniChart } from './RevenueMiniChart';
 import type { Task, Project, Job, InventoryItem, Printer } from '../types';
+import { AGENT_EMOJIS, AGENT_EMOJI_FALLBACKS, AGENT_NAMES } from '../constants/agents';
+
+// Agent Activity Mini Widget
+function AgentActivityWidget({ onNavigate }: { onNavigate: (s: string) => void }) {
+  const [metrics, setMetrics] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const response = await fetch('https://mission-control-sync-default-rtdb.firebaseio.com/v6/agentActivity/metrics.json');
+        const data = await response.json();
+        if (data) {
+          const metricsArray = Object.entries(data).map(([agentId, metric]: [string, any]) => ({
+            agentId,
+            ...metric
+          }));
+          setMetrics(metricsArray);
+        }
+      } catch (error) {
+        console.error('Failed to fetch agent metrics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalActions = metrics.reduce((sum, m) => sum + (m.totalActions || 0), 0);
+  const totalCost = metrics.reduce((sum, m) => {
+    const cost = Number(m.totalCostEstimate);
+    return sum + (isNaN(cost) ? 0 : cost);
+  }, 0);
+
+  const topAgents = metrics
+    .sort((a, b) => (b.totalActions || 0) - (a.totalActions || 0))
+    .slice(0, 6);
+
+  if (loading) {
+    return (
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Activity className="h-4 w-4 md:h-5 md:w-5 text-purple-400" />
+          <span className="font-semibold text-sm md:text-base">Agents</span>
+        </div>
+        <div className="animate-pulse h-16 bg-surface-hover rounded-lg" />
+      </div>
+    );
+  }
+
+  if (metrics.length === 0) {
+    return (
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 md:h-5 md:w-5 text-purple-400" />
+            <span className="font-semibold text-sm md:text-base">Agents</span>
+          </div>
+          <button onClick={() => onNavigate('agents')} className="text-xs text-primary hover:underline">View</button>
+        </div>
+        <p className="text-xs text-gray-500 text-center py-4">No agent activity yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Activity className="h-4 w-4 md:h-5 md:w-5 text-purple-400" />
+          <span className="font-semibold text-sm md:text-base">Agents</span>
+        </div>
+        <button onClick={() => onNavigate('agents')} className="text-xs text-primary hover:underline">View</button>
+      </div>
+      
+      <div className="flex gap-2 mb-3">
+        <div className="flex-1 rounded-lg bg-background p-2 text-center">
+          <div className="text-lg font-bold text-purple-400">{totalActions}</div>
+          <div className="text-xs text-gray-400">Actions</div>
+        </div>
+        <div className="flex-1 rounded-lg bg-background p-2 text-center">
+          <div className="text-lg font-bold text-green-400">${totalCost.toFixed(2)}</div>
+          <div className="text-xs text-gray-400">Cost</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {topAgents.map((metric) => (
+          <div key={metric.agentId} className="rounded-lg bg-background p-2 text-center">
+            <div className="text-xl">
+              {AGENT_EMOJIS[metric.agentId as keyof typeof AGENT_EMOJIS] || 
+               AGENT_EMOJI_FALLBACKS[metric.agentId] || 
+               '🤖'}
+            </div>
+            <div className="text-xs font-medium truncate">
+              {AGENT_NAMES[metric.agentId as keyof typeof AGENT_NAMES] || metric.agentId}
+            </div>
+            <div className="text-xs text-gray-400">{metric.totalActions || 0}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // AI Insights Card Component
 function AIInsightsCard({ 
@@ -536,38 +643,8 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         })()}
       </div>
 
-      {/* Agent Activity - Compact */}
-      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 md:h-5 md:w-5 text-purple-400" />
-            <span className="font-semibold text-sm md:text-base">Agents</span>
-          </div>
-          <button onClick={() => onNavigate('agents')} className="text-xs text-primary hover:underline">View</button>
-        </div>
-        
-        <div className="grid grid-cols-4 gap-2 text-center">
-          <div className="rounded-lg bg-background p-2">
-            <div className="text-lg font-bold text-purple-400">💻</div>
-            <div className="text-xs text-gray-400">Arch</div>
-          </div>
-          <div className="rounded-lg bg-background p-2">
-            <div className="text-lg font-bold text-yellow-400">💡</div>
-            <div className="text-xs text-gray-400">Inv</div>
-          </div>
-          <div className="rounded-lg bg-background p-2">
-            <div className="text-lg font-bold text-blue-400">🔬</div>
-            <div className="text-xs text-gray-400">Anl</div>
-          </div>
-          <div className="rounded-lg bg-background p-2">
-            <div className="text-lg font-bold text-green-400">📡</div>
-            <div className="text-xs text-gray-400">Sct</div>
-          </div>
-        </div>
-        <div className="mt-2 text-center text-xs text-gray-500">
-          Click to view agent activity & costs
-        </div>
-      </div>
+      {/* Agent Activity - Live Data */}
+      <AgentActivityWidget onNavigate={onNavigate} />
 
       {/* Recent Tasks - Compact List */}
       <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
