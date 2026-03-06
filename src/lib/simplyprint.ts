@@ -59,8 +59,10 @@ class SimplyPrintAPI {
   async getPrinters(): Promise<SimplyPrintPrinter[]> {
     try {
       const data = await this.request('get_printers');
+      console.log('SimplyPrint API raw response:', JSON.stringify(data, null, 2));
       return data.printers || data.data || [];
     } catch (error) {
+      console.error('SimplyPrint API error:', error);
       return [];
     }
   }
