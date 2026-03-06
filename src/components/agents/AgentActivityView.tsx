@@ -146,13 +146,16 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
           {metrics.map((metric) => (
             <div key={metric.agentId} className="rounded-xl border border-surface-hover bg-background p-4 hover:border-primary/30 transition-colors">
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-3xl">{AGENT_EMOJIS[metric.agentId as keyof typeof AGENT_EMOJIS] || AGENT_EMOJI_FALLBACKS[metric.agentId] || '🤖'}</span>
-                <div>
+                <span className="text-4xl">{AGENT_EMOJIS[metric.agentId as keyof typeof AGENT_EMOJIS] || AGENT_EMOJI_FALLBACKS[metric.agentId] || '🤖'}</span>
+                <div className="flex-1">
                   <div className="font-semibold">{AGENT_NAMES[metric.agentId as keyof typeof AGENT_NAMES] || metric.agentId}</div>
-                  <div className="text-xs text-gray-400">{metric.totalActions || 0} actions</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-primary">{metric.totalActions || 0}</div>
+                  <div className="text-xs text-gray-400">actions</div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-3 gap-2 text-sm">
                 <div className="rounded-lg bg-surface p-2 text-center">
                   <div className="text-lg font-bold {(metric.successRate || 0) >= 90 ? 'text-green-400' : 'text-yellow-400'}">
                     {metric.successRate || 0}%
@@ -165,11 +168,11 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
                   </div>
                   <div className="text-xs text-gray-400">Tokens</div>
                 </div>
-                <div className="rounded-lg bg-surface p-2 text-center col-span-2">
+                <div className="rounded-lg bg-surface p-2 text-center">
                   <div className="text-lg font-bold text-green-400">
                     ${Number(metric.totalCostEstimate || 0).toFixed(2)}
                   </div>
-                  <div className="text-xs text-gray-400">Est. Cost</div>
+                  <div className="text-xs text-gray-400">Cost</div>
                 </div>
               </div>
             </div>
