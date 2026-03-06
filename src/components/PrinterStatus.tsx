@@ -158,42 +158,42 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
         </div>
 
         {/* Temperatures Grid - 3 columns */}
-        <div className="mb-2 grid grid-cols-3 gap-1 sm:mb-4 sm:gap-3">
+        <div className="mb-2 grid grid-cols-3 gap-1 sm:mb-4 sm:gap-2">
           <div className="rounded-lg touch-feedback bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
-            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:gap-2 sm:text-xs">
-              <Flame className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"></Flame>
+            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:text-xs">
+              <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3"></Flame>
               <span className="hidden sm:inline">Nozzle</span>
               <span className="sm:hidden">Noz</span>
             </div>
-            <div className="flex items-baseline gap-0.5 sm:gap-1">
-              <span className="text-sm font-bold sm:text-xl">{printer.temp || 0}°</span>
+            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1">
+              <span className="text-sm font-bold sm:text-lg">{printer.temp || 0}°</span>
               {printer.targetTemp > 0 && (
-                <span className="text-[10px] text-gray-500 sm:text-xs">/{printer.targetTemp}°</span>
+                <span className="text-[10px] text-gray-500 sm:text-xs">/ {printer.targetTemp}°</span>
               )}
             </div>
           </div>
 
           <div className="rounded-lg touch-feedback bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
-            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:gap-2 sm:text-xs">
-              <Layers className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"></Layers>
+            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:text-xs">
+              <Layers className="h-2.5 w-2.5 sm:h-3 sm:w-3"></Layers>
               <span className="hidden sm:inline">Bed</span>
             </div>
-            <div className="flex items-baseline gap-0.5 sm:gap-1">
-              <span className="text-sm font-bold sm:text-xl">{printer.bedTemp || 0}°</span>
+            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1">
+              <span className="text-sm font-bold sm:text-lg">{printer.bedTemp || 0}°</span>
               {printer.targetBedTemp > 0 && (
-                <span className="text-[10px] text-gray-500 sm:text-xs">/{printer.targetBedTemp}°</span>
+                <span className="text-[10px] text-gray-500 sm:text-xs">/ {printer.targetBedTemp}°</span>
               )}
             </div>
           </div>
 
           <div className="rounded-lg touch-feedback bg-surface-hover p-1.5 sm:rounded-xl sm:p-3">
-            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:gap-2 sm:text-xs">
-              <Zap className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"></Zap>
+            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-gray-400 sm:mb-1 sm:text-xs">
+              <Zap className="h-2.5 w-2.5 sm:h-3 sm:w-3"></Zap>
               <span className="hidden sm:inline">Chamber</span>
-              <span className="sm:hidden">Chm</span>
+              <span className="sm:hidden">Chamber</span>
             </div>
-            <div className="flex items-baseline gap-0.5 sm:gap-1">
-              <span className="text-sm font-bold sm:text-xl">{printer.chamberTemp || 0}°</span>
+            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1">
+              <span className="text-sm font-bold sm:text-lg">{printer.chamberTemp || 0}°</span>
             </div>
           </div>
         </div>
@@ -258,24 +258,6 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
           <div className="mb-2 flex items-center gap-1 rounded-lg bg-success/10 p-2 text-[10px] text-success sm:mb-4 sm:gap-2 sm:rounded-xl sm:p-3 sm:text-sm">
             <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4"></CheckCircle>
             <span>Ready for next job</span>
-          </div>
-        )}
-
-        {/* Print Settings Info - Only show when printing */}
-        {isPrinting && (
-          <div className="mb-2 grid grid-cols-3 gap-1 rounded-lg bg-surface-hover p-2 sm:mb-4 sm:gap-2 sm:rounded-xl sm:p-3">
-            <div className="text-center">
-              <div className="text-[10px] text-gray-400 sm:text-xs">Speed</div>
-              <div className="text-xs font-semibold sm:text-sm">{printer.printSpeed || 0}mm/s</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[10px] text-gray-400 sm:text-xs">Fan</div>
-              <div className="text-xs font-semibold sm:text-sm">{printer.fanSpeed || 0}%</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[10px] text-gray-400 sm:text-xs">Z-Height</div>
-              <div className="text-xs font-semibold sm:text-sm">{printer.zHeight?.toFixed(1) || 0}mm</div>
-            </div>
           </div>
         )}
 
@@ -455,7 +437,7 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
           <p className="text-gray-400">No printers connected</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {printers.map((printer, index) => (
             <PrinterCard key={printer.id} printer={printer} index={index} />
           ))}
