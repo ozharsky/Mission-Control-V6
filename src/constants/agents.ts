@@ -28,6 +28,18 @@ export const AGENT_EMOJIS: Record<AgentId, string> = {
   kimiclaw: '🦞'
 };
 
+// Fallback emojis for agents using different IDs
+export const AGENT_EMOJI_FALLBACKS: Record<string, string> = {
+  architect: '💻',      // maps to coder
+  inventor: '💡',       // maps to ideator
+  researcher: '📚',     // maps to surveyor
+  strategist: '🎯',     // maps to planner
+  analyst: '🔬',        // maps to critic
+  editor: '🔍',         // maps to reviewer
+  scout: '📡',
+  wordsmith: '✍️'       // maps to writer
+};
+
 export const AGENT_NAMES: Record<AgentId, string> = {
   planner: 'Strategist',
   ideator: 'Inventor',

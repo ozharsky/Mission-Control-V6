@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Database } from 'firebase/database';
 import { Activity, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, Bot } from 'lucide-react';
 import { initActivityLogger, ActivityLogEntry, AgentMetrics, DailyStats } from '../../services/agentActivityLogger';
-import { AGENT_NAMES, AGENT_EMOJIS } from '../../constants/agents';
+import { AGENT_NAMES, AGENT_EMOJIS, AGENT_EMOJI_FALLBACKS } from '../../constants/agents';
 
 interface AgentActivityViewProps {
   firebaseDb: Database;
@@ -146,7 +146,7 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
           {metrics.map((metric) => (
             <div key={metric.agentId} className="rounded-xl border border-surface-hover bg-background p-4 hover:border-primary/30 transition-colors">
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-3xl">{AGENT_EMOJIS[metric.agentId as keyof typeof AGENT_EMOJIS] || '🤖'}</span>
+                <span className="text-3xl">{AGENT_EMOJIS[metric.agentId as keyof typeof AGENT_EMOJIS] || AGENT_EMOJI_FALLBACKS[metric.agentId] || '🤖'}</span>
                 <div>
                   <div className="font-semibold">{AGENT_NAMES[metric.agentId as keyof typeof AGENT_NAMES] || metric.agentId}</div>
                   <div className="text-xs text-gray-400">{metric.totalActions || 0} actions</div>
@@ -213,7 +213,7 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
         <div className="space-y-2 max-h-[600px] overflow-y-auto">
           {filteredLogs.map((log) => {
             const emoji = CATEGORY_EMOJIS[log.category] || '📋';
-            const agentEmoji = AGENT_EMOJIS[log.agentId as keyof typeof AGENT_EMOJIS] || '🤖';
+            const agentEmoji = AGENT_EMOJIS[log.agentId as keyof typeof AGENT_EMOJIS] || AGENT_EMOJI_FALLBACKS[log.agentId] || '🤖';
             return (
               <div
                 key={log.id}
