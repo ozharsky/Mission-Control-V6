@@ -26,6 +26,10 @@ interface Printer {
   printSpeed?: number;
   fanSpeed?: number;
   material?: string;
+  printProfile?: string;
+  nozzleSize?: string;
+  layerHeight?: number;
+  infill?: number;
   printTime?: number;
   totalTime?: number;
   zHeight?: number;
@@ -237,10 +241,11 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
               )}
             </div>
 
-            {/* Layer Info */}
+            {/* Layer Info - More prominent */}
             {printer.job?.layer && (
-              <div className="mt-2 text-[10px] text-gray-500 sm:text-xs">
-                {printer.job.layer}
+              <div className="mt-2 flex items-center justify-between rounded bg-surface p-1.5 sm:p-2">
+                <span className="text-[10px] text-gray-400 sm:text-xs">Layer</span>
+                <span className="text-xs font-semibold sm:text-sm">{printer.job.layer}</span>
               </div>
             )}
           </div>
@@ -274,14 +279,45 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
           </div>
         )}
 
-        {/* Material Info */}
-        {printer.material && (
-          <div className="mb-2 flex items-center justify-between rounded-lg bg-surface-hover p-2 sm:mb-4 sm:rounded-xl sm:p-3">
-            <div className="flex items-center gap-1 text-[10px] text-gray-400 sm:gap-2 sm:text-xs">
+        {/* Print Info Section - Material & Profile */}
+        {(printer.material || printer.printProfile || printer.nozzleSize) && (
+          <div className="mb-2 rounded-lg bg-surface-hover p-2 sm:mb-4 sm:rounded-xl sm:p-3">
+            <div className="mb-2 flex items-center gap-1 text-[10px] text-gray-400 sm:text-xs">
               <Layers className="h-3 w-3 sm:h-4 sm:w-4"></Layers>
-              <span>Material</span>
+              <span>Print Settings</span>
             </div>
-            <span className="text-xs font-semibold sm:text-sm">{printer.material}</span>
+            <div className="grid grid-cols-2 gap-2">
+              {printer.material && (
+                <div className="rounded bg-surface p-1.5 text-center sm:p-2">
+                  <div className="text-[10px] text-gray-400 sm:text-xs">Material</div>
+                  <div className="text-xs font-semibold sm:text-sm">{printer.material}</div>
+                </div>
+              )}
+              {printer.printProfile && (
+                <div className="rounded bg-surface p-1.5 text-center sm:p-2">
+                  <div className="text-[10px] text-gray-400 sm:text-xs">Profile</div>
+                  <div className="text-xs font-semibold sm:text-sm">{printer.printProfile}</div>
+                </div>
+              )}
+              {printer.nozzleSize && (
+                <div className="rounded bg-surface p-1.5 text-center sm:p-2">
+                  <div className="text-[10px] text-gray-400 sm:text-xs">Nozzle</div>
+                  <div className="text-xs font-semibold sm:text-sm">{printer.nozzleSize}</div>
+                </div>
+              )}
+              {printer.layerHeight && (
+                <div className="rounded bg-surface p-1.5 text-center sm:p-2">
+                  <div className="text-[10px] text-gray-400 sm:text-xs">Layer Ht</div>
+                  <div className="text-xs font-semibold sm:text-sm">{printer.layerHeight}mm</div>
+                </div>
+              )}
+              {printer.infill && (
+                <div className="rounded bg-surface p-1.5 text-center sm:p-2">
+                  <div className="text-[10px] text-gray-400 sm:text-xs">Infill</div>
+                  <div className="text-xs font-semibold sm:text-sm">{printer.infill}%</div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
