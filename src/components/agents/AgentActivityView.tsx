@@ -150,11 +150,11 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Tokens:</span>
-                  <span>{(metric.totalTokensUsed || 0).toLocaleString()}</span>
+                  <span>{Number(metric.totalTokensUsed || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Cost:</span>
-                  <span>${((metric.totalCostEstimate || 0)).toFixed(2)}</span>
+                  <span>${Number(metric.totalCostEstimate || 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>
