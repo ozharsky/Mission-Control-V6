@@ -225,13 +225,13 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
                     {log.metadata?.tokensUsed && (
                       <span className="flex items-center gap-1">
                         <TrendingUp className="h-3 w-3" />
-                        {log.metadata.tokensUsed.toLocaleString()} tokens
+                        {Number(log.metadata.tokensUsed).toLocaleString()} tokens
                       </span>
                     )}
                     {log.metadata?.costEstimate && (
                       <span className="flex items-center gap-1">
                         <DollarSign className="h-3 w-3" />
-                        ${log.metadata.costEstimate.toFixed(3)}
+                        ${Number(log.metadata.costEstimate).toFixed(3)}
                       </span>
                     )}
                     {log.metadata?.success === false && (
