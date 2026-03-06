@@ -50,9 +50,23 @@ function FileCard({
   onDownload?: (file: FileItem) => void;
   projectName?: string;
 }) {
-  const Icon = getFileIcon(file.type);
-  const isImage = file.type.startsWith('image/');
+  const Icon = getFileIcon(file.type || '');
+  const isImage = file.type?.startsWith('image/') || false;
   const [imgError, setImgError] = useState(false);
+  
+  // Ensure all required fields have defaults
+  const safeFile = {
+    name: file.name || 'Unnamed File',
+    type: file.type || 'application/octet-stream',
+    size: file.size || 0,
+    uploadedAt: file.uploadedAt || Date.now(),
+    url: file.url || '#',
+    id: file.id || 'unknown',
+    category: file.category,
+    projectId: file.projectId,
+    thumbnailUrl: file.thumbnailUrl,
+    storagePath: file.storagePath,
+  };
 
   if (viewMode === 'list') {
     return (
@@ -62,12 +76,12 @@ function FileCard({
         </div>
         
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{file.name}</p>
+          <p className="truncate font-medium">{safeFile.name}</p>
           <div className="flex items-center gap-2 text-sm text-gray-500">
-            <span>{formatSize(file.size)}</span>
+            <span>{formatSize(safeFile.size)}</span>
             <span>•</span>
-            <span>{new Date(file.uploadedAt).toLocaleDateString()}</span>
-            {file.projectId && projectName && (
+            <span>{new Date(safeFile.uploadedAt).toLocaleDateString()}</span>
+            {safeFile.projectId && projectName && (
               <>
                 <span>•</span>
                 <span className="text-primary">{projectName}</span>
@@ -76,9 +90,9 @@ function FileCard({
           </div>
         </div>
 
-        {file.category && (
+        {safeFile.category && (
           <span className="rounded-full bg-surface px-2.5 py-1 text-xs text-gray-400">
-            {file.category}
+            {safeFile.category}
           </span>
         )}
 
@@ -106,16 +120,16 @@ function FileCard({
     <div className="group relative rounded-xl border border-surface-hover bg-background p-3 sm:p-4 transition-all hover:border-primary hover:shadow-lg touch-feedback"
     >
       <div className="mb-2 sm:mb-3 aspect-square rounded-lg bg-surface overflow-hidden">
-        {isImage && file.thumbnailUrl && !imgError ? (
+        {isImage && safeFile.thumbnailUrl && !imgError ? (
           <a 
-            href={file.url}
+            href={safeFile.url}
             target="_blank"
             rel="noopener noreferrer"
             className="block h-full w-full"
           >
             <img 
-              src={file.thumbnailUrl} 
-              alt={file.name}
+              src={safeFile.thumbnailUrl} 
+              alt={safeFile.name}
               className="h-full w-full object-cover"
               onError={() => setImgError(true)}
               loading="lazy"
@@ -131,17 +145,17 @@ function FileCard({
 
       <div className="min-w-0"
       >
-        <p className="truncate text-sm sm:text-base font-medium">{file.name}</p>
+        <p className="truncate text-sm sm:text-base font-medium">{safeFile.name}</p>
         <div className="mt-1 flex items-center justify-between text-xs sm:text-sm text-gray-500"
         >
-          <span>{formatSize(file.size)}</span>
-          <span>{new Date(file.uploadedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+          <span>{formatSize(safeFile.size)}</span>
+          <span>{new Date(safeFile.uploadedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
         </div>
 
-        {file.category && (
+        {safeFile.category && (
           <span className="mt-1 sm:mt-2 inline-block rounded-full bg-surface px-2 py-0.5 text-xs text-gray-400"
           >
-            {file.category}
+            {safeFile.category}
           </span>
         )}
         
@@ -200,9 +214,11 @@ export function FileManager({ projectId }: FileManagerProps) {
   }, []);
 
   const filteredFiles = files.filter((file) => {
-    const matchesCategory = selectedCategory === 'all' || file.category === selectedCategory;
-    const matchesSearch = file.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesProject = !projectId || file.projectId === projectId;
+    const matchesCategory = selectedCategory === 'all' || file?.category === selectedCategory;
+    const matchesSearch = (file?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesProject = !projectId || file?.projectId === projectId;
+    return matchesCategory && matchesSearch && matchesProject && file != null;
+  });
     return matchesCategory && matchesSearch && matchesProject;
   });
 
