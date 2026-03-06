@@ -24,7 +24,8 @@ export const AGENT_EMOJIS: Record<AgentId, string> = {
   coder: '💻',
   writer: '✍️',
   reviewer: '🔍',
-  surveyor: '📚'
+  surveyor: '📚',
+  kimiclaw: '🦞'
 };
 
 export const AGENT_NAMES: Record<AgentId, string> = {
@@ -35,7 +36,8 @@ export const AGENT_NAMES: Record<AgentId, string> = {
   coder: 'Architect',
   writer: 'Wordsmith',
   reviewer: 'Editor',
-  surveyor: 'Researcher'
+  surveyor: 'Researcher',
+  kimiclaw: 'KimiClaw'
 };
 
 export const AGENT_TASK_TYPES: Record<string, AgentTaskType> = {

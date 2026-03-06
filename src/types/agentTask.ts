@@ -21,7 +21,8 @@ export type AgentId =
   | 'coder'        // Architect
   | 'writer'       // Wordsmith
   | 'reviewer'     // Editor
-  | 'surveyor';    // Researcher
+  | 'surveyor'     // Researcher
+  | 'kimiclaw';    // KimiClaw
 
 export type TaskStatus = 
   | 'pending' 
