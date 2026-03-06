@@ -137,6 +137,44 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
         </div>
       )}
 
+      {/* Totals Card */}
+      {metrics.length > 0 && (
+        <div className="rounded-xl border border-primary/30 bg-surface p-6">
+          <h3 className="mb-4 text-lg font-semibold flex items-center gap-2">
+            📊 All-Time Totals
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="rounded-xl bg-background p-4 text-center">
+              <div className="text-3xl font-bold text-primary">
+                {metrics.reduce((sum, m) => sum + (m.totalActions || 0), 0).toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-400 mt-1">Total Actions</div>
+            </div>
+            <div className="rounded-xl bg-background p-4 text-center">
+              <div className="text-3xl font-bold text-orange-400">
+                {metrics.reduce((sum, m) => sum + Number(m.totalTokensUsed || 0), 0).toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-400 mt-1">Total Tokens</div>
+            </div>
+            <div className="rounded-xl bg-background p-4 text-center">
+              <div className="text-3xl font-bold text-green-400">
+                ${metrics.reduce((sum, m) => {
+                  const cost = Number(m.totalCostEstimate);
+                  return sum + (isNaN(cost) ? 0 : cost);
+                }, 0).toFixed(2)}
+              </div>
+              <div className="text-sm text-gray-400 mt-1">Total Cost</div>
+            </div>
+            <div className="rounded-xl bg-background p-4 text-center">
+              <div className="text-3xl font-bold text-blue-400">
+                {metrics.length}
+              </div>
+              <div className="text-sm text-gray-400 mt-1">Active Agents</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Agent Metrics */}
       <div className="rounded-xl border border-surface-hover bg-surface p-6">
         <h3 className="mb-4 text-lg font-semibold flex items-center gap-2">
