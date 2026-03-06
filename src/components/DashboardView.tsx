@@ -536,6 +536,39 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         })()}
       </div>
 
+      {/* Agent Activity - Compact */}
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 md:h-5 md:w-5 text-purple-400" />
+            <span className="font-semibold text-sm md:text-base">Agents</span>
+          </div>
+          <button onClick={() => onNavigate('agents')} className="text-xs text-primary hover:underline">View</button>
+        </div>
+        
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <div className="rounded-lg bg-background p-2">
+            <div className="text-lg font-bold text-purple-400">💻</div>
+            <div className="text-xs text-gray-400">Arch</div>
+          </div>
+          <div className="rounded-lg bg-background p-2">
+            <div className="text-lg font-bold text-yellow-400">💡</div>
+            <div className="text-xs text-gray-400">Inv</div>
+          </div>
+          <div className="rounded-lg bg-background p-2">
+            <div className="text-lg font-bold text-blue-400">🔬</div>
+            <div className="text-xs text-gray-400">Anl</div>
+          </div>
+          <div className="rounded-lg bg-background p-2">
+            <div className="text-lg font-bold text-green-400">📡</div>
+            <div className="text-xs text-gray-400">Sct</div>
+          </div>
+        </div>
+        <div className="mt-2 text-center text-xs text-gray-500">
+          Click to view agent activity & costs
+        </div>
+      </div>
+
       {/* Recent Tasks - Compact List */}
       <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
         <div className="mb-3 flex items-center justify-between">
