@@ -2,12 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { 
   Upload, File, Image, FileText, Archive, MoreVertical, 
   Search, Filter, Grid, List, Download, Trash2, Eye,
-  X, Check, Folder, Link, Loader2
+  X, Check, Folder, Link, Loader2, Bot
 } from 'lucide-react';
 import { getFileStorage } from '../lib/fileStorage';
 import type { FileItem } from '../lib/fileStorage';
 import { useAppStore } from '../stores/appStore';
 import { setData, subscribeToData } from '../lib/firebase';
+import { AGENT_EMOJIS, AGENT_EMOJI_FALLBACKS, AGENT_NAMES } from '../constants/agents';
 
 interface FileManagerProps {
   projectId?: string;
@@ -66,7 +67,20 @@ function FileCard({
     projectId: file.projectId,
     thumbnailUrl: file.thumbnailUrl,
     storagePath: file.storagePath,
+    uploadedBy: file.uploadedBy,
   };
+  
+  // Get agent info for display
+  const getAgentDisplay = (agentId?: string) => {
+    if (!agentId || agentId === 'unknown') return null;
+    const emoji = AGENT_EMOJIS[agentId as keyof typeof AGENT_EMOJIS] || 
+                  AGENT_EMOJI_FALLBACKS[agentId] || 
+                  '🤖';
+    const name = AGENT_NAMES[agentId as keyof typeof AGENT_NAMES] || agentId;
+    return { emoji, name };
+  };
+  
+  const agentDisplay = getAgentDisplay(safeFile.uploadedBy);
 
   if (viewMode === 'list') {
     return (
@@ -93,6 +107,13 @@ function FileCard({
         {safeFile.category && (
           <span className="rounded-full bg-surface px-2.5 py-1 text-xs text-gray-400">
             {safeFile.category}
+          </span>
+        )}
+        
+        {agentDisplay && (
+          <span className="flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-1 text-xs text-purple-400" title={`Uploaded by ${agentDisplay.name}`}>
+            <span>{agentDisplay.emoji}</span>
+            <span className="hidden sm:inline">{agentDisplay.name}</span>
           </span>
         )}
 
@@ -156,6 +177,14 @@ function FileCard({
           <span className="mt-1 sm:mt-2 inline-block rounded-full bg-surface px-2 py-0.5 text-xs text-gray-400"
           >
             {safeFile.category}
+          </span>
+        )}
+        
+        {agentDisplay && (
+          <span className="mt-1 sm:mt-2 inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-xs text-purple-400" title={`Uploaded by ${agentDisplay.name}`}
+          >
+            <span>{agentDisplay.emoji}</span>
+            <span className="hidden sm:inline">{agentDisplay.name}</span>
           </span>
         )}
         

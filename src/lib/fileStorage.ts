@@ -19,6 +19,7 @@ interface FileItem {
   projectId?: string;
   thumbnailUrl?: string;
   storagePath: string;
+  uploadedBy?: string;
 }
 
 class FileStorage {
