@@ -6,7 +6,12 @@
  * Usage: echo '{agent output}' | node parseAgentLog.mjs
  */
 
-const API_KEY = process.env.AGENT_API_KEY || 'Nxc4fUHTmPEzB2mAz7yfjYY2uwPR72n2pGyrX2qH';
+const API_KEY = process.env.AGENT_API_KEY || ''; 
+if (!API_KEY) {
+  console.error('Error: AGENT_API_KEY environment variable not set');
+  console.error('Set it with: export AGENT_API_KEY=your_api_key');
+  process.exit(1);
+}
 const API_URL = process.env.MC_API_URL || 'https://mission-control-v6-kappa.vercel.app/api';
 
 async function logToFirebase(entry) {

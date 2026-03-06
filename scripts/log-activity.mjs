@@ -11,9 +11,22 @@
  *   node log-activity.mjs analyst api_call "Called OpenAI" api_call '{"tokens":1500,"cost":0.03}'
  */
 
-const API_KEY = 'Nxc4fUHTmPEzB2mAz7yfjYY2uwPR72n2pGyrX2qH';
+const API_KEY = process.env.AGENT_API_KEY || '';
 const API_URL = 'https://mission-control-v6-kappa.vercel.app/api/log-activity';
 const FIREBASE_URL = 'https://mission-control-sync-default-rtdb.firebaseio.com/v6/agentActivity/logs.json';
+
+// Validate API key is set
+if (!API_KEY) {
+  console.error('❌ Error: AGENT_API_KEY environment variable not set');
+  console.error('');
+  console.error('Set it with one of these methods:');
+  console.error('  export AGENT_API_KEY=your_api_key_here');
+  console.error('  AGENT_API_KEY=your_key node log-activity.mjs ...');
+  console.error('');
+  console.error('For local development, add to your ~/.bashrc or ~/.zshrc:');
+  console.error('  export AGENT_API_KEY=your_api_key_here');
+  process.exit(1);
+}
 
 async function logViaAPI(entry) {
   const response = await fetch(API_URL, {
