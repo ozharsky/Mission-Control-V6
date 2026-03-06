@@ -349,37 +349,50 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
       const api = getSimplyPrint();
       if (api) {
         const livePrinters = await api.getPrinters();
+        console.log('SimplyPrint API response:', livePrinters);
+        
+        // If API returns empty, fallback to Firebase
+        if (!livePrinters || livePrinters.length === 0) {
+          console.log('API returned empty, using Firebase data');
+          setPrinters(initialPrinters);
+          setLastUpdate(Date.now());
+          if (showLoading) setLoading(false);
+          return;
+        }
         
         // Map SimplyPrint data to our Printer interface
-        const mappedPrinters: Printer[] = livePrinters.map((sp: any) => ({
-          id: sp.id || sp.printer_id,
-          name: sp.name || sp.printer_name,
-          status: sp.status || 'offline',
-          temp: sp.temperature?.nozzle || sp.nozzle_temp || 0,
-          targetTemp: sp.temperature?.targetNozzle || sp.target_nozzle_temp,
-          bedTemp: sp.temperature?.bed || sp.bed_temp || 0,
-          targetBedTemp: sp.temperature?.targetBed || sp.target_bed_temp,
-          chamberTemp: sp.chamber_temp || sp.temperature?.chamber,
-          job: sp.currentJob ? {
-            name: sp.currentJob.name || sp.job_name,
-            progress: sp.progress || sp.currentJob.progress || 0,
-            timeLeft: sp.currentJob.timeLeft || sp.time_remaining,
-            layer: sp.currentJob.layer || sp.layer_info,
-          } : undefined,
-          printSpeed: sp.print_speed || sp.speed,
-          fanSpeed: sp.fan_speed || sp.fan,
-          material: sp.material || sp.filament_type,
-          printProfile: sp.print_profile || sp.profile,
-          nozzleSize: sp.nozzle_size,
-          layerHeight: sp.layer_height,
-          infill: sp.infill_percentage || sp.infill,
-          printTime: sp.print_time || sp.elapsed_time,
-          totalTime: sp.total_time || sp.estimated_time,
-          zHeight: sp.z_height || sp.current_z,
-          fileName: sp.file_name || sp.filename,
-          lastSeen: sp.last_seen || sp.lastSeen,
-          error: sp.error_message || sp.error,
-        }));
+        const mappedPrinters: Printer[] = livePrinters.map((sp: any) => {
+          console.log('Mapping printer:', sp);
+          return {
+            id: sp.id || sp.printer_id,
+            name: sp.name || sp.printer_name,
+            status: sp.status || 'offline',
+            temp: sp.temperature?.nozzle || sp.nozzle_temp || sp.tool0?.actual || 0,
+            targetTemp: sp.temperature?.targetNozzle || sp.target_nozzle_temp || sp.tool0?.target,
+            bedTemp: sp.temperature?.bed || sp.bed_temp || sp.bed?.actual || 0,
+            targetBedTemp: sp.temperature?.targetBed || sp.target_bed_temp || sp.bed?.target,
+            chamberTemp: sp.chamber_temp || sp.temperature?.chamber || sp.chamber?.actual,
+            job: sp.currentJob || sp.job ? {
+              name: sp.currentJob?.name || sp.job?.name || sp.job_name,
+              progress: sp.progress || sp.currentJob?.progress || sp.job?.progress || 0,
+              timeLeft: sp.currentJob?.timeLeft || sp.job?.timeLeft || sp.time_remaining,
+              layer: sp.currentJob?.layer || sp.job?.layer || sp.layer_info,
+            } : undefined,
+            printSpeed: sp.print_speed || sp.speed,
+            fanSpeed: sp.fan_speed || sp.fan,
+            material: sp.material || sp.filament_type || sp.filament,
+            printProfile: sp.print_profile || sp.profile,
+            nozzleSize: sp.nozzle_size,
+            layerHeight: sp.layer_height,
+            infill: sp.infill_percentage || sp.infill,
+            printTime: sp.print_time || sp.elapsed_time,
+            totalTime: sp.total_time || sp.estimated_time,
+            zHeight: sp.z_height || sp.current_z,
+            fileName: sp.file_name || sp.filename,
+            lastSeen: sp.last_seen || sp.lastSeen,
+            error: sp.error_message || sp.error,
+          };
+        });
         
         setPrinters(mappedPrinters);
         setLastUpdate(Date.now());
@@ -390,7 +403,7 @@ export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate
       }
     } catch (err) {
       console.error('Failed to fetch printers:', err);
-      setError('Failed to fetch live data');
+      setError('Failed to fetch live data - using cached');
       setPrinters(initialPrinters);
     } finally {
       if (showLoading) setLoading(false);
