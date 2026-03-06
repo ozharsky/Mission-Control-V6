@@ -252,12 +252,7 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
                       <span className="text-red-400 font-medium">❌ Failed</span>
                     )}
                   </div>
-                      </span>
-                    )}
-                    {log.metadata?.success === false && (
-                      <span className="text-red-400">Failed</span>
-                    )}
-                  </div>                </div>
+                </div>
               </div>
             );
           })}
