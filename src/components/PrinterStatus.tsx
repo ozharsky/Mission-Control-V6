@@ -335,15 +335,87 @@ function PrinterCard({ printer, index }: { printer: Printer; index: number }) {
   );
 }
 
-export function PrinterStatus({ printers, onRefresh, lastUpdate }: PrinterStatusProps) {
+export function PrinterStatus({ printers: initialPrinters, onRefresh, lastUpdate: initialLastUpdate }: PrinterStatusProps) {
+  const [printers, setPrinters] = useState<Printer[]>(initialPrinters);
   const [loading, setLoading] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<number | undefined>(initialLastUpdate);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch live data from SimplyPrint API
+  const fetchLivePrinters = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const api = getSimplyPrint();
+      if (api) {
+        const livePrinters = await api.getPrinters();
+        
+        // Map SimplyPrint data to our Printer interface
+        const mappedPrinters: Printer[] = livePrinters.map((sp: any) => ({
+          id: sp.id || sp.printer_id,
+          name: sp.name || sp.printer_name,
+          status: sp.status || 'offline',
+          temp: sp.temperature?.nozzle || sp.nozzle_temp || 0,
+          targetTemp: sp.temperature?.targetNozzle || sp.target_nozzle_temp,
+          bedTemp: sp.temperature?.bed || sp.bed_temp || 0,
+          targetBedTemp: sp.temperature?.targetBed || sp.target_bed_temp,
+          chamberTemp: sp.chamber_temp || sp.temperature?.chamber,
+          job: sp.currentJob ? {
+            name: sp.currentJob.name || sp.job_name,
+            progress: sp.progress || sp.currentJob.progress || 0,
+            timeLeft: sp.currentJob.timeLeft || sp.time_remaining,
+            layer: sp.currentJob.layer || sp.layer_info,
+          } : undefined,
+          printSpeed: sp.print_speed || sp.speed,
+          fanSpeed: sp.fan_speed || sp.fan,
+          material: sp.material || sp.filament_type,
+          printProfile: sp.print_profile || sp.profile,
+          nozzleSize: sp.nozzle_size,
+          layerHeight: sp.layer_height,
+          infill: sp.infill_percentage || sp.infill,
+          printTime: sp.print_time || sp.elapsed_time,
+          totalTime: sp.total_time || sp.estimated_time,
+          zHeight: sp.z_height || sp.current_z,
+          fileName: sp.file_name || sp.filename,
+          lastSeen: sp.last_seen || sp.lastSeen,
+          error: sp.error_message || sp.error,
+        }));
+        
+        setPrinters(mappedPrinters);
+        setLastUpdate(Date.now());
+      } else {
+        // Fallback to initial printers if API not initialized
+        setPrinters(initialPrinters);
+      }
+    } catch (err) {
+      console.error('Failed to fetch printers:', err);
+      setError('Failed to fetch live data');
+      setPrinters(initialPrinters);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchLivePrinters();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchLivePrinters, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update when initialPrinters changes (from Firebase)
+  useEffect(() => {
+    if (!loading) {
+      setPrinters(initialPrinters);
+    }
+  }, [initialPrinters]);
 
   const handleRefresh = async () => {
-    setLoading(true);
+    await fetchLivePrinters();
     if (onRefresh) {
       await onRefresh();
     }
-    setTimeout(() => setLoading(false), 500);
   };
 
   return (
@@ -356,14 +428,19 @@ export function PrinterStatus({ printers, onRefresh, lastUpdate }: PrinterStatus
             {printers.filter(p => p.status === 'printing').length} printing, {printers.filter(p => p.status === 'operational' || p.status === 'idle').length} ready
           </p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={loading}
-          className="flex items-center gap-2 rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {error && (
+            <span className="text-xs text-danger">{error}</span>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Printer Grid */}
