@@ -449,6 +449,39 @@ function fetchOnce(url, options) {
   });
 }
 
+// Fetch raw text (for RSS feeds)
+function fetchText(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : require('http');
+    
+    protocol.get(url, {
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (compatible; KalshiScanner/2.6)',
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+        ...options.headers
+      },
+      timeout: 15000,
+      ...options
+    }, (res) => {
+      // Handle redirects manually
+      if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+        const redirectUrl = new URL(res.headers.location, url).toString();
+        fetchText(redirectUrl, options).then(resolve).catch(reject);
+        return;
+      }
+      
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode}`));
+        return;
+      }
+      
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    }).on('error', reject);
+  });
+}
+
 function fetchMarkets(seriesTicker) {
   const url = `https://api.elections.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=20&status=open`;
   return fetchWithRetry(url);
@@ -637,37 +670,31 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
 // RSS News Feed Parser - fetch news from multiple sources
 async function fetchRSSFeeds() {
   const feeds = [
-    // Crypto
-    { name: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', category: 'crypto' },
-    { name: 'Cointelegraph', url: 'https://cointelegraph.com/rss', category: 'crypto' },
+    // Crypto - reliable sources
+    { name: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', category: 'crypto' },
+    { name: 'CryptoNews', url: 'https://cryptonews.com/news/feed/', category: 'crypto' },
     // Politics
     { name: 'Politico', url: 'https://www.politico.com/rss/politics08.xml', category: 'politics' },
-    { name: 'TheHill', url: 'https://thehill.com/rss/syndicator/19110', category: 'politics' },
-    // Markets/Finance
+    { name: 'RealClearPolitics', url: 'https://www.realclearpolitics.com/index.xml', category: 'politics' },
+    // Markets/Finance  
     { name: 'MarketWatch', url: 'https://www.marketwatch.com/rss/topstories', category: 'markets' },
-    { name: 'YahooFinance', url: 'https://finance.yahoo.com/news/rssindex', category: 'markets' },
+    { name: 'SeekingAlpha', url: 'https://seekingalpha.com/market_outlook/rss.xml', category: 'markets' },
     // General News
-    { name: 'BBC', url: 'http://feeds.bbci.co.uk/news/world/rss.xml', category: 'general' },
-    { name: 'CNN', url: 'http://rss.cnn.com/rss/edition.rss', category: 'general' },
-    // Weather
-    { name: 'WeatherChannel', url: 'https://weather.com/en-us/weather/today/l/98354:4:US', category: 'weather', isWeather: true }
+    { name: 'BBC', url: 'https://feeds.bbci.co.uk/news/world/rss.xml', category: 'general' },
+    { name: 'Reuters', url: 'https://www.reutersagency.com/feed/?best-topics=business-finance', category: 'general' },
+    // Weather from NOAA
+    { name: 'NOAA', url: 'https://www.weather.gov/rss_page.php?site_name=nws', category: 'weather' }
   ];
   
   const articles = [];
   
   for (const feed of feeds) {
     try {
-      // Add timeout and better headers
-      const data = await fetchWithRetry(feed.url, { 
-        headers: { 
-          'User-Agent': 'Mozilla/5.0 (compatible; KalshiScanner/2.6)',
-          'Accept': 'application/rss+xml, application/xml, text/xml'
-        }
-      }, 1);
+      const data = await fetchText(feed.url);
       
       // Check if we got valid XML
-      if (!data || typeof data !== 'string' || data.length < 100) {
-        console.log(`  ⚠️ RSS ${feed.name}: Empty or invalid response`);
+      if (!data || data.length < 100 || !data.includes('<')) {
+        console.log(`  ⚠️ ${feed.name}: Empty or invalid response`);
         continue;
       }
       
@@ -679,7 +706,7 @@ async function fetchRSSFeeds() {
         console.log(`  ⚠️ ${feed.name}: No articles parsed`);
       }
     } catch (e) {
-      console.log(`  ⚠️ RSS ${feed.name}: ${e.message.slice(0, 50)}`);
+      console.log(`  ⚠️ ${feed.name}: ${e.message.slice(0, 50)}`);
     }
   }
   
