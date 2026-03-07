@@ -87,6 +87,12 @@ const RECOMMENDATION_COLORS: Record<string, string> = {
   avoid: 'bg-danger/20 text-danger border-danger'
 };
 
+const HEALTH_COLORS: Record<string, string> = {
+  good: 'bg-success/20 text-success',
+  fair: 'bg-warning/20 text-warning',
+  poor: 'bg-danger/20 text-danger'
+};
+
 // Transform RESEARCHED_TRADES to KalshiTrade format
 function transformResearchedTrades(): KalshiTrade[] {
   return RESEARCHED_TRADES.map((trade: any) => {
@@ -895,6 +901,11 @@ export function KalshiTradingView() {
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${RECOMMENDATION_COLORS[trade.recommendation]}`}>
                         {trade.recommendation.replace('_', ' ').toUpperCase()}
                       </span>
+                      {trade.health && (
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${HEALTH_COLORS[trade.health] || 'bg-gray-500/20 text-gray-400'}`}>
+                          {trade.health} {trade.spread && `(${trade.spread}¢ spread)`}
+                        </span>
+                      )}
                     </div>
                     <h3 className="mt-2 truncate text-lg font-semibold text-white">{trade.title}</h3>
                     
@@ -1019,16 +1030,33 @@ export function KalshiTradingView() {
                                 : `${trade.floor}° - ${trade.cap}°`
                               }
                             </p>
-                            <p className="text-sm text-gray-500 mt-1">
-                              Buy YES if you think the outcome will be IN this range
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              Buy NO if you think the outcome will be OUTSIDE this range
-                            </p>
                           </div>
                         ) : trade.subtitle ? (
                           <p className="mt-1 text-white">{trade.subtitle}</p>
                         ) : null}
+                        
+                        {/* Liquidity Info */}
+                        {trade.health && (
+                          <div className="mt-2">
+                            <p className="text-sm text-gray-500">Liquidity</p>
+                            <p className={`text-sm font-medium ${trade.health === 'good' ? 'text-success' : trade.health === 'fair' ? 'text-warning' : 'text-danger'}`}>
+                              {trade.health.toUpperCase()} - {trade.spread}¢ spread, Score: {trade.liquidityScore}/100
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Edge Breakdown */}
+                        {(trade.timeAdjustment || trade.volumeBoost) && (
+                          <div className="mt-2">
+                            <p className="text-sm text-gray-500">Edge Breakdown</p>
+                            <p className="text-xs text-gray-400">
+                              {trade.trueProbability}% true prob
+                              {parseFloat(trade.timeAdjustment || '0') > 0 && ` (+${trade.timeAdjustment}% time)`}
+                              {parseFloat(trade.volumeBoost || '0') > 0 && ` (+${trade.volumeBoost}% volume)`}
+                            </p>
+                          </div>
+                        )}
+                        
                         <p className="mt-3 text-sm text-gray-400">Expires</p>
                         <p className="text-white">{new Date(trade.expiration).toLocaleDateString('en-US', { 
                           weekday: 'short', 
