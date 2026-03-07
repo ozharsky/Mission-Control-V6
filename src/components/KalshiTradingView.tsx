@@ -12,6 +12,7 @@ interface KalshiTrade {
   id: string;
   ticker: string;
   title: string;
+  subtitle?: string;
   category: string;
   yesPrice: number;
   noPrice: number;
@@ -21,6 +22,9 @@ interface KalshiTrade {
   rScore: number;
   kellyPct: number;
   recommendation: 'strong_buy' | 'buy' | 'hold' | 'avoid';
+  strikePrice?: number;
+  floor?: number;
+  cap?: number;
   research?: {
     catalyst: string;
     confidence: 'high' | 'medium' | 'low';
@@ -151,25 +155,55 @@ export function KalshiTradingView() {
             if (data.markets) {
               const transformed = data.markets.map((m: any) => {
                 const yesPrice = m.yes_ask || m.yes_price || 50;
-                const impliedProb = yesPrice;
-                // Simple edge calculation (would be more sophisticated in real implementation)
-                const edge = Math.random() * 20 - 5; // Mock edge for now
+                const noPrice = m.no_ask || m.no_bid || (100 - yesPrice);
+                
+                // Extract strike price or range from subtitle or title
+                const subtitle = m.subtitle || m.event_title || '';
+                const title = m.title || '';
+                
+                // Try to extract range info from subtitle or parse ticker
+                let floor: number | undefined;
+                let cap: number | undefined;
+                let strikePrice: number | undefined;
+                
+                // Parse ticker for range info (e.g., KXBTC-85000-90000)
+                const tickerParts = m.ticker?.split('-');
+                if (tickerParts && tickerParts.length >= 3) {
+                  floor = parseInt(tickerParts[tickerParts.length - 2], 10);
+                  cap = parseInt(tickerParts[tickerParts.length - 1], 10);
+                }
+                
+                // Also check subtitle for range patterns like "$85,000 - $90,000" or "43° - 44°"
+                const rangeMatch = subtitle.match(/\$?([\d,]+).{0,3}\$?([\d,]+)/) || 
+                                   subtitle.match(/(\d+)[°\s].{0,3}(\d+)[°\s]/);
+                if (rangeMatch) {
+                  floor = parseInt(rangeMatch[1].replace(/,/g, ''), 10);
+                  cap = parseInt(rangeMatch[2].replace(/,/g, ''), 10);
+                }
+                
+                // Calculate edge based on price vs probability
+                // For now use mock - would be replaced with actual research data
+                const edge = Math.random() * 20 - 5;
                 const rScore = edge > 0 ? 1 + (edge / 10) : 0;
                 
                 return {
                   id: m.ticker,
                   ticker: m.ticker,
-                  title: m.title,
+                  title: title,
+                  subtitle: subtitle,
                   category,
                   yesPrice,
-                  noPrice: m.no_ask || (100 - yesPrice),
+                  noPrice,
                   volume: m.volume || 0,
                   expiration: m.close_date || m.expiration_date,
                   edge: Math.round(edge),
                   rScore: Math.round(rScore * 10) / 10,
                   kellyPct: Math.max(1, Math.min(10, edge / 2)),
                   recommendation: edge > 10 ? 'strong_buy' : edge > 5 ? 'buy' : edge > 0 ? 'hold' : 'avoid',
-                  research: { catalyst: 'Live market data', confidence: 'medium', sources: [] }
+                  strikePrice,
+                  floor,
+                  cap,
+                  research: { catalyst: subtitle || 'Live market data', confidence: 'medium', sources: [] }
                 };
               });
               allMarkets = [...allMarkets, ...transformed];
@@ -430,7 +464,30 @@ export function KalshiTradingView() {
                       </span>
                     </div>
                     <h3 className="mt-2 truncate text-lg font-semibold text-white">{trade.title}</h3>
-                    <p className="text-sm text-gray-400">{trade.ticker}</p>
+                    
+                    {/* Show range/subtitle prominently */}
+                    <div className="mt-1 flex items-center gap-2">
+                      {trade.floor !== undefined && trade.cap !== undefined ? (
+                        <span className="rounded bg-surface-hover px-2 py-1 text-sm font-medium text-primary">
+                          {trade.category === 'crypto' || trade.category === 'economics' 
+                            ? `$${trade.floor.toLocaleString()} - $${trade.cap.toLocaleString()}`
+                            : `${trade.floor}° - ${trade.cap}°`
+                          }
+                        </span>
+                      ) : trade.subtitle ? (
+                        <span className="truncate text-sm text-gray-300">{trade.subtitle}</span>
+                      ) : null}
+                      <span className="text-xs text-gray-500">{trade.ticker}</span>
+                    </div>
+                    
+                    {/* Expiration date */}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Expires: {new Date(trade.expiration).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        year: 'numeric' 
+                      })}
+                    </p>
                   </div>
 
                   {/* Center: Metrics */}
@@ -471,7 +528,7 @@ export function KalshiTradingView() {
                 {/* Expanded Details */}
                 {expandedTrade === trade.id && (
                   <div className="mt-4 border-t border-surface-hover pt-4">
-                    <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="grid gap-4 lg:grid-cols-3">
                       <div>
                         <p className="text-sm text-gray-400">Research</p>
                         <p className="mt-1 text-white">{trade.research?.catalyst || 'No research available'}</p>
@@ -482,10 +539,37 @@ export function KalshiTradingView() {
                         </div>
                       </div>
                       <div>
+                        <p className="text-sm text-gray-400">Market Details</p>
+                        {trade.floor !== undefined && trade.cap !== undefined ? (
+                          <div className="mt-1">
+                            <p className="text-white font-medium">
+                              Range: {trade.category === 'crypto' || trade.category === 'economics' 
+                                ? `$${trade.floor.toLocaleString()} - $${trade.cap.toLocaleString()}`
+                                : `${trade.floor}° - ${trade.cap}°`
+                              }
+                            </p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Buy YES if you think the outcome will be IN this range
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Buy NO if you think the outcome will be OUTSIDE this range
+                            </p>
+                          </div>
+                        ) : trade.subtitle ? (
+                          <p className="mt-1 text-white">{trade.subtitle}</p>
+                        ) : null}
+                      </div>
+                      <div>
                         <p className="text-sm text-gray-400">Expires</p>
-                        <p className="text-white">{new Date(trade.expiration).toLocaleDateString()}</p>
+                        <p className="text-white">{new Date(trade.expiration).toLocaleDateString('en-US', { 
+                          weekday: 'short', 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}</p>
                         <p className="mt-2 text-sm text-gray-400">Kelly %</p>
                         <p className="text-white">{trade.kellyPct.toFixed(1)}% of bankroll</p>
+                        <p className="text-xs text-gray-500">Max position: ${(stats.bankroll * 0.1).toFixed(0)}</p>
                       </div>
                     </div>
                     <div className="mt-4 flex gap-2">
