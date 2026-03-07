@@ -670,19 +670,21 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
 // RSS News Feed Parser - fetch news from multiple sources
 async function fetchRSSFeeds() {
   const feeds = [
-    // Crypto - reliable sources
-    { name: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', category: 'crypto' },
+    // Crypto
     { name: 'CryptoNews', url: 'https://cryptonews.com/news/feed/', category: 'crypto' },
+    { name: 'BitcoinMagazine', url: 'https://bitcoinmagazine.com/feed', category: 'crypto' },
     // Politics
-    { name: 'Politico', url: 'https://www.politico.com/rss/politics08.xml', category: 'politics' },
     { name: 'RealClearPolitics', url: 'https://www.realclearpolitics.com/index.xml', category: 'politics' },
-    // Markets/Finance  
+    { name: 'Axios', url: 'https://api.axios.com/feed/politics', category: 'politics' },
+    { name: 'WashingtonExaminer', url: 'https://www.washingtonexaminer.com/feed/', category: 'politics' },
+    // Markets/Finance
     { name: 'MarketWatch', url: 'https://www.marketwatch.com/rss/topstories', category: 'markets' },
-    { name: 'SeekingAlpha', url: 'https://seekingalpha.com/market_outlook/rss.xml', category: 'markets' },
+    { name: 'Investopedia', url: 'https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline', category: 'markets' },
+    { name: 'FinancialTimes', url: 'https://www.ft.com/?format=rss', category: 'markets' },
     // General News
-    { name: 'BBC', url: 'https://feeds.bbci.co.uk/news/world/rss.xml', category: 'general' },
-    { name: 'Reuters', url: 'https://www.reutersagency.com/feed/?best-topics=business-finance', category: 'general' },
-    // Weather from NOAA
+    { name: 'APNews', url: 'https://feeds.apnews.com/APNews', category: 'general' },
+    { name: 'NPR', url: 'https://feeds.npr.org/1001/rss.xml', category: 'general' },
+    // Weather
     { name: 'NOAA', url: 'https://www.weather.gov/rss_page.php?site_name=nws', category: 'weather' }
   ];
   
