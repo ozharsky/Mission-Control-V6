@@ -133,6 +133,24 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
     const lastMonth = filteredData[filteredData.length - 1]?.value || 0;
     const trend = avgLast3 > 0 ? Math.round(((lastMonth - avgLast3) / avgLast3) * 100) : 0;
     
+    // Month-over-month growth calculation
+    const momGrowth = filteredData.map((curr, idx) => {
+      if (idx === 0) return { month: curr.month, growth: 0, value: curr.value };
+      const prev = filteredData[idx - 1];
+      const growth = prev.value > 0 ? ((curr.value - prev.value) / prev.value) * 100 : 0;
+      return { month: curr.month, growth: Math.round(growth * 10) / 10, value: curr.value };
+    });
+    
+    // Average MoM growth
+    const avgMomGrowth = momGrowth.length > 1 
+      ? momGrowth.slice(1).reduce((sum, m) => sum + m.growth, 0) / (momGrowth.length - 1)
+      : 0;
+    
+    // Best growth month
+    const bestGrowth = momGrowth.reduce((best, curr) => 
+      curr.growth > best.growth ? curr : best, momGrowth[0] || { month: '', growth: 0 }
+    );
+    
     // Best month
     const bestMonth = filteredData.reduce((best, curr) => 
       curr.value > best.value ? curr : best, filteredData[0] || { month: '', value: 0 }
@@ -144,7 +162,8 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
     
     return { 
       total, orders, avg, max, min: min === Infinity ? 0 : min, 
-      avgOrderValue, trend, bestMonth, monthsAtGoal, goalRate 
+      avgOrderValue, trend, bestMonth, monthsAtGoal, goalRate,
+      momGrowth, avgMomGrowth: Math.round(avgMomGrowth * 10) / 10, bestGrowth
     };
   }, [filteredData, goal]);
 
@@ -273,11 +292,19 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
       )}
 
       {/* Enhanced Stats Grid */}
-      <div className="grid grid-cols-2 gap-3  lg:gap-4">
+      <div className="grid grid-cols-2 gap-3  lg:grid-cols-3 lg:gap-4">
         <StatCard title="Total Revenue" value={formatCurrency(stats.total)} icon={DollarSign} color="success" />
         <StatCard title="Total Orders" value={stats.orders.toString()} icon={ShoppingCart} color="primary" />
         <StatCard title="Avg/Month" value={formatCurrency(stats.avg)} icon={Calendar} color="info" subtext={`Best: ${stats.bestMonth?.month || '-'}`} />
         <StatCard title="Avg Order" value={formatCurrency(stats.avgOrderValue)} icon={TrendIcon} trend={stats.trend} color="warning" />
+        <StatCard 
+          title="MoM Growth" 
+          value={`${stats.avgMomGrowth >= 0 ? '+' : ''}${stats.avgMomGrowth}%`} 
+          icon={TrendingUp} 
+          trend={stats.avgMomGrowth} 
+          color={stats.avgMomGrowth >= 0 ? 'success' : 'danger'}
+          subtext={`Best: ${stats.bestGrowth?.month || '-'} (+${stats.bestGrowth?.growth || 0}%)`}
+        />
       </div>
 
       {/* Goal Progress */}
@@ -319,6 +346,38 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
               <LineChart data={filteredData.map(d => d.orders)} color="success" />
             </div>
           </div>
+          
+          {/* MoM Growth Chart */}
+          {stats.momGrowth.length > 1 && (
+            <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-info" />
+                <span className="text-sm font-medium">MoM Growth %</span>
+              </div>
+              <div className="h-16">
+                <svg viewBox="0 0 100 100" className="h-full w-full" preserveAspectRatio="none">
+                  {stats.momGrowth.slice(1).map((m, idx, arr) => {
+                    const maxGrowth = Math.max(...arr.map(x => Math.abs(x.growth)), 10);
+                    const x1 = (idx / (arr.length - 1 || 1)) * 100;
+                    const x2 = ((idx + 1) / (arr.length - 1 || 1)) * 100;
+                    const y1 = 50 - (arr[idx]?.growth / maxGrowth) * 40;
+                    const y2 = 50 - (arr[idx + 1]?.growth / maxGrowth) * 40;
+                    return (
+                      <line
+                        key={idx}
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke={arr[idx + 1]?.growth >= 0 ? '#22c55e' : '#ef4444'}
+                        strokeWidth="2"
+                      />
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+          )}
           
           <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
             <div className="mb-2 flex items-center gap-2">
