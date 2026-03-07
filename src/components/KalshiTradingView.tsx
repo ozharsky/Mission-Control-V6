@@ -245,7 +245,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export function KalshiTradingView() {
   const [activeTab, setActiveTab] = useState<'opportunities' | 'portfolio' | 'history'>('opportunities');
-  const [trades, setTrades] = useState<KalshiTrade[]>(transformResearchedTrades());
+  const [trades, setTrades] = useState<KalshiTrade[]>([]); // Start empty, load from scanner
   const [positions, setPositions] = useState<PaperPosition[]>([]);
   const [stats, setStats] = useState<PortfolioStats>({
     bankroll: 10000,
@@ -266,6 +266,7 @@ export function KalshiTradingView() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [scanSummary, setScanSummary] = useState<any>(null);
+  const [isLoadingTrades, setIsLoadingTrades] = useState(true);
 
   // Load positions and stats from Firebase on mount
   useEffect(() => {
@@ -306,26 +307,63 @@ export function KalshiTradingView() {
   // Load scanner data and merge with RESEARCHED_TRADES
   useEffect(() => {
     const loadScannerData = async () => {
+      setIsLoadingTrades(true);
       try {
+        console.log('Loading scanner data...');
         // Try to load from Firebase first (if scanner writes there)
         const scannerOutput = await getData('v6/kalshi/latest_scan');
         
         if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities)) {
           console.log(`Loaded ${scannerOutput.opportunities.length} opportunities from scanner`);
+          console.log('Sample opportunity:', scannerOutput.opportunities[0]);
+          
           const transformed = transformScannerOutput(scannerOutput);
+          console.log(`Transformed ${transformed.length} scanner trades`);
+          
           if (transformed.length > 0) {
-            // Merge with researched trades, prioritizing scanner data for same tickers
-            const scannerTickers = new Set(transformed.map(t => t.ticker));
-            const existingTrades = transformResearchedTrades().filter(t => !scannerTickers.has(t.ticker));
-            setTrades([...transformed, ...existingTrades]);
+            // Get researched trades
+            const researchedTrades = transformResearchedTrades();
+            console.log(`Have ${researchedTrades.length} researched trades`);
+            
+            // Create a map to deduplicate by ticker
+            const tradeMap = new Map<string, KalshiTrade>();
+            
+            // Add scanner trades first (they take priority)
+            for (const trade of transformed) {
+              tradeMap.set(trade.ticker, trade);
+            }
+            
+            // Add researched trades only if ticker not already in map
+            for (const trade of researchedTrades) {
+              if (!tradeMap.has(trade.ticker)) {
+                tradeMap.set(trade.ticker, trade);
+              }
+            }
+            
+            const mergedTrades = Array.from(tradeMap.values());
+            console.log(`Final merged trades: ${mergedTrades.length}`);
+            
+            setTrades(mergedTrades);
             setLastUpdated(new Date(scannerOutput.scan_time || Date.now()));
             setScanSummary(scannerOutput.summary);
+          } else {
+            // No scanner trades, use researched
+            const researched = transformResearchedTrades();
+            setTrades(researched);
           }
         } else {
-          console.log('No scanner data found, using RESEARCHED_TRADES');
+          console.log('No scanner data found, using RESEARCHED_TRADES only');
+          const researched = transformResearchedTrades();
+          console.log(`Using ${researched.length} researched trades`);
+          setTrades(researched);
         }
       } catch (e) {
         console.error('Failed to load scanner data:', e);
+        // Fallback to researched trades
+        const researched = transformResearchedTrades();
+        setTrades(researched);
+      } finally {
+        setIsLoadingTrades(false);
       }
     };
     
@@ -676,59 +714,75 @@ export function KalshiTradingView() {
               </div>            </div>
           )}
 
-          {/* Category Buttons */}
-          <div className="flex flex-wrap gap-2">
-            {(['all', 'weather', 'crypto', 'politics', 'economics'] as const).map((cat) => {
-              const Icon = CATEGORY_ICONS[cat];
-              const count = cat === 'all' 
-                ? filteredTrades.length 
-                : filteredTrades.filter(t => t.category === cat).length;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                    selectedCategory === cat 
-                      ? 'bg-primary text-white' 
-                      : 'bg-surface text-gray-300 hover:bg-surface-hover'
-                  }`}
+          {/* Loading State */}
+          {isLoadingTrades && (
+            <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
+              <RefreshCw className="mx-auto h-8 w-8 animate-spin text-primary" />
+              <p className="mt-4 text-gray-400">Loading opportunities from scanner...</p>
+            </div>
+          )}
+
+          {!isLoadingTrades && (
+            <>
+              {/* Category Buttons */}
+              <div className="flex flex-wrap gap-2">
+                {(['all', 'weather', 'crypto', 'politics', 'economics'] as const).map((cat) => {
+                  const Icon = CATEGORY_ICONS[cat];
+                  const count = cat === 'all' 
+                    ? filteredTrades.length 
+                    : filteredTrades.filter(t => t.category === cat).length;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                        selectedCategory === cat 
+                          ? 'bg-primary text-white' 
+                          : 'bg-surface text-gray-300 hover:bg-surface-hover'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{CATEGORY_LABELS[cat]}</span>
+                      <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${
+                        selectedCategory === cat ? 'bg-white/20' : 'bg-surface-hover'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Sort Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">Sort by:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm text-white"
                 >
-                  <Icon className="h-4 w-4" />
-                  <span>{CATEGORY_LABELS[cat]}</span>
-                  <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${
-                    selectedCategory === cat ? 'bg-white/20' : 'bg-surface-hover'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  <option value="rScore">R-Score</option>
+                  <option value="edge">Edge</option>
+                  <option value="volume">Volume</option>
+                </select>
+                <span className="ml-auto text-sm text-gray-500">
+                  Showing <span className="font-medium text-white">{filteredTrades.length}</span> trades
+                  {scanSummary?.opportunities && (
+                    <span className="text-gray-400"> (scanner found {scanSummary.opportunities})</span>
+                  )}
+                </span>
+              </div>
+            </>
+          )}
 
-          {/* Sort Dropdown */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Sort by:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm text-white"
-            >
-              <option value="rScore">R-Score</option>
-              <option value="edge">Edge</option>
-              <option value="volume">Volume</option>
-            </select>
-            <span className="ml-auto text-sm text-gray-500">
-              Showing <span className="font-medium text-white">{filteredTrades.length}</span> trades
-            </span>
-          </div>
-
-          {/* Trade Cards */}
-          <div className="space-y-3">
-            {filteredTrades.map((trade) => (
-              <div
-                key={trade.id}
-                className="rounded-xl border border-surface-hover bg-surface p-4 transition-all hover:border-primary/50"
-              >
+          {/* Trade Cards - Only show when not loading */}
+          {!isLoadingTrades && (
+            <div className="space-y-3">
+              {filteredTrades.map((trade) => (
+                <div
+                  key={trade.id}
+                  className="rounded-xl border border-surface-hover bg-surface p-4 transition-all hover:border-primary/50"
+                >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   {/* Left: Trade Info */}
                   <div className="flex-1 min-w-0">
@@ -921,6 +975,7 @@ export function KalshiTradingView() {
               </div>
             )}
           </div>
+          )}
         </>
       )}
 
