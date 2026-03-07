@@ -86,27 +86,37 @@ async function fetchKalshiMarkets() {
   
   for (const { series, category, name } of seriesToFetch) {
     try {
-      const res = await fetch(`${KALSHI_API}/series/${series}/markets?status=open&limit=20`);
-      if (!res.ok) continue;
+      // Correct Kalshi API endpoint
+      const res = await fetch(`${KALSHI_API}/markets?series_ticker=${series}&limit=20&status=open`);
+      if (!res.ok) {
+        console.error(`  ❌ ${series}: HTTP ${res.status}`);
+        continue;
+      }
       
       const data = await res.json();
-      if (!data.markets) continue;
+      if (!data.markets || data.markets.length === 0) {
+        console.error(`  ⚠️ ${series}: No markets found`);
+        continue;
+      }
+      
+      console.log(`  ✅ ${series}: Found ${data.markets.length} markets`);
       
       for (const market of data.markets.slice(0, 5)) {
-        const yesPrice = market.yes_ask || market.yes_price || 50;
-        const noPrice = market.no_ask || (100 - yesPrice);
+        // Kalshi API returns yes_ask, yes_bid, etc.
+        const yesPrice = market.yes_ask || market.yes_price || market.yes_bid || 50;
+        const noPrice = market.no_ask || market.no_price || market.no_bid || (100 - yesPrice);
         const volume = market.volume || 0;
         
-        // Simple edge calculation (replace with your actual logic)
-        // This is a placeholder - use your real edge calculation
+        // Simple edge calculation - replace with your real edge logic
+        // For now, just look for cheap YES contracts that might be +EV
         const mockTrueProb = Math.random() * 30 + 10; // 10-40%
         const edge = mockTrueProb - yesPrice;
         
         if (edge > 0) {
           opportunities.push({
             ticker: market.ticker,
-            title: market.title || `${name} ${market.subtitle || ''}`,
-            subtitle: market.subtitle,
+            title: market.title || market.subtitle || `${name}`,
+            subtitle: market.subtitle || market.event_title || '',
             category,
             yesPrice,
             noPrice,
