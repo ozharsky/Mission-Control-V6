@@ -228,6 +228,45 @@ interface HeatMapAnalysis {
   }>;
 }
 
+// Kelly Analysis Types
+interface KellyAnalysis {
+  timestamp: string;
+  bankroll: number;
+  baseKellyFraction: number;
+  dynamicFraction: number;
+  marketRegime: {
+    regime: 'high_volatility' | 'trending' | 'decaying' | 'high_edge' | 'neutral';
+    confidence: number;
+    volatility?: number;
+  };
+  winRate: {
+    winRate: number;
+    sampleSize: number;
+    totalPnL?: number;
+  };
+  portfolioVol: {
+    volatility: number;
+    sharpe: number;
+    avgReturn?: number;
+  };
+  positionSizes: Array<{
+    ticker: string;
+    positionSize: number;
+    fullKelly: number;
+    adjustedKelly: number;
+    fraction: number;
+    winProb: number;
+    maxPosition: number;
+    regime: string;
+    regimeConfidence: number;
+  }>;
+  recommendations: Array<{
+    type: string;
+    priority: 'critical' | 'high' | 'medium' | 'low';
+    message: string;
+  }>;
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   weather: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   crypto: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
@@ -485,6 +524,7 @@ export function KalshiTradingView() {
   const [scanSummary, setScanSummary] = useState<any>(null);
   const [isLoadingTrades, setIsLoadingTrades] = useState(true);
   const [heatMap, setHeatMap] = useState<HeatMapAnalysis | null>(null);
+  const [kellyAnalysis, setKellyAnalysis] = useState<KellyAnalysis | null>(null);
   const hasLoadedScanner = useRef(false);
 
   // Load positions and stats from Firebase on mount
@@ -551,6 +591,11 @@ export function KalshiTradingView() {
           // Load heat map data if available
           if (scannerOutput.heatMap) {
             setHeatMap(scannerOutput.heatMap);
+          }
+          
+          // Load Kelly analysis if available
+          if (scannerOutput.kellyAnalysis) {
+            setKellyAnalysis(scannerOutput.kellyAnalysis);
           }
           
           console.log(`✅ Displaying ${updatedTrades.length} trades with live prices`);
@@ -1549,6 +1594,48 @@ export function KalshiTradingView() {
                                 </span>
                               </div>
                             </div>
+                          </div>
+                        )}
+
+                        {/* Dynamic Kelly Sizing */}
+                        {kellyAnalysis && (
+                          <div className="mt-2 rounded bg-surface-hover/50 p-2">
+                            <p className="text-sm text-gray-500">Dynamic Kelly Sizing</p>
+                            {kellyAnalysis.positionSizes.find(p => p.ticker === trade.ticker) ? (
+                              <div className="mt-1 space-y-1 text-xs">
+                                {(() => {
+                                  const pos = kellyAnalysis.positionSizes.find(p => p.ticker === trade.ticker)!;
+                                  return (
+                                    <>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-400">Recommended Size:</span>
+                                        <span className="text-primary font-bold">${pos.positionSize.toLocaleString()}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-400">Kelly %:</span>
+                                        <span className="text-white">{(pos.adjustedKelly * 100).toFixed(1)}%</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-400">Fraction:</span>
+                                        <span className={pos.fraction >= 0.8 ? 'text-emerald-400' : pos.fraction >= 0.5 ? 'text-amber-400' : 'text-rose-400'}>
+                                          {(pos.fraction * 100).toFixed(0)}% of base
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-400">Win Prob:</span>
+                                        <span className="text-white">{(pos.winProb * 100).toFixed(1)}%</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-400">Regime:</span>
+                                        <span className="capitalize text-gray-300">{pos.regime.replace('_', ' ')}</span>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-500 mt-1">No position size data available</p>
+                            )}
                           </div>
                         )}
 
