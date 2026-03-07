@@ -7,9 +7,16 @@
 
 ## Medium Effort (1-2 hours)
 - [x] 4. Edge Decay Tracking - Track edge changes over time
-- [x] 5. Multi-Factor Scoring - Weighted scoring model ✅ DONE
-- [x] 6. Cross-Market Correlation Matrix - Track market relationships ✅ DONE
-- [ ] 7. Win Rate by Category/Time - Historical performance analytics 🔄 READY
+- [x] 5. Multi-Factor Scoring - Weighted scoring model
+- [x] 6. Cross-Market Correlation Matrix - Track market relationships
+- [x] 7. Win Rate by Category/Time - Historical performance analytics ✅ DONE
+
+## Big Features (half day)
+- [ ] 8. Twitter/X Sentiment - Social media sentiment analysis 🔄 READY
+- [ ] 9. Backtesting Framework - Historical simulation engine
+- [ ] 10. Portfolio Heat Map - Risk visualization
+- [ ] 11. Dynamic Kelly Sizing - Adaptive position sizing
+- [ ] 12. Stop Loss Automation - Auto-close logic
 
 ## Big Features (half day)
 - [ ] 8. Twitter/X Sentiment - Social media sentiment analysis
@@ -76,7 +83,41 @@
     DIVERGENCE: ETH may catch up to BTC rally
 ```
 
+## Win Rate Analytics Details (v3.0 #7)
+**Tracks historical trading performance to identify patterns:**
+
+**Metrics Tracked:**
+- Win rate by category (weather/crypto/politics/economics)
+- Win rate by hour of day (0-23)
+- Win rate by day of week
+- Edge prediction accuracy (predicted vs actual)
+- Profit factor and Sharpe ratio
+
+**Features:**
+- Records up to 1000 trade opportunities with timestamps
+- Deduplicates same-ticker entries per day
+- Calculates correlation between predicted edge and actual outcomes
+- Identifies high-performing categories and time windows
+- Tracks "high edge" trades (>10%) separately for accuracy analysis
+
+**Output:**
+- `winRateStats` - Full statistics object
+- `winRateRecommendations` - Actionable insights based on history
+
+**Console Output:**
+```
+📈 WIN RATE ANALYTICS:
+  Overall: 65% (13W/7L, n=20)
+  By Category:
+    🌤️ weather: 70% (7W/3L) | Avg Edge: 12.5%
+    ₿ crypto: 60% (6W/4L) | Avg Edge: 8.2%
+  ⏰ Best Time: 2PM ET (80% win rate)
+  📅 Best Day: Tue (75% win rate)
+  🎯 Edge Accuracy: 72% of predictions correct
+  🔥 High Edge (>10%) Win Rate: 85% (10 trades)
+```
+
 ## Status
 **Started:** 2026-03-08 02:38 GMT+8
-**Current:** Item #6 ✅ COMPLETE
-**Last Commit:** cb65262 - Cross-Market Correlation Matrix
+**Current:** Item #7 ✅ COMPLETE
+**Last Commit:** 42696d8 - Win Rate Analytics
