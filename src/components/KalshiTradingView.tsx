@@ -180,15 +180,28 @@ export function KalshiTradingView() {
   useEffect(() => {
     const loadFromFirebase = async () => {
       try {
+        console.log('Loading Kalshi data from Firebase...');
         const savedPositions = await getData('v6/kalshi/positions');
         const savedStats = await getData('v6/kalshi/portfolio');
         
-        if (savedPositions) {
+        console.log('Loaded positions:', savedPositions);
+        console.log('Loaded stats:', savedStats);
+        
+        if (savedPositions && Array.isArray(savedPositions) && savedPositions.length > 0) {
+          console.log(`Restoring ${savedPositions.length} positions`);
           setPositions(savedPositions);
+        } else {
+          console.log('No saved positions found');
         }
         
-        if (savedStats) {
-          setStats(savedStats);
+        if (savedStats && typeof savedStats === 'object') {
+          console.log('Restoring portfolio stats');
+          setStats(prev => ({
+            ...prev,
+            ...savedStats,
+            // Ensure these are calculated fresh
+            openPositions: savedPositions?.filter((p: PaperPosition) => p.status === 'open').length || 0
+          }));
         }
       } catch (e) {
         console.error('Failed to load from Firebase:', e);
@@ -734,7 +747,12 @@ export function KalshiTradingView() {
       {activeTab === 'portfolio' && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-white">Open Positions</h2>
-          {positions.filter(p => p.status === 'open').length === 0 ? (
+          {!isDataLoaded ? (
+            <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
+              <RefreshCw className="mx-auto h-8 w-8 animate-spin text-gray-500" />
+              <p className="mt-4 text-gray-400">Loading portfolio...</p>
+            </div>
+          ) : positions.filter(p => p.status === 'open').length === 0 ? (
             <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
               <Wallet className="mx-auto h-12 w-12 text-gray-500" />
               <p className="mt-4 text-gray-400">No open positions</p>
