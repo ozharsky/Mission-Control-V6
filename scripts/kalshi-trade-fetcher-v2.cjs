@@ -1315,9 +1315,9 @@ async function main() {
   // Save updated history
   await saveHistory(history);
   
-  // Fetch Polymarket data
+  // Fetch Polymarket data with caching
   console.log('\n🔗 Checking Polymarket for arbitrage...');
-  const pmEvents = await fetchPolymarketData();
+  const pmEvents = await cachedFetch('polymarket', fetchPolymarketData, CONFIG.cache.polymarketTtl);
   console.log(`  Found ${pmEvents.length} Polymarket events`);
   
   // Calculate Polymarket arbitrage
@@ -1339,9 +1339,9 @@ async function main() {
   
   // ==================== ALTERNATIVE DATA INTEGRATION ====================
   
-  // Fetch and analyze RSS news feeds
+  // Fetch and analyze RSS news feeds with caching
   console.log('\n📰 Fetching RSS news feeds...');
-  const newsArticles = await fetchRSSFeeds();
+  const newsArticles = await cachedFetch('rss_feeds', fetchRSSFeeds, CONFIG.cache.rssTtl);
   console.log(`  Found ${newsArticles.length} news articles`);
   
   const relevantNews = matchNewsToMarkets(newsArticles, allTrades);
@@ -1367,7 +1367,7 @@ async function main() {
     const cityMap = { 'NY': 'NYC', 'CHI': 'CHI', 'SEA': 'SEA', 'MIA': 'MIA', 'TPHX': 'PHX' };
     const city = cityMap[cityCode];
     if (city) {
-      const forecast = await fetchNWSForecast(city);
+      const forecast = await cachedFetch(`nws_${city}`, () => fetchNWSForecast(city), CONFIG.cache.nwsTtl);
       if (forecast) {
         nwsForecasts[cityCode] = forecast;
         console.log(`  ✅ NWS ${city}: ${forecast.length} days forecast`);
