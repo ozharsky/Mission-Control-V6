@@ -372,7 +372,6 @@ function FilePreviewModal({
     </div>
   );
 }
-}
 
 export function FileManager({ projectId }: FileManagerProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
