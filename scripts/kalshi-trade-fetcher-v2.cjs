@@ -1915,6 +1915,341 @@ class PortfolioHeatMap {
   }
 }
 
+// Dynamic Kelly Sizing (v3.0 #11)
+// Adaptive position sizing based on portfolio volatility, win rate, and market regime
+class DynamicKellySizing {
+  constructor(bankroll = 10000) {
+    this.bankroll = bankroll;
+    this.baseKellyFraction = 0.5; // Start with half-Kelly
+    this.minFraction = 0.1; // Minimum 10% of base Kelly
+    this.maxFraction = 1.0; // Maximum full Kelly
+    this.historyPath = path.join(__dirname, '..', 'kalshi_data', 'kelly_history.json');
+    this.history = this.loadHistory();
+  }
+
+  loadHistory() {
+    try {
+      if (fs.existsSync(this.historyPath)) {
+        return JSON.parse(fs.readFileSync(this.historyPath, 'utf8'));
+      }
+    } catch (e) {
+      console.error('❌ Failed to load Kelly history:', e.message);
+    }
+    return { trades: [], regimes: [] };
+  }
+
+  saveHistory() {
+    try {
+      fs.mkdirSync(path.dirname(this.historyPath), { recursive: true });
+      fs.writeFileSync(this.historyPath, JSON.stringify(this.history, null, 2));
+    } catch (e) {
+      console.error('❌ Failed to save Kelly history:', e.message);
+    }
+  }
+
+  // Detect current market regime
+  detectMarketRegime(trades) {
+    if (!trades || trades.length < 5) {
+      return { regime: 'neutral', confidence: 0.5 };
+    }
+
+    // Calculate recent volatility (edge changes)
+    const recentEdges = trades.slice(0, 20).map(t => parseFloat(t.edge) || 0);
+    const avgEdge = recentEdges.reduce((a, b) => a + b, 0) / recentEdges.length;
+    const variance = recentEdges.reduce((sum, e) => sum + Math.pow(e - avgEdge, 2), 0) / recentEdges.length;
+    const volatility = Math.sqrt(variance);
+
+    // Count deteriorating vs improving edges
+    const deteriorating = trades.filter(t => t.isEdgeDeteriorating).length;
+    const improving = trades.filter(t => t.decayAnalysis?.trend?.includes('improving')).length;
+
+    // Determine regime
+    let regime = 'neutral';
+    let confidence = 0.5;
+
+    if (volatility > 15) {
+      regime = 'high_volatility';
+      confidence = Math.min(1, volatility / 25);
+    } else if (volatility < 5 && improving > deteriorating) {
+      regime = 'trending';
+      confidence = 0.7;
+    } else if (deteriorating > trades.length * 0.6) {
+      regime = 'decaying';
+      confidence = deteriorating / trades.length;
+    } else if (avgEdge > 20) {
+      regime = 'high_edge';
+      confidence = Math.min(1, avgEdge / 30);
+    }
+
+    return { regime, confidence, volatility: Math.round(volatility * 100) / 100 };
+  }
+
+  // Calculate recent win rate from history
+  calculateRecentWinRate(days = 30) {
+    const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+    const recentTrades = this.history.trades.filter(t => 
+      t.timestamp > cutoff && t.result !== null
+    );
+
+    if (recentTrades.length < 5) {
+      return { winRate: 0.5, sampleSize: recentTrades.length };
+    }
+
+    const wins = recentTrades.filter(t => t.result === 'win').length;
+    const winRate = wins / recentTrades.length;
+
+    return { 
+      winRate: Math.round(winRate * 100) / 100, 
+      sampleSize: recentTrades.length,
+      totalPnL: recentTrades.reduce((sum, t) => sum + (t.pnl || 0), 0)
+    };
+  }
+
+  // Calculate portfolio volatility from position history
+  calculatePortfolioVolatility() {
+    if (this.history.trades.length < 10) {
+      return { volatility: 0.15, sharpe: 1.0 }; // Default moderate volatility
+    }
+
+    const returns = this.history.trades
+      .filter(t => t.pnl !== undefined)
+      .map(t => t.pnl / (t.position || 100)); // Normalize to percentage
+
+    if (returns.length < 5) {
+      return { volatility: 0.15, sharpe: 1.0 };
+    }
+
+    const avg = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance = returns.reduce((sum, r) => sum + Math.pow(r - avg, 2), 0) / returns.length;
+    const volatility = Math.sqrt(variance);
+
+    // Calculate Sharpe ratio (simplified, assuming risk-free rate = 0)
+    const sharpe = volatility === 0 ? 1.0 : avg / volatility;
+
+    return {
+      volatility: Math.round(volatility * 100) / 100,
+      sharpe: Math.round(sharpe * 100) / 100,
+      avgReturn: Math.round(avg * 100) / 100
+    };
+  }
+
+  // Calculate dynamic Kelly fraction based on current conditions
+  calculateDynamicFraction(marketRegime, winRate, portfolioVol) {
+    let fraction = this.baseKellyFraction;
+
+    // Adjust based on market regime
+    switch (marketRegime.regime) {
+      case 'high_volatility':
+        fraction *= 0.5; // Reduce size in high volatility
+        break;
+      case 'trending':
+        fraction *= 1.2; // Increase size in trending markets
+        break;
+      case 'decaying':
+        fraction *= 0.6; // Reduce size when edges decaying
+        break;
+      case 'high_edge':
+        fraction *= 1.1; // Slightly increase in high edge environments
+        break;
+      default:
+        // neutral - keep base fraction
+    }
+
+    // Adjust based on recent win rate
+    if (winRate.sampleSize >= 10) {
+      if (winRate.winRate > 0.65) {
+        fraction *= 1.15; // Increase if winning consistently
+      } else if (winRate.winRate < 0.4) {
+        fraction *= 0.7; // Decrease if losing
+      }
+    }
+
+    // Adjust based on portfolio volatility
+    if (portfolioVol.volatility > 0.25) {
+      fraction *= 0.7; // High portfolio volatility = reduce size
+    } else if (portfolioVol.volatility < 0.1) {
+      fraction *= 1.1; // Low volatility = can increase slightly
+    }
+
+    // Adjust based on Sharpe ratio
+    if (portfolioVol.sharpe < 0.5) {
+      fraction *= 0.8; // Poor risk-adjusted returns
+    } else if (portfolioVol.sharpe > 1.5) {
+      fraction *= 1.1; // Good risk-adjusted returns
+    }
+
+    // Clamp to min/max bounds
+    return Math.max(this.minFraction, Math.min(this.maxFraction, fraction));
+  }
+
+  // Calculate position size for a specific trade
+  calculatePositionSize(trade, winRate, portfolioVol, marketRegime) {
+    const edge = parseFloat(trade.edge) || 0;
+    const price = trade.yesPrice || 50;
+
+    // Base Kelly calculation
+    const winProb = 0.5 + (edge / 200);
+    const lossProb = 1 - winProb;
+    const winAmount = (100 - price) / price;
+    const lossAmount = 1;
+
+    // Full Kelly formula
+    const fullKelly = (winProb * winAmount - lossProb * lossAmount) / winAmount;
+
+    // Apply dynamic fraction
+    const dynamicFraction = this.calculateDynamicFraction(marketRegime, winRate, portfolioVol);
+    const adjustedKelly = fullKelly * dynamicFraction;
+
+    // Convert to dollar amount
+    const positionSize = Math.max(0, adjustedKelly * this.bankroll);
+
+    // Apply caps
+    const maxPosition = this.bankroll * 0.1; // Max 10% per position
+    const minPosition = 10; // Min $10
+
+    const finalSize = Math.max(minPosition, Math.min(maxPosition, positionSize));
+
+    return {
+      positionSize: Math.round(finalSize),
+      fullKelly: Math.round(fullKelly * 100) / 100,
+      adjustedKelly: Math.round(adjustedKelly * 100) / 100,
+      fraction: Math.round(dynamicFraction * 100) / 100,
+      winProb: Math.round(winProb * 100) / 100,
+      maxPosition,
+      regime: marketRegime.regime,
+      regimeConfidence: marketRegime.confidence
+    };
+  }
+
+  // Analyze current conditions and provide recommendations
+  analyze(trades) {
+    const marketRegime = this.detectMarketRegime(trades);
+    const winRate = this.calculateRecentWinRate(30);
+    const portfolioVol = this.calculatePortfolioVolatility();
+    const dynamicFraction = this.calculateDynamicFraction(marketRegime, winRate, portfolioVol);
+
+    // Calculate position sizes for top opportunities
+    const positionSizes = trades.slice(0, 5).map(trade => ({
+      ticker: trade.ticker,
+      ...this.calculatePositionSize(trade, winRate, portfolioVol, marketRegime)
+    }));
+
+    return {
+      timestamp: new Date().toISOString(),
+      bankroll: this.bankroll,
+      baseKellyFraction: this.baseKellyFraction,
+      dynamicFraction,
+      marketRegime,
+      winRate,
+      portfolioVol,
+      positionSizes,
+      recommendations: this.generateRecommendations(marketRegime, winRate, portfolioVol, dynamicFraction)
+    };
+  }
+
+  generateRecommendations(marketRegime, winRate, portfolioVol, fraction) {
+    const recommendations = [];
+
+    // Regime-based recommendations
+    if (marketRegime.regime === 'high_volatility') {
+      recommendations.push({
+        type: 'sizing',
+        priority: 'high',
+        message: `High volatility detected (${marketRegime.volatility}%). Reducing position sizes by 50%.`
+      });
+    }
+
+    if (marketRegime.regime === 'decaying') {
+      recommendations.push({
+        type: 'caution',
+        priority: 'high',
+        message: 'Edge decay widespread. Consider holding cash or reducing exposure.'
+      });
+    }
+
+    // Win rate recommendations
+    if (winRate.sampleSize >= 10 && winRate.winRate < 0.4) {
+      recommendations.push({
+        type: 'performance',
+        priority: 'critical',
+        message: `Recent win rate is ${(winRate.winRate * 100).toFixed(0)}%. Consider reviewing strategy.`
+      });
+    } else if (winRate.sampleSize >= 10 && winRate.winRate > 0.65) {
+      recommendations.push({
+        type: 'performance',
+        priority: 'medium',
+        message: `Strong performance: ${(winRate.winRate * 100).toFixed(0)}% win rate. Consider increasing sizes.`
+      });
+    }
+
+    // Volatility recommendations
+    if (portfolioVol.volatility > 0.3) {
+      recommendations.push({
+        type: 'risk',
+        priority: 'high',
+        message: `Portfolio volatility is high (${(portfolioVol.volatility * 100).toFixed(0)}%). Consider hedging.`
+      });
+    }
+
+    // Kelly fraction recommendation
+    if (fraction < 0.3) {
+      recommendations.push({
+        type: 'sizing',
+        priority: 'medium',
+        message: `Conservative mode: Using ${(fraction * 100).toFixed(0)}% of base Kelly.`
+      });
+    } else if (fraction > 0.8) {
+      recommendations.push({
+        type: 'sizing',
+        priority: 'low',
+        message: `Aggressive mode: Using ${(fraction * 100).toFixed(0)}% of base Kelly.`
+      });
+    }
+
+    return recommendations;
+  }
+
+  printReport(analysis) {
+    console.log('\n📊 DYNAMIC KELLY SIZING ANALYSIS:');
+    console.log(`  Bankroll: $${analysis.bankroll.toLocaleString()}`);
+    console.log(`  Base Kelly Fraction: ${(analysis.baseKellyFraction * 100).toFixed(0)}%`);
+    console.log(`  Dynamic Fraction: ${(analysis.dynamicFraction * 100).toFixed(0)}%`);
+
+    console.log('\n  📈 MARKET REGIME:');
+    console.log(`    Regime: ${analysis.marketRegime.regime.toUpperCase()}`);
+    console.log(`    Confidence: ${(analysis.marketRegime.confidence * 100).toFixed(0)}%`);
+    if (analysis.marketRegime.volatility) {
+      console.log(`    Edge Volatility: ${analysis.marketRegime.volatility}%`);
+    }
+
+    console.log('\n  🎯 RECENT PERFORMANCE (30 days):');
+    console.log(`    Win Rate: ${(analysis.winRate.winRate * 100).toFixed(0)}% (${analysis.winRate.sampleSize} trades)`);
+    if (analysis.winRate.totalPnL !== undefined) {
+      const pnlEmoji = analysis.winRate.totalPnL >= 0 ? '🟢' : '🔴';
+      console.log(`    P&L: ${pnlEmoji} $${analysis.winRate.totalPnL.toFixed(2)}`);
+    }
+
+    console.log('\n  📊 PORTFOLIO METRICS:');
+    console.log(`    Volatility: ${(analysis.portfolioVol.volatility * 100).toFixed(1)}%`);
+    console.log(`    Sharpe Ratio: ${analysis.portfolioVol.sharpe}`);
+
+    console.log('\n  💰 RECOMMENDED POSITION SIZES:');
+    analysis.positionSizes.forEach(pos => {
+      const sizeEmoji = pos.positionSize >= 200 ? '🔴' : pos.positionSize >= 100 ? '🟠' : '🟢';
+      console.log(`    ${sizeEmoji} ${pos.ticker}: $${pos.positionSize}`);
+      console.log(`       Kelly: ${(pos.adjustedKelly * 100).toFixed(1)}% (${(pos.fraction * 100).toFixed(0)}% of base)`);
+    });
+
+    if (analysis.recommendations.length > 0) {
+      console.log('\n  💡 RECOMMENDATIONS:');
+      analysis.recommendations.forEach(rec => {
+        const emoji = rec.priority === 'critical' ? '🔴' : rec.priority === 'high' ? '🟠' : rec.priority === 'medium' ? '🟡' : '🔵';
+        console.log(`    ${emoji} ${rec.message}`);
+      });
+    }
+  }
+}
+
 async function cachedFetch(key, fetchFn, ttlMs) {
   const cached = cache.get(key);
   if (cached) {
@@ -3337,6 +3672,11 @@ async function main() {
   const portfolioHeatMap = new PortfolioHeatMap(10000);
   const heatMapAnalysis = portfolioHeatMap.analyzePortfolio([], allTrades);
   portfolioHeatMap.printReport(heatMapAnalysis);
+
+  // Dynamic Kelly Sizing Analysis
+  const dynamicKelly = new DynamicKellySizing(10000);
+  const kellyAnalysis = dynamicKelly.analyze(allTrades);
+  dynamicKelly.printReport(kellyAnalysis);
   
   const arbitrage = detectArbitrage(allTrades);
   
@@ -3405,6 +3745,7 @@ async function main() {
     twitterSentiment: categorySentiment,
     backtestResults,
     heatMap: heatMapAnalysis,
+    kellyAnalysis,
     news: relevantNews.slice(0, 10), // Top 10 relevant news articles
     weatherLags,
     triggeredAlerts: triggeredAlerts.slice(0, 20), // Top 20 threshold alerts
