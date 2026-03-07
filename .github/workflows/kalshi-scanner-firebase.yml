@@ -2,8 +2,8 @@ name: Kalshi Scanner v2 to Firebase
 
 on:
   schedule:
-    # Run every hour at :05
-    - cron: '5 * * * *'
+    # Run every 5 minutes for more frequent price updates
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
