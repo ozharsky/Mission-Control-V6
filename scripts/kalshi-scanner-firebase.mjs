@@ -84,7 +84,14 @@ async function fetchKalshiMarkets() {
   
   const opportunities = [];
   
-  for (const { series, category, name } of seriesToFetch) {
+  for (let i = 0; i < seriesToFetch.length; i++) {
+    const { series, category, name } = seriesToFetch[i];
+    
+    // Add delay between requests to avoid rate limiting
+    if (i > 0) {
+      await new Promise(r => setTimeout(r, 500)); // 500ms delay
+    }
+    
     try {
       // Correct Kalshi API endpoint
       const res = await fetch(`${KALSHI_API}/markets?series_ticker=${series}&limit=20&status=open`);
@@ -121,7 +128,7 @@ async function fetchKalshiMarkets() {
             yesPrice,
             noPrice,
             volume,
-            closeTime: market.close_date || market.expiration_date,
+            closeTime: market.close_date || market.expiration_date || market.closing_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             edge: edge.toFixed(1),
             confidence: {
               score: Math.floor(Math.random() * 40) + 60,
