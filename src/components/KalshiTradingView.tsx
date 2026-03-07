@@ -170,6 +170,44 @@ export function KalshiTradingView() {
   const [sortBy, setSortBy] = useState<'edge' | 'rScore' | 'volume'>('rScore');
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  // Load positions and stats from Firebase on mount
+  useEffect(() => {
+    const loadFromFirebase = async () => {
+      try {
+        const savedPositions = await getData('v6/kalshi/positions');
+        const savedStats = await getData('v6/kalshi/portfolio');
+        
+        if (savedPositions) {
+          setPositions(savedPositions);
+        }
+        
+        if (savedStats) {
+          setStats(savedStats);
+        }
+      } catch (e) {
+        console.error('Failed to load from Firebase:', e);
+      }
+      setIsDataLoaded(true);
+    };
+    
+    loadFromFirebase();
+  }, []);
+
+  // Save positions to Firebase when they change
+  useEffect(() => {
+    if (isDataLoaded) {
+      setData('v6/kalshi/positions', positions).catch(console.error);
+    }
+  }, [positions, isDataLoaded]);
+
+  // Save stats to Firebase when they change
+  useEffect(() => {
+    if (isDataLoaded) {
+      setData('v6/kalshi/portfolio', stats).catch(console.error);
+    }
+  }, [stats, isDataLoaded]);
 
   // Fetch live data from Kalshi API
   const fetchLiveData = async () => {
