@@ -239,6 +239,165 @@ function calculateCompositeScore(trade, momentum, clv, whaleData) {
   return Math.max(0, score);
 }
 
+// Brier Score calculation - measures prediction accuracy
+// Lower is better (0 = perfect, 1 = worst)
+function calculateBrierScore(probability, outcome) {
+  // outcome: 1 if event happened, 0 if not
+  return Math.pow(parseFloat(probability) / 100 - outcome, 2);
+}
+
+// Calculate risk metrics for a trade
+function calculateRiskMetrics(trade, bankroll = 10000) {
+  const position = trade.position || 0;
+  const edge = parseFloat(trade.edge) || 0;
+  const price = trade.yesPrice || 50;
+  
+  // Expected value
+  const winProb = edge / 100 + 0.5;
+  const winPayout = position * ((100 - price) / price);
+  const expectedValue = (winProb * winPayout) - ((1 - winProb) * position);
+  
+  // Variance and standard deviation
+  const variance = winProb * Math.pow(winPayout - expectedValue, 2) + 
+                   (1 - winProb) * Math.pow(-position - expectedValue, 2);
+  const stdDev = Math.sqrt(variance);
+  
+  // Sharpe ratio (expected return / risk)
+  const sharpeRatio = stdDev > 0 ? expectedValue / stdDev : 0;
+  
+  // Max drawdown estimate (position size)
+  const maxDrawdown = position;
+  
+  // Risk of ruin (simplified Kelly-based)
+  const riskOfRuin = position > bankroll * 0.5 ? 'high' : 
+                     position > bankroll * 0.25 ? 'medium' : 'low';
+  
+  return {
+    expectedValue: expectedValue.toFixed(2),
+    stdDev: stdDev.toFixed(2),
+    sharpeRatio: sharpeRatio.toFixed(2),
+    maxDrawdown: maxDrawdown.toFixed(2),
+    riskOfRuin,
+    positionPctOfBankroll: ((position / bankroll) * 100).toFixed(1)
+  };
+}
+
+// Check alert thresholds
+function checkAlerts(trade, momentum, whaleData, clv) {
+  const alerts = [];
+  
+  // Whale alert
+  if (whaleData.isWhale) {
+    alerts.push({
+      type: 'whale',
+      severity: 'high',
+      message: `🐋 Whale activity: ${whaleData.spikeRatio.toFixed(1)}x volume spike`,
+      ticker: trade.ticker
+    });
+  }
+  
+  // Edge deterioration alert
+  if (clv.isEdgeDeteriorating && parseFloat(trade.edge) > 10) {
+    alerts.push({
+      type: 'edge_drop',
+      severity: 'urgent',
+      message: `🔥 Edge dropping fast: ${clv.edgeChange.toFixed(1)}% decline`,
+      ticker: trade.ticker
+    });
+  }
+  
+  // Momentum surge alert
+  if (momentum.trend === 'surging' && parseFloat(trade.edge) > 5) {
+    alerts.push({
+      type: 'momentum',
+      severity: 'medium',
+      message: `🚀 Momentum surge: +${momentum.change24h.toFixed(1)}% in 24h`,
+      ticker: trade.ticker
+    });
+  }
+  
+  // High R-Score alert
+  if (parseFloat(trade.rScore) >= 2.5) {
+    alerts.push({
+      type: 'high_quality',
+      severity: 'info',
+      message: `⭐ Exceptional opportunity: R-Score ${trade.rScore}`,
+      ticker: trade.ticker
+    });
+  }
+  
+  // Closing soon alert
+  if (trade.closeTime) {
+    const hoursUntil = (new Date(trade.closeTime) - new Date()) / (1000 * 60 * 60);
+    if (hoursUntil < 24) {
+      alerts.push({
+        type: 'closing_soon',
+        severity: 'medium',
+        message: `⏰ Closing in ${hoursUntil.toFixed(0)}h`,
+        ticker: trade.ticker
+      });
+    }
+  }
+  
+  return alerts;
+}
+
+// Performance attribution - what drove the trade's score
+function getPerformanceAttribution(trade, momentum, whaleData, clv) {
+  const factors = [];
+  
+  factors.push({
+    factor: 'Base Edge',
+    contribution: parseFloat(trade.edge) / 10,
+    description: 'Fundamental mispricing'
+  });
+  
+  if (trade.timeAdjustment && parseFloat(trade.timeAdjustment) !== 0) {
+    factors.push({
+      factor: 'Time Decay',
+      contribution: parseFloat(trade.timeAdjustment) / 10,
+      description: 'Proximity to event'
+    });
+  }
+  
+  if (trade.volumeBoost && parseFloat(trade.volumeBoost) > 0) {
+    factors.push({
+      factor: 'Volume',
+      contribution: parseFloat(trade.volumeBoost) / 10,
+      description: 'Liquidity boost'
+    });
+  }
+  
+  if (momentum.trend !== 'flat') {
+    const momentumContribution = momentum.trend === 'surging' ? 0.5 : 
+                                  momentum.trend === 'rising' ? 0.3 : 
+                                  momentum.trend === 'crashing' ? -0.5 : -0.3;
+    factors.push({
+      factor: 'Momentum',
+      contribution: momentumContribution,
+      description: `${momentum.trend} (${momentum.change24h.toFixed(1)}% 24h)`
+    });
+  }
+  
+  if (whaleData.isWhale) {
+    factors.push({
+      factor: 'Whale Activity',
+      contribution: 0.3,
+      description: `${whaleData.spikeRatio.toFixed(1)}x volume`
+    });
+  }
+  
+  if (clv.isEdgeDeteriorating) {
+    factors.push({
+      factor: 'CLV Deterioration',
+      contribution: -0.5,
+      description: `Edge down ${clv.edgeChange.toFixed(1)}%`
+    });
+  }
+  
+  return factors.sort((a, b) => b.contribution - a.contribution);
+}
+
 async function fetchWithRetry(url, options = {}, retries = CONFIG.maxRetries) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -465,6 +624,29 @@ async function main() {
             recommendation = 'buy_urgent';
           }
           
+          // Calculate risk metrics
+          const riskMetrics = calculateRiskMetrics({
+            ...kelly,
+            yesPrice,
+            edge: edgeCalc.edge
+          });
+          
+          // Check alerts
+          const alerts = checkAlerts(
+            { ticker: m.ticker, rScore: edgeCalc.rScore.toFixed(2), edge: edgeCalc.edge.toFixed(1), closeTime: m.close_time },
+            momentum,
+            whaleData,
+            clv
+          );
+          
+          // Get performance attribution
+          const attribution = getPerformanceAttribution(
+            { rScore: edgeCalc.rScore.toFixed(2), timeAdjustment: (edgeCalc.timeAdjustment * 100).toFixed(1), volumeBoost: (edgeCalc.volumeBoost * 100).toFixed(1) },
+            momentum,
+            whaleData,
+            clv
+          );
+          
           allTrades.push({
             ticker: m.ticker,
             title: cleanTitle(m.title),
@@ -501,7 +683,11 @@ async function main() {
             edgeChange: clv.edgeChange.toFixed(1),
             avgHistoricalEdge: clv.avgHistoricalEdge.toFixed(1),
             isEdgeDeteriorating: clv.isEdgeDeteriorating,
-            sources: ['Kalshi API', 'Volume Analysis', 'Time Decay', 'Momentum', 'CLV']
+            // v2.4 fields - Risk metrics
+            riskMetrics,
+            alerts,
+            attribution,
+            sources: ['Kalshi API', 'Volume Analysis', 'Time Decay', 'Momentum', 'CLV', 'Risk Model']
           });
           
           // Update history
@@ -559,9 +745,12 @@ async function main() {
     ...byCategory.economics.slice(0, 10)
   ].sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
   
+  // Count all alerts
+  const totalAlerts = topTrades.reduce((sum, t) => sum + (t.alerts?.length || 0), 0);
+  
   const output = {
     scan_time: new Date().toISOString(),
-    source: 'kalshi-fetcher-v2.3',
+    source: 'kalshi-fetcher-v2.4',
     summary: {
       totalMarkets: SERIES.length * CONFIG.maxMarketsPerSeries,
       analyzed: allTrades.length,
@@ -569,6 +758,7 @@ async function main() {
       arbitrage: arbitrage.length,
       whaleAlerts: whaleAlerts.length,
       correlations: correlations.length,
+      totalAlerts,
       errors: errors.length,
       byCategory: {
         weather: byCategory.weather.length,
@@ -600,8 +790,17 @@ async function main() {
   }
   
   console.log('\n📊 RESULTS:');
-  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Errors: ${errors.length}`);
+  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Alerts: ${totalAlerts} | Errors: ${errors.length}`);
   console.log('By category:', output.summary.byCategory);
+  
+  // Show alerts summary
+  const urgentAlerts = topTrades.flatMap(t => t.alerts?.filter(a => a.severity === 'urgent') || []);
+  if (urgentAlerts.length > 0) {
+    console.log('\n🚨 URGENT ALERTS:');
+    urgentAlerts.slice(0, 5).forEach(a => {
+      console.log(`  ${a.ticker}: ${a.message}`);
+    });
+  }
   
   if (correlations.length > 0) {
     console.log('\n🔗 CORRELATIONS:');
@@ -626,6 +825,13 @@ async function main() {
     console.log(`   📊 Composite: ${t.compositeScore} | ${momentumIcon} ${t.yesPrice}¢ | 📈 +${t.edge}% edge | ⭐ ${t.rScore} R-score`);
     if (t.whale) console.log(`   🐋 ${t.whaleSpikeRatio}x volume spike`);
     if (t.isEdgeDeteriorating) console.log(`   ⚠️ Edge deteriorating: ${t.edgeChange}%`);
+    if (t.riskMetrics) {
+      console.log(`   💰 EV: $${t.riskMetrics.expectedValue} | Sharpe: ${t.riskMetrics.sharpeRatio} | Risk: ${t.riskMetrics.riskOfRuin}`);
+    }
+    if (t.attribution?.length > 0) {
+      const topFactor = t.attribution[0];
+      console.log(`   📈 Top factor: ${topFactor.factor} (+${topFactor.contribution.toFixed(2)})`);
+    }
   });
   
   return output;
