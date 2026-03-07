@@ -114,6 +114,7 @@ async function saveHistory(history) {
     
     // Also save locally (use original keys for local file)
     const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
+    fs.mkdirSync(path.dirname(historyPath), { recursive: true });
     fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
   } catch (e) {
     console.error('❌ Failed to save history:', e.message);
@@ -357,24 +358,27 @@ function checkAlerts(trade, momentum, whaleData, clv) {
 function getPerformanceAttribution(trade, momentum, whaleData, clv) {
   const factors = [];
   
+  const edgeValue = parseFloat(trade.edge) || 0;
   factors.push({
     factor: 'Base Edge',
-    contribution: parseFloat(trade.edge) / 10,
+    contribution: edgeValue / 10,
     description: 'Fundamental mispricing'
   });
   
-  if (trade.timeAdjustment && parseFloat(trade.timeAdjustment) !== 0) {
+  const timeAdjustmentValue = parseFloat(trade.timeAdjustment) || 0;
+  if (timeAdjustmentValue !== 0) {
     factors.push({
       factor: 'Time Decay',
-      contribution: parseFloat(trade.timeAdjustment) / 10,
+      contribution: timeAdjustmentValue / 10,
       description: 'Proximity to event'
     });
   }
   
-  if (trade.volumeBoost && parseFloat(trade.volumeBoost) > 0) {
+  const volumeBoostValue = parseFloat(trade.volumeBoost) || 0;
+  if (volumeBoostValue > 0) {
     factors.push({
       factor: 'Volume',
-      contribution: parseFloat(trade.volumeBoost) / 10,
+      contribution: volumeBoostValue / 10,
       description: 'Liquidity boost'
     });
   }
@@ -386,7 +390,7 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
     factors.push({
       factor: 'Momentum',
       contribution: momentumContribution,
-      description: `${momentum.trend} (${momentum.change24h.toFixed(1)}% 24h)`
+      description: `${momentum.trend} (${(momentum.change24h || 0).toFixed(1)}% 24h)`
     });
   }
   
@@ -394,7 +398,7 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
     factors.push({
       factor: 'Whale Activity',
       contribution: 0.3,
-      description: `${whaleData.spikeRatio.toFixed(1)}x volume`
+      description: `${(whaleData.spikeRatio || 1).toFixed(1)}x volume`
     });
   }
   
@@ -402,7 +406,7 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
     factors.push({
       factor: 'CLV Deterioration',
       contribution: -0.5,
-      description: `Edge down ${clv.edgeChange.toFixed(1)}%`
+      description: `Edge down ${(clv.edgeChange || 0).toFixed(1)}%`
     });
   }
   
