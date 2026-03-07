@@ -565,6 +565,69 @@ function detectArbitrage(markets) {
   return arbs;
 }
 
+// Check Polymarket for arbitrage opportunities
+async function fetchPolymarketData() {
+  try {
+    const url = 'https://gamma-api.polymarket.com/events?active=true&closed=false&archived=false&limit=100';
+    const data = await fetchWithRetry(url, {}, 2);
+    return data || [];
+  } catch (e) {
+    console.log('⚠️ Polymarket fetch failed:', e.message);
+    return [];
+  }
+}
+
+function getPolymarketSlug(kalshiTicker) {
+  const mapping = {
+    'KXBTC': 'bitcoin',
+    'KXETH': 'ethereum',
+    'KXFED': 'fed-funds-rate',
+    'KXCPI': 'cpi-inflation',
+    'KXJOBS': 'nonfarm-payrolls',
+    'KXTRUMP': 'trump-approval-rating'
+  };
+  const series = kalshiTicker.split('-')[0];
+  return mapping[series];
+}
+
+function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
+  const slug = getPolymarketSlug(kalshiTrade.ticker);
+  if (!slug) return null;
+  
+  const pmEvent = pmEvents.find(e => 
+    e.title?.toLowerCase().includes(slug) ||
+    e.slug?.includes(slug)
+  );
+  
+  if (!pmEvent || !pmEvent.markets || pmEvent.markets.length === 0) return null;
+  
+  const pmMarket = pmEvent.markets[0];
+  const pmYesPrice = pmMarket.outcomePrices ? 
+    parseFloat(pmMarket.outcomePrices.split(',')[0]) * 100 : 50;
+  
+  const kalshiYesPrice = kalshiTrade.yesPrice;
+  const priceDiff = Math.abs(kalshiYesPrice - pmYesPrice);
+  const percentDiff = (priceDiff / Math.min(kalshiYesPrice, pmYesPrice)) * 100;
+  
+  if (percentDiff < 5) return null;
+  
+  const buyOn = kalshiYesPrice < pmYesPrice ? 'Kalshi' : 'Polymarket';
+  const sellOn = kalshiYesPrice < pmYesPrice ? 'Polymarket' : 'Kalshi';
+  
+  return {
+    ticker: kalshiTrade.ticker,
+    kalshiPrice: kalshiYesPrice,
+    polymarketPrice: pmYesPrice.toFixed(1),
+    priceDiff: priceDiff.toFixed(1),
+    percentDiff: percentDiff.toFixed(1),
+    buyOn,
+    sellOn,
+    profitPotential: priceDiff.toFixed(1),
+    pmEventTitle: pmEvent.title,
+    pmUrl: `https://polymarket.com/event/${pmEvent.slug}`
+  };
+}
+
 async function main() {
   console.log('🔍 Starting Kalshi Trade Fetch v2.2...\n');
   
