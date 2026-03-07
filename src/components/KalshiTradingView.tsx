@@ -64,12 +64,17 @@ interface KalshiTrade {
     contribution: number;
     description: string;
   }>;
-  research?: {
-    catalyst: string;
-    confidence: 'high' | 'medium' | 'low';
-    sources: string[];
+  // v2.5 fields - Polymarket
+  polymarketArb?: {
+    kalshiPrice: number;
+    polymarketPrice: string;
+    priceDiff: string;
+    percentDiff: string;
+    buyOn: string;
+    sellOn: string;
+    profitPotential: string;
+    pmUrl: string;
   };
-}
 
 interface PaperPosition {
   id: string;
@@ -890,6 +895,13 @@ export function KalshiTradingView() {
                     <span className="font-bold text-purple-400">{scanSummary.whaleAlerts}</span>
                   </div>
                 )}
+                {scanSummary.polymarketArbs > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🔗</span>
+                    <span className="text-sm text-gray-400">Polymarket:</span>
+                    <span className="font-bold text-emerald-400">{scanSummary.polymarketArbs}</span>
+                  </div>
+                )}
                 {scanSummary.totalAlerts > 0 && (
                   <div className="flex items-center gap-2">
                     <span className="text-lg">🚨</span>
@@ -1255,6 +1267,39 @@ export function KalshiTradingView() {
                                   {alert.severity === 'urgent' ? '🚨' : alert.severity === 'high' ? '⚠️' : 'ℹ️'} {alert.message}
                                 </div>
                               ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Polymarket Arbitrage */}
+                        {trade.polymarketArb && (
+                          <div className="mt-2 rounded bg-emerald-500/10 p-2 border border-emerald-500/30">
+                            <p className="text-sm text-emerald-400 font-medium">🔗 Polymarket Arbitrage</p>
+                            <div className="mt-1 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Kalshi:</span>
+                                <span className="text-white">{trade.polymarketArb.kalshiPrice}¢</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Polymarket:</span>
+                                <span className="text-white">{trade.polymarketArb.polymarketPrice}¢</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Spread:</span>
+                                <span className="text-emerald-400">{trade.polymarketArb.percentDiff}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Action:</span>
+                                <span className="text-emerald-400">Buy on {trade.polymarketArb.buyOn}</span>
+                              </div>
+                              <a 
+                                href={trade.polymarketArb.pmUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 mt-1 text-emerald-400 hover:text-emerald-300"
+                              >
+                                View on Polymarket <ArrowUpRight className="h-3 w-3" />
+                              </a>
                             </div>
                           </div>
                         )}
