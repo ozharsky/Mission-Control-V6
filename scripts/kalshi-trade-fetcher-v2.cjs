@@ -93,19 +93,15 @@ async function saveHistory(history) {
   try {
     // Clean old data
     const cutoff = Date.now() - (CONFIG.historyRetentionDays * 24 * 60 * 60 * 1000);
-    const cleanedHistory = {};
-    
     for (const ticker in history) {
-      // Sanitize ticker for Firebase (replace invalid chars)
-      const safeTicker = ticker.replace(/[.#$\[\]/]/g, '_');
-      cleanedHistory[safeTicker] = history[ticker].filter(h => h.timestamp > cutoff);
+      history[ticker] = history[ticker].filter(h => h.timestamp > cutoff);
     }
     
     if (db) {
-      await db.ref('v6/kalshi/history').set(cleanedHistory);
+      await db.ref('v6/kalshi/history').set(history);
     }
     
-    // Also save locally with original tickers
+    // Also save locally
     const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
     fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
   } catch (e) {
@@ -286,80 +282,6 @@ function calculateRiskMetrics(trade, bankroll = 10000) {
   };
 }
 
-// Check Polymarket for arbitrage opportunities
-async function fetchPolymarketData() {
-  try {
-    // Polymarket Gamma API endpoint
-    const url = 'https://gamma-api.polymarket.com/events?active=true&closed=false&archived=false&limit=100';
-    const data = await fetchWithRetry(url, {}, 2);
-    return data || [];
-  } catch (e) {
-    console.log('⚠️ Polymarket fetch failed:', e.message);
-    return [];
-  }
-}
-
-// Map Kalshi ticker to Polymarket slug
-function getPolymarketSlug(kalshiTicker) {
-  const mapping = {
-    'KXBTC': 'bitcoin',
-    'KXETH': 'ethereum',
-    'KXFED': 'fed-funds-rate',
-    'KXCPI': 'cpi-inflation',
-    'KXJOBS': 'nonfarm-payrolls',
-    'KXTRUMP': 'trump-approval-rating'
-  };
-  
-  const series = kalshiTicker.split('-')[0];
-  return mapping[series];
-}
-
-// Calculate Polymarket arbitrage
-function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
-  const slug = getPolymarketSlug(kalshiTrade.ticker);
-  if (!slug) return null;
-  
-  // Find matching Polymarket event
-  const pmEvent = pmEvents.find(e => 
-    e.title?.toLowerCase().includes(slug) ||
-    e.slug?.includes(slug)
-  );
-  
-  if (!pmEvent || !pmEvent.markets || pmEvent.markets.length === 0) return null;
-  
-  // Get Polymarket price (Yes token price, 0-1 scale)
-  const pmMarket = pmEvent.markets[0];
-  const pmYesPrice = pmMarket.outcomePrices ? 
-    parseFloat(pmMarket.outcomePrices.split(',')[0]) * 100 : // Convert to cents
-    50; // Default if no price
-  
-  const kalshiYesPrice = kalshiTrade.yesPrice;
-  
-  // Calculate arbitrage
-  const priceDiff = Math.abs(kalshiYesPrice - pmYesPrice);
-  const percentDiff = (priceDiff / Math.min(kalshiYesPrice, pmYesPrice)) * 100;
-  
-  // Minimum 5% difference to qualify as arbitrage
-  if (percentDiff < 5) return null;
-  
-  // Determine which platform is cheaper
-  const buyOn = kalshiYesPrice < pmYesPrice ? 'Kalshi' : 'Polymarket';
-  const sellOn = kalshiYesPrice < pmYesPrice ? 'Polymarket' : 'Kalshi';
-  
-  return {
-    ticker: kalshiTrade.ticker,
-    kalshiPrice: kalshiYesPrice,
-    polymarketPrice: pmYesPrice.toFixed(1),
-    priceDiff: priceDiff.toFixed(1),
-    percentDiff: percentDiff.toFixed(1),
-    buyOn,
-    sellOn,
-    profitPotential: priceDiff.toFixed(1),
-    pmEventTitle: pmEvent.title,
-    pmUrl: `https://polymarket.com/event/${pmEvent.slug}`
-  };
-}
-
 // Check alert thresholds
 function checkAlerts(trade, momentum, whaleData, clv) {
   const alerts = [];
@@ -424,35 +346,28 @@ function checkAlerts(trade, momentum, whaleData, clv) {
 function getPerformanceAttribution(trade, momentum, whaleData, clv) {
   const factors = [];
   
-  // Safely parse edge with fallback
-  const edgeValue = parseFloat(trade.edge);
   factors.push({
     factor: 'Base Edge',
-    contribution: isNaN(edgeValue) ? 0 : edgeValue / 10,
+    contribution: parseFloat(trade.edge) / 10,
     description: 'Fundamental mispricing'
   });
   
-  // Time adjustment
-  const timeAdj = parseFloat(trade.timeAdjustment);
-  if (!isNaN(timeAdj) && timeAdj !== 0) {
+  if (trade.timeAdjustment && parseFloat(trade.timeAdjustment) !== 0) {
     factors.push({
       factor: 'Time Decay',
-      contribution: timeAdj / 10,
+      contribution: parseFloat(trade.timeAdjustment) / 10,
       description: 'Proximity to event'
     });
   }
   
-  // Volume boost
-  const volBoost = parseFloat(trade.volumeBoost);
-  if (!isNaN(volBoost) && volBoost > 0) {
+  if (trade.volumeBoost && parseFloat(trade.volumeBoost) > 0) {
     factors.push({
       factor: 'Volume',
-      contribution: volBoost / 10,
+      contribution: parseFloat(trade.volumeBoost) / 10,
       description: 'Liquidity boost'
     });
   }
   
-  // Momentum
   if (momentum.trend !== 'flat') {
     const momentumContribution = momentum.trend === 'surging' ? 0.5 : 
                                   momentum.trend === 'rising' ? 0.3 : 
@@ -464,7 +379,6 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
     });
   }
   
-  // Whale activity
   if (whaleData.isWhale) {
     factors.push({
       factor: 'Whale Activity',
@@ -473,17 +387,12 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
     });
   }
   
-  // CLV deterioration
   if (clv.isEdgeDeteriorating) {
     factors.push({
       factor: 'CLV Deterioration',
       contribution: -0.5,
       description: `Edge down ${clv.edgeChange.toFixed(1)}%`
     });
-  }
-  
-  return factors.sort((a, b) => b.contribution - a.contribution);
-}
   }
   
   return factors.sort((a, b) => b.contribution - a.contribution);
@@ -800,18 +709,17 @@ async function main() {
   // Save updated history
   await saveHistory(history);
   
-  // Fetch Polymarket data for cross-platform arbitrage
+  // Fetch Polymarket data
   console.log('\n🔗 Checking Polymarket for arbitrage...');
   const pmEvents = await fetchPolymarketData();
   console.log(`  Found ${pmEvents.length} Polymarket events`);
   
-  // Calculate Polymarket arbitrage opportunities
+  // Calculate Polymarket arbitrage
   const polymarketArbs = [];
   for (const trade of allTrades) {
     const arb = calculatePolymarketArbitrage(trade, pmEvents);
     if (arb) {
       polymarketArbs.push(arb);
-      // Add polymarket data to trade
       trade.polymarketArb = arb;
     }
   }
@@ -861,13 +769,12 @@ async function main() {
   
   const output = {
     scan_time: new Date().toISOString(),
-    source: 'kalshi-fetcher-v2.5',
+    source: 'kalshi-fetcher-v2.4',
     summary: {
       totalMarkets: SERIES.length * CONFIG.maxMarketsPerSeries,
       analyzed: allTrades.length,
       opportunities: topTrades.length,
       arbitrage: arbitrage.length,
-      polymarketArbs: polymarketArbs.length,
       whaleAlerts: whaleAlerts.length,
       correlations: correlations.length,
       totalAlerts,
@@ -880,7 +787,6 @@ async function main() {
       }
     },
     arbitrage,
-    polymarketArbs,
     whaleAlerts,
     correlations,
     errors,
@@ -903,17 +809,8 @@ async function main() {
   }
   
   console.log('\n📊 RESULTS:');
-  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Polymarket: ${polymarketArbs.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Alerts: ${totalAlerts} | Errors: ${errors.length}`);
+  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Alerts: ${totalAlerts} | Errors: ${errors.length}`);
   console.log('By category:', output.summary.byCategory);
-  
-  // Show Polymarket arbitrage opportunities
-  if (polymarketArbs.length > 0) {
-    console.log('\n🔗 POLYMARKET ARBITRAGE:');
-    polymarketArbs.slice(0, 5).forEach(a => {
-      console.log(`  ${a.ticker}: Buy on ${a.buyOn} @ ${a.buyOn === 'Kalshi' ? a.kalshiPrice : a.polymarketPrice}¢ → Sell on ${a.sellOn} @ ${a.sellOn === 'Kalshi' ? a.kalshiPrice : a.polymarketPrice}¢`);
-      console.log(`     Profit: ${a.profitPotential}¢ (${a.percentDiff}% spread)`);
-    });
-  }
   
   // Show alerts summary
   const urgentAlerts = topTrades.flatMap(t => t.alerts?.filter(a => a.severity === 'urgent') || []);
