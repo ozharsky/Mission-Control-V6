@@ -569,8 +569,8 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         </div>
       )}
 
-      {/* Main Chart Card - Hidden on mobile */}
-      <div className="hidden lg:block rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
+      {/* Main Revenue Overview Chart - Visible on all screen sizes */}
+      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -615,14 +615,14 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         {viewMode === 'chart' ? (
           filteredData.length > 0 ? (
             <>
-              {/* Mobile: Horizontal scroll with all bars visible */}
-              <div className="overflow-x-auto pb-2 lg:overflow-visible">
-                <div className="flex items-end gap-1 sm:gap-2 min-w-max lg:min-w-0">
+              {/* Chart with horizontal scroll on mobile */}
+              <div className="overflow-x-auto pb-2 -mx-4 px-4 lg:mx-0 lg:px-0">
+                <div className="flex items-end gap-1 sm:gap-2 min-w-max lg:min-w-0 lg:w-full">
                   {filteredData.map((item) => {
                     const height = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
                     const isGoalMet = item.value >= goal;
                     return (
-                      <div key={item.month} className="group flex flex-col items-center w-8 sm:w-10 lg:flex-1">
+                      <div key={item.month} className="group flex flex-col items-center w-10 sm:w-12 lg:flex-1 lg:min-w-0">
                         <div className="relative w-full">
                           <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-surface-hover px-2 py-1 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                             <p className="font-semibold">{formatCurrency(item.value)}</p>
