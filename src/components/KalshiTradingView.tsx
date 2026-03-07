@@ -308,6 +308,548 @@ function LiquidityBar({ score, spread }: { score?: number; spread?: string }) {
   );
 }
 
+// Trade Detail Panel Component - Organized with tabs
+function TradeDetailPanel({ 
+  trade, 
+  kellyAnalysis, 
+  onBuy, 
+  bankroll 
+}: { 
+  trade: KalshiTrade; 
+  kellyAnalysis: KellyAnalysis | null;
+  onBuy: (side: 'yes' | 'no', amount: number) => void;
+  bankroll: number;
+}) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'risk' | 'signals' | 'sizing'>('overview');
+  
+  const kellyPosition = kellyAnalysis?.positionSizes.find(p => p.ticker === trade.ticker);
+  
+  return (
+    <div className="mt-4 border-t border-surface-hover pt-4">
+      {/* Tab Navigation */}
+      <div className="flex gap-1 mb-4 border-b border-surface-hover">
+        {[
+          { id: 'overview', label: 'Overview', icon: BarChart3 },
+          { id: 'risk', label: 'Risk & Score', icon: Activity },
+          { id: 'signals', label: 'Signals', icon: Zap },
+          { id: 'sizing', label: 'Position Sizing', icon: DollarSign },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === tab.id 
+                ? 'text-primary border-primary' 
+                : 'text-gray-400 border-transparent hover:text-gray-300'
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="space-y-4">
+        {/* OVERVIEW TAB */}
+        {activeTab === 'overview' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Core Metrics */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-gray-400">Core Metrics</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="bg-surface-hover/50 rounded p-2">
+                  <span className="text-gray-500">True Probability</span>
+                  <p className="text-white font-medium">{trade.trueProbability}%</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded p-2">
+                  <span className="text-gray-500">Market Price</span>
+                  <p className="text-white font-medium">{trade.yesPrice}¢</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded p-2">
+                  <span className="text-gray-500">Edge</span>
+                  <p className="text-success font-medium">+{trade.edge}¢</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded p-2">
+                  <span className="text-gray-500">R-Score</span>
+                  <p className={`font-medium ${trade.rScore >= 1.5 ? 'text-success' : 'text-primary'}`}>
+                    {trade.rScore.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              
+              {trade.multiplier && (
+                <div className="flex justify-between text-sm py-1">
+                  <span className="text-gray-500">Multiplier</span>
+                  <span className="text-primary font-medium">{trade.multiplier.toFixed(1)}x</span>
+                </div>
+              )}
+              
+              {trade.health && (
+                <div className="flex justify-between text-sm py-1">
+                  <span className="text-gray-500">Liquidity</span>
+                  <span className={`font-medium ${
+                    trade.health === 'good' ? 'text-success' : 
+                    trade.health === 'fair' ? 'text-warning' : 'text-danger'
+                  }`}>
+                    {trade.health.toUpperCase()}
+                  </span>
+                </div>
+              )}
+              
+              <div className="pt-2 border-t border-surface-hover">
+                <p className="text-sm text-gray-400 mb-1">Research</p>
+                <p className="text-sm text-white">{trade.research?.catalyst || 'Scanner-identified opportunity'}</p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {trade.research?.sources?.map((source, i) => (
+                    <span key={i} className="text-xs bg-surface-hover px-2 py-0.5 rounded text-gray-400">
+                      {source}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-gray-400">Quick Stats</h4>
+              
+              {trade.momentum && trade.momentum !== 'flat' && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-gray-500">Momentum</span>
+                  <span className={`text-sm font-medium ${
+                    trade.momentum === 'surging' ? 'text-emerald-400' :
+                    trade.momentum === 'rising' ? 'text-green-400' :
+                    trade.momentum === 'falling' ? 'text-amber-400' :
+                    'text-rose-400'
+                  }`}>
+                    {trade.momentum === 'surging' ? '🚀' : 
+                     trade.momentum === 'rising' ? '📈' : 
+                     trade.momentum === 'falling' ? '📉' : '💥'} {trade.momentum}
+                  </span>
+                </div>
+              )}
+              
+              {trade.whale && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-gray-500">Whale Activity</span>
+                  <span className="text-sm text-purple-400 font-medium">
+                    🐋 {trade.whaleSpikeRatio}x spike
+                  </span>
+                </div>
+              )}
+              
+              {trade.compositeScore && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-gray-500">Composite Score</span>
+                  <span className="text-sm text-primary font-bold">{trade.compositeScore}</span>
+                </div>
+              )}
+              
+              <div className="pt-2 border-t border-surface-hover">
+                <div className="flex justify-between text-sm py-1">
+                  <span className="text-gray-500">Expires</span>
+                  <span className="text-white">
+                    {new Date(trade.expiration).toLocaleDateString('en-US', { 
+                      weekday: 'short', month: 'short', day: 'numeric'
+                    })}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between text-sm py-1">
+                  <span className="text-gray-500">Base Kelly</span>
+                  <span className="text-white">{trade.kellyPct.toFixed(1)}%</span>
+                </div>
+              </div>
+              
+              {/* Buy Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => onBuy('yes', Math.min(100, bankroll * 0.05))}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-success/20 px-3 py-2 text-sm font-medium text-success hover:bg-success/30"
+                >
+                  <Plus className="h-4 w-4" />
+                  Buy Yes @{trade.yesPrice}¢
+                </button>
+                <button
+                  onClick={() => onBuy('no', Math.min(100, bankroll * 0.05))}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-danger/20 px-3 py-2 text-sm font-medium text-danger hover:bg-danger/30"
+                >
+                  <Plus className="h-4 w-4" />
+                  Buy No @{trade.noPrice}¢
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RISK & SCORE TAB */}
+        {activeTab === 'risk' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Multi-Factor Score */}
+            {trade.multiFactorScore && (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-400 mb-3">
+                  Multi-Factor Score: <span className="text-primary">{trade.multiFactorScore.total.toFixed(2)}</span>
+                </h4>
+                <div className="space-y-2">
+                  {Object.entries(trade.multiFactorScore.breakdown).map(([key, value]) => {
+                    const weight = trade.multiFactorScore!.weights[key as keyof typeof trade.multiFactorScore.weights];
+                    const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                    return (
+                      <div key={key} className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-400">{label} ({Math.round(weight * 100)}%)</span>
+                            <span className={value >= 7 ? 'text-success' : value >= 4 ? 'text-warning' : 'text-gray-400'}>
+                              {value.toFixed(1)}/10
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full ${
+                                value >= 7 ? 'bg-emerald-500' : value >= 4 ? 'bg-amber-500' : 'bg-gray-500'
+                              }`}
+                              style={{ width: `${value * 10}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Risk Metrics */}
+            {trade.riskMetrics && (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-400 mb-3">Risk Analysis</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Expected Value</span>
+                    <span className={parseFloat(trade.riskMetrics.expectedValue) >= 0 ? 'text-success' : 'text-danger'}>
+                      ${trade.riskMetrics.expectedValue}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Sharpe Ratio</span>
+                    <span className={parseFloat(trade.riskMetrics.sharpeRatio) >= 1 ? 'text-success' : 'text-gray-300'}>
+                      {trade.riskMetrics.sharpeRatio}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Risk Level</span>
+                    <span className={
+                      trade.riskMetrics.riskOfRuin === 'low' ? 'text-success' : 
+                      trade.riskMetrics.riskOfRuin === 'medium' ? 'text-warning' : 'text-danger'
+                    }>
+                      {trade.riskMetrics.riskOfRuin.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Max Drawdown</span>
+                    <span className="text-gray-300">${trade.riskMetrics.maxDrawdown}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Edge Decay */}
+            {trade.decayAnalysis && (
+              <div className={`rounded-lg p-3 border ${
+                trade.decayAnalysis.trend.includes('improving') ? 'bg-emerald-500/10 border-emerald-500/30' :
+                trade.decayAnalysis.trend.includes('decaying') ? 'bg-rose-500/10 border-rose-500/30' :
+                'bg-gray-500/10 border-gray-500/30'
+              }`}>
+                <h4 className={`text-sm font-medium mb-2 ${
+                  trade.decayAnalysis.trend.includes('improving') ? 'text-emerald-400' :
+                  trade.decayAnalysis.trend.includes('decaying') ? 'text-rose-400' :
+                  'text-gray-400'
+                }`}>
+                  Edge Trend: {trade.decayAnalysis.trend.replace('_', ' ').toUpperCase()}
+                </h4>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="bg-surface-hover/50 rounded p-2 text-center">
+                    <p className="text-gray-500">24h Change</p>
+                    <p className={trade.decayAnalysis.edgeChange24h > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {trade.decayAnalysis.edgeChange24h > 0 ? '+' : ''}{trade.decayAnalysis.edgeChange24h.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="bg-surface-hover/50 rounded p-2 text-center">
+                    <p className="text-gray-500">Rate</p>
+                    <p className={trade.decayAnalysis.decayRate > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {trade.decayAnalysis.decayRate > 0 ? '+' : ''}{trade.decayAnalysis.decayRate.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="bg-surface-hover/50 rounded p-2 text-center">
+                    <p className="text-gray-500">Stability</p>
+                    <p className={trade.stabilityScore && trade.stabilityScore > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {trade.stabilityScore ? (trade.stabilityScore > 0 ? '+' : '') + trade.stabilityScore.toFixed(1) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Attribution */}
+            {trade.attribution && trade.attribution.length > 0 && (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-400 mb-2">Score Attribution</h4>
+                <div className="space-y-1">
+                  {trade.attribution.slice(0, 4).map((attr, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-gray-500">{attr.factor}</span>
+                      <span className={attr.contribution >= 0 ? 'text-success' : 'text-danger'}>
+                        {attr.contribution >= 0 ? '+' : ''}{attr.contribution.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SIGNALS TAB */}
+        {activeTab === 'signals' && (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {/* Alerts */}
+            {trade.alerts && trade.alerts.length > 0 && (
+              <div className="lg:col-span-2 space-y-2">
+                <h4 className="text-sm font-medium text-gray-400">Active Alerts</h4>
+                {trade.alerts.map((alert, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`p-2 rounded text-sm flex items-center gap-2 ${
+                      alert.severity === 'urgent' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                      alert.severity === 'high' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                      'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    }`}
+                  >
+                    <span>{alert.severity === 'urgent' ? '🚨' : alert.severity === 'high' ? '⚠️' : 'ℹ️'}</span>
+                    <span>{alert.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Twitter Sentiment */}
+            {trade.twitterSignal && trade.twitterSignal.signal !== 'neutral' && (
+              <div className={`p-3 rounded-lg border ${
+                trade.twitterSignal.signal === 'bullish' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                'bg-rose-500/10 border-rose-500/30'
+              }`}>
+                <h4 className={`text-sm font-medium mb-2 ${
+                  trade.twitterSignal.signal === 'bullish' ? 'text-emerald-400' : 'text-rose-400'
+                }`}>
+                  🐦 Twitter: {trade.twitterSignal.signal.toUpperCase()}
+                </h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Strength</span>
+                    <span className="text-white">{trade.twitterSignal.strength}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Score</span>
+                    <span className={trade.twitterSignal.score > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {trade.twitterSignal.score > 0 ? '+' : ''}{trade.twitterSignal.score.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Confidence</span>
+                    <span className="text-white">{Math.round(trade.twitterSignal.confidence * 100)}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* News Sentiment */}
+            {trade.sentimentSignal && (
+              <div className={`p-3 rounded-lg border ${
+                trade.sentimentSignal.label === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                trade.sentimentSignal.label === 'negative' ? 'bg-rose-500/10 border-rose-500/30' :
+                'bg-gray-500/10 border-gray-500/30'
+              }`}>
+                <h4 className={`text-sm font-medium mb-2 ${
+                  trade.sentimentSignal.label === 'positive' ? 'text-emerald-400' :
+                  trade.sentimentSignal.label === 'negative' ? 'text-rose-400' :
+                  'text-gray-400'
+                }`}>
+                  📰 News: {trade.sentimentSignal.label.toUpperCase()}
+                </h4>
+                <p className="text-xs text-gray-300 line-clamp-2 mb-2">"{trade.sentimentSignal.headline}"</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Source</span>
+                  <span className="text-white">{trade.sentimentSignal.source}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Weather Lag */}
+            {trade.nwsSignal && trade.nwsSignal.lagDetected && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <h4 className="text-sm font-medium text-amber-400 mb-2">🌤️ Weather Lag</h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">NWS Forecast</span>
+                    <span className="text-white">{trade.nwsSignal.forecastHigh}°F</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Market Implied</span>
+                    <span className="text-white">{trade.nwsSignal.kalshiProbability}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Edge</span>
+                    <span className={parseFloat(trade.nwsSignal.probabilityDiff) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {parseFloat(trade.nwsSignal.probabilityDiff) > 0 ? '+' : ''}{trade.nwsSignal.probabilityDiff}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Action</span>
+                    <span className={trade.nwsSignal.recommendation === 'BUY_YES' ? 'text-emerald-400' : 'text-rose-400'}>
+                      {trade.nwsSignal.recommendation.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Polymarket Arb */}
+            {trade.polymarketArb && (
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                <h4 className="text-sm font-medium text-emerald-400 mb-2">🔗 Polymarket Arbitrage</h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Spread</span>
+                    <span className="text-emerald-400">{trade.polymarketArb.percentDiff}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Buy On</span>
+                    <span className="text-white">{trade.polymarketArb.buyOn}</span>
+                  </div>
+                  <a 
+                    href={trade.polymarketArb.pmUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-1 text-emerald-400 hover:text-emerald-300 text-xs"
+                  >
+                    View on Polymarket <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* POSITION SIZING TAB */}
+        {activeTab === 'sizing' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Dynamic Kelly */}
+            {kellyPosition ? (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-primary mb-3">Dynamic Kelly Sizing</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Recommended Size</span>
+                    <span className="text-2xl font-bold text-primary">${kellyPosition.positionSize.toLocaleString()}</span>
+                  </div>
+                  
+                  <div className="h-2 bg-surface rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${Math.min(100, (kellyPosition.positionSize / kellyPosition.maxPosition) * 100)}%` }}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="bg-surface-hover/50 rounded p-2">
+                      <span className="text-gray-500 block">Kelly %</span>
+                      <span className="text-white font-medium">{(kellyPosition.adjustedKelly * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="bg-surface-hover/50 rounded p-2">
+                      <span className="text-gray-500 block">Win Probability</span>
+                      <span className="text-white font-medium">{(kellyPosition.winProb * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="bg-surface-hover/50 rounded p-2">
+                      <span className="text-gray-500 block">Fraction Used</span>
+                      <span className={kellyPosition.fraction >= 0.8 ? 'text-emerald-400' : kellyPosition.fraction >= 0.5 ? 'text-amber-400' : 'text-rose-400'}>
+                        {(kellyPosition.fraction * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="bg-surface-hover/50 rounded p-2">
+                      <span className="text-gray-500 block">Market Regime</span>
+                      <span className="text-white capitalize">{kellyPosition.regime.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-400 mb-2">Dynamic Kelly Sizing</h4>
+                <p className="text-sm text-gray-500">No position sizing data available for this trade.</p>
+              </div>
+            )}
+
+            {/* Position Guidelines */}
+            <div className="bg-surface-hover/30 rounded-lg p-3">
+              <h4 className="text-sm font-medium text-gray-400 mb-3">Position Guidelines</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between py-1 border-b border-surface-hover">
+                  <span className="text-gray-500">Base Kelly %</span>
+                  <span className="text-white">{trade.kellyPct.toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-surface-hover">
+                  <span className="text-gray-500">Max Position</span>
+                  <span className="text-white">${(bankroll * 0.1).toLocaleString()} (10%)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-surface-hover">
+                  <span className="text-gray-500">Suggested Min</span>
+                  <span className="text-white">$10</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-gray-500">Available Bankroll</span>
+                  <span className="text-white">${bankroll.toLocaleString()}</span>
+                </div>
+              </div>
+              
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => onBuy('yes', kellyPosition?.positionSize || Math.min(100, bankroll * 0.05))}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-success/20 px-3 py-2 text-sm font-medium text-success hover:bg-success/30"
+                >
+                  <Plus className="h-4 w-4" />
+                  Buy Yes
+                </button>
+                <button
+                  onClick={() => onBuy('no', kellyPosition?.positionSize || Math.min(100, bankroll * 0.05))}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-danger/20 px-3 py-2 text-sm font-medium text-danger hover:bg-danger/30"
+                >
+                  <Plus className="h-4 w-4" />
+                  Buy No
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Kalshi Link */}
+      <div className="mt-4 pt-3 border-t border-surface-hover">
+        <a
+          href={`https://kalshi.com/events/${trade.ticker.toLowerCase()}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          View on Kalshi <ArrowUpRight className="h-4 w-4" />
+        </a>
+      </div>
+    </div>
+  );
+}
+
 // Transform RESEARCHED_TRADES to KalshiTrade format
 function transformResearchedTrades(): KalshiTrade[] {
   return RESEARCHED_TRADES.map((trade: any) => {
@@ -1307,22 +1849,13 @@ export function KalshiTradingView() {
 
                 {/* Expanded Details */}
                 {expandedTrade === trade.id && (
-                  <div className="mt-4 border-t border-surface-hover pt-4">
-                    <div className="grid gap-4 lg:grid-cols-3">
-                      <div>
-                        <p className="text-sm text-gray-400">Research</p>
-                        <p className="mt-1 text-white">{trade.research?.catalyst || 'No research available'}</p>
-                        <div className="mt-2 flex gap-2">
-                          {trade.research?.sources.map((source, i) => (
-                            <span key={i} className="rounded bg-surface-hover px-2 py-1 text-xs text-gray-400">{source}</span>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Backtested Edge Calculation</p>
-                        <div className="mt-1 space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">True Probability:</span>
+                  <TradeDetailPanel 
+                    trade={trade} 
+                    kellyAnalysis={kellyAnalysis}
+                    onBuy={(side, amount) => executeTrade(trade, side, amount)}
+                    bankroll={stats.bankroll}
+                  />
+                )}
                             <span className="text-white font-medium">{trade.trueProbability}%</span>
                           </div>
                           <div className="flex justify-between">
