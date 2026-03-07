@@ -394,14 +394,20 @@ export function KalshiTradingView() {
   // Save positions to Firebase when they change
   useEffect(() => {
     if (isDataLoaded) {
-      setData('v6/kalshi/positions', positions).catch(console.error);
+      console.log(`Saving ${positions.length} positions to Firebase...`);
+      setData('v6/kalshi/positions', positions)
+        .then(() => console.log('✅ Positions saved'))
+        .catch(err => console.error('❌ Failed to save positions:', err));
     }
   }, [positions, isDataLoaded]);
 
   // Save stats to Firebase when they change
   useEffect(() => {
     if (isDataLoaded) {
-      setData('v6/kalshi/portfolio', stats).catch(console.error);
+      console.log('Saving stats to Firebase...');
+      setData('v6/kalshi/portfolio', stats)
+        .then(() => console.log('✅ Stats saved'))
+        .catch(err => console.error('❌ Failed to save stats:', err));
     }
   }, [stats, isDataLoaded]);
 
@@ -528,10 +534,13 @@ export function KalshiTradingView() {
 
   // Execute paper trade
   const executeTrade = (trade: KalshiTrade, side: 'yes' | 'no', amount: number) => {
+    console.log(`Executing trade: ${trade.ticker} ${side} $${amount}`);
     const price = side === 'yes' ? trade.yesPrice : trade.noPrice;
     const priceDollars = price / 100;
     const shares = Math.floor(amount / priceDollars);
     const value = shares * priceDollars;
+
+    console.log(`Price: ${price}¢, Shares: ${shares}, Value: $${value.toFixed(2)}`);
 
     if (value > stats.bankroll * 0.1) {
       alert(`Position too large. Max 10% of bankroll ($${(stats.bankroll * 0.1).toFixed(0)})`);
@@ -554,12 +563,23 @@ export function KalshiTradingView() {
       marketTitle: trade.title
     };
 
-    setPositions(prev => [...prev, newPosition]);
-    setStats(prev => ({
-      ...prev,
-      bankroll: prev.bankroll - value,
-      openPositions: prev.openPositions + 1
-    }));
+    console.log('New position:', newPosition);
+
+    setPositions(prev => {
+      const updated = [...prev, newPosition];
+      console.log(`Positions updated: ${updated.length} total`);
+      return updated;
+    });
+    
+    setStats(prev => {
+      const newStats = {
+        ...prev,
+        bankroll: prev.bankroll - value,
+        openPositions: prev.openPositions + 1
+      };
+      console.log(`Stats updated: bankroll $${newStats.bankroll.toFixed(2)}, openPositions ${newStats.openPositions}`);
+      return newStats;
+    });
   };
 
   // Close position with 7% fee on winning trades (matching kalshi_paper_trading.js)
