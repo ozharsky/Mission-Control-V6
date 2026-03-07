@@ -522,14 +522,24 @@ export function KalshiTradingView() {
     return result;
   }, [trades, selectedCategory, sortBy]);
 
-  // Calculate position P&L
+  // Calculate position P&L - uses live prices from trades
   const calculatePositionPnL = (position: PaperPosition) => {
+    if (position.status !== 'open') return position.pnl || 0;
+    
+    // Find current market data
     const currentTrade = trades.find(t => t.ticker === position.ticker);
-    if (!currentTrade || position.status !== 'open') return position.pnl || 0;
+    if (!currentTrade) {
+      console.log(`No trade found for ${position.ticker}, can't calculate P&L`);
+      return 0;
+    }
     
     const currentPrice = position.side === 'yes' ? currentTrade.yesPrice : currentTrade.noPrice;
     const priceDiff = (currentPrice - position.entryPrice) / 100;
-    return priceDiff * position.shares;
+    const pnl = priceDiff * position.shares;
+    
+    console.log(`P&L for ${position.ticker}: entry=${position.entryPrice}¢, current=${currentPrice}¢, shares=${position.shares}, pnl=$${pnl.toFixed(2)}`);
+    
+    return pnl;
   };
 
   // Execute paper trade
@@ -619,6 +629,17 @@ export function KalshiTradingView() {
       console.log(`Position closed: ${position.ticker} | Gross P&L: +$${grossPnl.toFixed(2)} | Fees (7%): -$${fees.toFixed(2)} | Net P&L: +$${netPnl.toFixed(2)}`);
     }
   };
+
+  // Memoize open positions with calculated P&L so it updates when trades change
+  const openPositionsWithPnL = useMemo(() => {
+    return positions
+      .filter(p => p.status === 'open')
+      .map(p => {
+        const pnl = calculatePositionPnL(p);
+        return { ...p, pnl, pnlPct: (pnl / p.value) * 100 };
+      })
+      .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl)); // Sort by biggest P&L first
+  }, [positions, trades]); // Recalculate when either changes
 
   // Stats cards
   const StatCard = ({ title, value, trend, icon: Icon, color }: any) => (
@@ -1018,13 +1039,13 @@ export function KalshiTradingView() {
       {/* Portfolio Tab */}
       {activeTab === 'portfolio' && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">Open Positions</h2>
+          <h2 className="text-lg font-semibold text-white">Open Positions ({openPositionsWithPnL.length})</h2>
           {!isDataLoaded ? (
             <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
               <RefreshCw className="mx-auto h-8 w-8 animate-spin text-gray-500" />
               <p className="mt-4 text-gray-400">Loading portfolio...</p>
             </div>
-          ) : positions.filter(p => p.status === 'open').length === 0 ? (
+          ) : openPositionsWithPnL.length === 0 ? (
             <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
               <Wallet className="mx-auto h-12 w-12 text-gray-500" />
               <p className="mt-4 text-gray-400">No open positions</p>
@@ -1032,47 +1053,43 @@ export function KalshiTradingView() {
             </div>
           ) : (
             <div className="space-y-3">
-              {positions.filter(p => p.status === 'open').map((position) => {
-                const pnl = calculatePositionPnL(position);
-                const pnlPct = (pnl / position.value) * 100;
-                return (
-                  <div key={position.id} className="rounded-xl border border-surface-hover bg-surface p-4">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className={`rounded px-2 py-0.5 text-xs font-medium ${position.side === 'yes' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
-                            {position.side.toUpperCase()}
-                          </span>
-                          <p className="text-sm text-gray-400">{position.ticker}</p>
-                        </div>
-                        <p className="mt-1 font-medium text-white">{position.marketTitle}</p>
+              {openPositionsWithPnL.map((position) => (
+                <div key={position.id} className="rounded-xl border border-surface-hover bg-surface p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${position.side === 'yes' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
+                          {position.side.toUpperCase()}
+                        </span>
+                        <p className="text-sm text-gray-400">{position.ticker}</p>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500">Entry</p>
-                          <p className="text-white">{position.entryPrice}¢ × {position.shares}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500">Value</p>
-                          <p className="text-white">${position.value.toFixed(2)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500">P&L</p>
-                          <p className={`font-medium ${pnl >= 0 ? 'text-success' : 'text-danger'}`}>
-                            {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => closePosition(position.id)}
-                          className="rounded-lg bg-surface-hover px-3 py-2 text-sm text-gray-300 hover:bg-danger/20 hover:text-danger"
-                        >
-                          Close
-                        </button>
+                      <p className="mt-1 font-medium text-white">{position.marketTitle}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">Entry</p>
+                        <p className="text-white">{position.entryPrice}¢ × {position.shares}</p>
                       </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">Value</p>
+                        <p className="text-white">${position.value.toFixed(2)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">P&L</p>
+                        <p className={`font-medium ${position.pnl >= 0 ? 'text-success' : 'text-danger'}`}>
+                          {position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} ({position.pnlPct >= 0 ? '+' : ''}{position.pnlPct.toFixed(1)}%)
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => closePosition(position.id)}
+                        className="rounded-lg bg-surface-hover px-3 py-2 text-sm text-gray-300 hover:bg-danger/20 hover:text-danger"
+                      >
+                        Close
+                      </button>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>
