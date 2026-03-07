@@ -650,6 +650,323 @@ class CrossMarketCorrelation {
   }
 }
 
+// Win Rate Analytics by Category/Time (v3.0 #7)
+// Tracks historical performance to identify best categories and trading times
+class WinRateAnalytics {
+  constructor() {
+    this.historyPath = path.join(__dirname, '..', 'kalshi_data', 'win_rate_history.json');
+    this.data = this.loadData();
+  }
+
+  loadData() {
+    try {
+      if (fs.existsSync(this.historyPath)) {
+        return JSON.parse(fs.readFileSync(this.historyPath, 'utf8'));
+      }
+    } catch (e) {
+      console.error('❌ Failed to load win rate data:', e.message);
+    }
+    return {
+      trades: [], // { ticker, category, predictedEdge, timestamp, result, actualEdge }
+      categoryStats: {},
+      hourlyStats: {},
+      dailyStats: {}
+    };
+  }
+
+  saveData() {
+    try {
+      fs.mkdirSync(path.dirname(this.historyPath), { recursive: true });
+      fs.writeFileSync(this.historyPath, JSON.stringify(this.data, null, 2));
+    } catch (e) {
+      console.error('❌ Failed to save win rate data:', e.message);
+    }
+  }
+
+  // Record a trade opportunity for later outcome tracking
+  recordTradeOpportunity(trade) {
+    const record = {
+      ticker: trade.ticker,
+      category: trade.category,
+      title: trade.title,
+      yesPrice: trade.yesPrice,
+      edge: parseFloat(trade.edge) || 0,
+      rScore: parseFloat(trade.rScore) || 0,
+      compositeScore: parseFloat(trade.compositeScore) || 0,
+      timestamp: new Date().toISOString(),
+      hour: new Date().getHours(),
+      dayOfWeek: new Date().getDay(), // 0-6 (Sun-Sat)
+      month: new Date().getMonth(),
+      result: null, // Will be updated later when market resolves
+      actualReturn: null
+    };
+
+    // Don't duplicate if we already recorded this ticker today
+    const today = new Date().toDateString();
+    const existingToday = this.data.trades.find(t =>
+      t.ticker === trade.ticker && new Date(t.timestamp).toDateString() === today
+    );
+
+    if (!existingToday) {
+      this.data.trades.push(record);
+
+      // Keep only last 1000 trades to prevent file bloat
+      if (this.data.trades.length > 1000) {
+        this.data.trades = this.data.trades.slice(-1000);
+      }
+
+      this.saveData();
+    }
+  }
+
+  // Calculate win rate statistics from recorded trades
+  calculateStats() {
+    const trades = this.data.trades.filter(t => t.result !== null);
+
+    if (trades.length === 0) {
+      return null;
+    }
+
+    // Category stats
+    const categoryStats = {};
+    const byCategory = this.groupBy(trades, 'category');
+
+    for (const [cat, catTrades] of Object.entries(byCategory)) {
+      categoryStats[cat] = this.calculateWinStats(catTrades);
+    }
+
+    // Hourly stats
+    const hourlyStats = {};
+    const byHour = this.groupBy(trades, 'hour');
+
+    for (let hour = 0; hour < 24; hour++) {
+      const hourTrades = byHour[hour] || [];
+      if (hourTrades.length > 0) {
+        hourlyStats[hour] = this.calculateWinStats(hourTrades);
+      }
+    }
+
+    // Day of week stats
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dailyStats = {};
+    const byDay = this.groupBy(trades, 'dayOfWeek');
+
+    for (let day = 0; day < 7; day++) {
+      const dayTrades = byDay[day] || [];
+      if (dayTrades.length > 0) {
+        dailyStats[dayNames[day]] = this.calculateWinStats(dayTrades);
+      }
+    }
+
+    // Edge accuracy: compare predicted vs actual
+    const edgeAccuracy = this.calculateEdgeAccuracy(trades);
+
+    return {
+      totalTrades: trades.length,
+      overallWinRate: this.calculateWinStats(trades),
+      categoryStats,
+      hourlyStats,
+      dailyStats,
+      edgeAccuracy,
+      bestCategory: this.findBest(categoryStats, 'winRate'),
+      bestHour: this.findBest(hourlyStats, 'winRate'),
+      bestDay: this.findBest(dailyStats, 'winRate'),
+      sampleSizeWarning: trades.length < 30 ? 'Limited data - results may not be statistically significant' : null
+    };
+  }
+
+  calculateWinStats(trades) {
+    const wins = trades.filter(t => t.result === 'win').length;
+    const losses = trades.filter(t => t.result === 'loss').length;
+    const total = wins + losses;
+
+    const avgPredictedEdge = trades.reduce((sum, t) => sum + (t.edge || 0), 0) / trades.length;
+    const avgActualReturn = trades
+      .filter(t => t.actualReturn !== null)
+      .reduce((sum, t) => sum + (t.actualReturn || 0), 0) /
+      trades.filter(t => t.actualReturn !== null).length || 0;
+
+    return {
+      wins,
+      losses,
+      total,
+      winRate: total > 0 ? Math.round((wins / total) * 100) : 0,
+      avgPredictedEdge: Math.round(avgPredictedEdge * 100) / 100,
+      avgActualReturn: Math.round(avgActualReturn * 100) / 100,
+      profitFactor: this.calculateProfitFactor(trades),
+      sharpe: this.calculateSharpe(trades)
+    };
+  }
+
+  calculateProfitFactor(trades) {
+    const grossProfit = trades
+      .filter(t => t.actualReturn > 0)
+      .reduce((sum, t) => sum + (t.actualReturn || 0), 0);
+    const grossLoss = Math.abs(trades
+      .filter(t => t.actualReturn < 0)
+      .reduce((sum, t) => sum + (t.actualReturn || 0), 0));
+
+    return grossLoss === 0 ? grossProfit : Math.round((grossProfit / grossLoss) * 100) / 100;
+  }
+
+  calculateSharpe(trades) {
+    const returns = trades.filter(t => t.actualReturn !== null).map(t => t.actualReturn);
+    if (returns.length < 2) return 0;
+
+    const avg = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance = returns.reduce((sum, r) => sum + Math.pow(r - avg, 2), 0) / returns.length;
+    const stdDev = Math.sqrt(variance);
+
+    return stdDev === 0 ? 0 : Math.round((avg / stdDev) * 100) / 100;
+  }
+
+  calculateEdgeAccuracy(trades) {
+    const withResults = trades.filter(t => t.actualReturn !== null);
+    if (withResults.length === 0) return null;
+
+    // Compare predicted edge (as probability) vs actual outcome
+    let accuratePredictions = 0;
+    let highEdgeWins = 0;
+    let highEdgeTotal = 0;
+
+    withResults.forEach(t => {
+      const predictedProb = 0.5 + (t.edge / 200); // Convert edge % to probability
+      const actualWin = t.actualReturn > 0;
+
+      // Prediction was correct if:
+      // - Predicted > 50% and won, OR
+      // - Predicted < 50% and lost
+      const predictedWin = predictedProb > 0.5;
+      if (predictedWin === actualWin) {
+        accuratePredictions++;
+      }
+
+      // Track high edge (>10%) accuracy
+      if (t.edge >= 10) {
+        highEdgeTotal++;
+        if (actualWin) highEdgeWins++;
+      }
+    });
+
+    return {
+      overallAccuracy: Math.round((accuratePredictions / withResults.length) * 100),
+      highEdgeWinRate: highEdgeTotal > 0 ? Math.round((highEdgeWins / highEdgeTotal) * 100) : null,
+      highEdgeSampleSize: highEdgeTotal,
+      totalSampleSize: withResults.length
+    };
+  }
+
+  groupBy(array, key) {
+    return array.reduce((result, item) => {
+      const group = item[key];
+      if (!result[group]) result[group] = [];
+      result[group].push(item);
+      return result;
+    }, {});
+  }
+
+  findBest(stats, metric) {
+    let best = null;
+    let bestValue = -Infinity;
+
+    for (const [key, value] of Object.entries(stats)) {
+      if (value[metric] > bestValue && value.total >= 5) { // Minimum 5 samples
+        bestValue = value[metric];
+        best = { key, ...value };
+      }
+    }
+
+    return best;
+  }
+
+  printReport() {
+    const stats = this.calculateStats();
+
+    if (!stats) {
+      console.log('\n📈 WIN RATE ANALYTICS: No historical results data yet');
+      console.log('  (Results tracking requires paper trading or resolved markets)');
+      return;
+    }
+
+    console.log('\n📈 WIN RATE ANALYTICS:');
+    console.log(`  Overall: ${stats.overallWinRate.winRate}% (${stats.overallWinRate.wins}W/${stats.overallWinRate.losses}L, n=${stats.totalTrades})`);
+
+    if (stats.sampleSizeWarning) {
+      console.log(`  ⚠️  ${stats.sampleSizeWarning}`);
+    }
+
+    // Category breakdown
+    console.log('\n  By Category:');
+    for (const [cat, stat] of Object.entries(stats.categoryStats)) {
+      const emoji = cat === 'weather' ? '🌤️' : cat === 'crypto' ? '₿' : cat === 'politics' ? '🗳️' : '📊';
+      console.log(`    ${emoji} ${cat}: ${stat.winRate}% (${stat.wins}W/${stat.losses}L) | Avg Edge: ${stat.avgPredictedEdge}%`);
+    }
+
+    // Best hour
+    if (stats.bestHour) {
+      const hour = stats.bestHour.key;
+      const hourFormatted = hour >= 12 ? `${hour === 12 ? 12 : hour - 12}PM` : `${hour === 0 ? 12 : hour}AM`;
+      console.log(`\n  ⏰ Best Time: ${hourFormatted} ET (${stats.bestHour.winRate}% win rate)`);
+    }
+
+    // Best day
+    if (stats.bestDay) {
+      console.log(`  📅 Best Day: ${stats.bestDay.key} (${stats.bestDay.winRate}% win rate)`);
+    }
+
+    // Edge accuracy
+    if (stats.edgeAccuracy) {
+      console.log(`\n  🎯 Edge Accuracy: ${stats.edgeAccuracy.overallAccuracy}% of predictions correct`);
+      if (stats.edgeAccuracy.highEdgeWinRate !== null) {
+        console.log(`  🔥 High Edge (>10%) Win Rate: ${stats.edgeAccuracy.highEdgeWinRate}% (${stats.edgeAccuracy.highEdgeSampleSize} trades)`);
+      }
+    }
+
+    // Current session stats
+    const today = new Date().toDateString();
+    const todayTrades = this.data.trades.filter(t =>
+      new Date(t.timestamp).toDateString() === today
+    );
+    if (todayTrades.length > 0) {
+      console.log(`\n  📊 Today's Opportunities: ${todayTrades.length} tracked`);
+    }
+  }
+
+  // Get recommendations based on historical performance
+  getRecommendations() {
+    const stats = this.calculateStats();
+    if (!stats) return [];
+
+    const recommendations = [];
+
+    if (stats.bestCategory && stats.bestCategory.winRate > 60) {
+      recommendations.push({
+        type: 'category_focus',
+        message: `Focus on ${stats.bestCategory.key} markets (${stats.bestCategory.winRate}% historical win rate)`,
+        priority: 'high'
+      });
+    }
+
+    if (stats.bestHour && stats.bestHour.winRate > 60) {
+      recommendations.push({
+        type: 'timing',
+        message: `Best trading window: ${stats.bestHour.key}:00 (${stats.bestHour.winRate}% win rate)`,
+        priority: 'medium'
+      });
+    }
+
+    if (stats.edgeAccuracy && stats.edgeAccuracy.highEdgeWinRate > 70) {
+      recommendations.push({
+        type: 'edge_threshold',
+        message: `High edge trades (>10%) have ${stats.edgeAccuracy.highEdgeWinRate}% win rate - prioritize these`,
+        priority: 'high'
+      });
+    }
+
+    return recommendations;
+  }
+}
+
 async function cachedFetch(key, fetchFn, ttlMs) {
   const cached = cache.get(key);
   if (cached) {
@@ -1774,6 +2091,7 @@ async function main() {
   const errors = [];
   const whaleAlerts = [];
   const edgeDecayTracker = new EdgeDecayTracker();
+  const winRateAnalytics = new WinRateAnalytics();
   
   // Process series in parallel with concurrency limit
   console.log(`📊 Fetching ${SERIES.length} series with max 5 concurrent...\n`);
@@ -2032,6 +2350,9 @@ async function main() {
     const multiFactorScore = calculateMultiFactorScore(trade, momentum, clv, whaleData, relevantNews);
     trade.compositeScore = multiFactorScore.total.toFixed(2);
     trade.multiFactorScore = multiFactorScore; // Store full breakdown
+
+    // Record for win rate analytics
+    winRateAnalytics.recordTradeOpportunity(trade);
   }
   
   // Re-sort by composite score
@@ -2049,6 +2370,12 @@ async function main() {
 
   // Print correlation matrix report
   correlationMatrix.printCorrelationReport(correlations);
+
+  // Print win rate analytics report
+  winRateAnalytics.printReport();
+
+  // Get recommendations based on historical performance
+  const winRateRecommendations = winRateAnalytics.getRecommendations();
   
   const arbitrage = detectArbitrage(allTrades);
   
@@ -2111,6 +2438,8 @@ async function main() {
     polymarketArbs,
     whaleAlerts,
     correlations,
+    winRateStats: winRateAnalytics.calculateStats(),
+    winRateRecommendations,
     news: relevantNews.slice(0, 10), // Top 10 relevant news articles
     weatherLags,
     triggeredAlerts: triggeredAlerts.slice(0, 20), // Top 20 threshold alerts
