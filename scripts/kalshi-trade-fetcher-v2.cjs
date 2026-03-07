@@ -1577,6 +1577,344 @@ class BacktestingFramework {
   }
 }
 
+// Portfolio Heat Map (v3.0 #10)
+// Visualizes portfolio risk through concentration, correlation, and exposure analysis
+class PortfolioHeatMap {
+  constructor(bankroll = 10000) {
+    this.bankroll = bankroll;
+    this.categoryColors = {
+      weather: { r: 59, g: 130, b: 246 },    // Blue
+      crypto: { r: 249, g: 115, b: 22 },     // Orange
+      politics: { r: 239, g: 68, b: 68 },    // Red
+      economics: { r: 34, g: 197, b: 94 },   // Green
+      unknown: { r: 156, g: 163, b: 175 }    // Gray
+    };
+  }
+
+  // Analyze current positions and opportunities
+  analyzePortfolio(positions, opportunities) {
+    const analysis = {
+      timestamp: new Date().toISOString(),
+      bankroll: this.bankroll,
+      totalExposure: 0,
+      concentration: {},
+      correlationRisk: [],
+      heatMap: [],
+      riskScore: 0,
+      warnings: []
+    };
+
+    // Calculate total exposure and concentration by category
+    const categoryExposure = {
+      weather: 0,
+      crypto: 0,
+      politics: 0,
+      economics: 0,
+      unknown: 0
+    };
+
+    // Analyze open positions
+    const openPositions = positions.filter(p => p.status === 'open');
+    openPositions.forEach(pos => {
+      const opp = opportunities.find(o => o.ticker === pos.ticker);
+      if (opp) {
+        const category = opp.category || 'unknown';
+        const value = pos.value || 0;
+        categoryExposure[category] += value;
+        analysis.totalExposure += value;
+      }
+    });
+
+    // Calculate concentration percentages
+    for (const [cat, exposure] of Object.entries(categoryExposure)) {
+      const percentage = this.bankroll > 0 ? (exposure / this.bankroll) * 100 : 0;
+      analysis.concentration[cat] = {
+        exposure,
+        percentage: Math.round(percentage * 100) / 100,
+        riskLevel: this.getConcentrationRiskLevel(percentage)
+      };
+    }
+
+    // Calculate correlation risk between positions
+    analysis.correlationRisk = this.calculateCorrelationRisk(openPositions, opportunities);
+
+    // Generate heat map cells
+    analysis.heatMap = this.generateHeatMap(openPositions, opportunities);
+
+    // Calculate overall risk score (0-100)
+    analysis.riskScore = this.calculateRiskScore(analysis);
+
+    // Generate warnings
+    analysis.warnings = this.generateWarnings(analysis);
+
+    return analysis;
+  }
+
+  getConcentrationRiskLevel(percentage) {
+    if (percentage > 50) return { level: 'critical', color: '#ef4444', emoji: '🔴' };
+    if (percentage > 30) return { level: 'high', color: '#f97316', emoji: '🟠' };
+    if (percentage > 15) return { level: 'medium', color: '#eab308', emoji: '🟡' };
+    return { level: 'low', color: '#22c55e', emoji: '🟢' };
+  }
+
+  calculateCorrelationRisk(positions, opportunities) {
+    const risks = [];
+
+    for (let i = 0; i < positions.length; i++) {
+      for (let j = i + 1; j < positions.length; j++) {
+        const pos1 = positions[i];
+        const pos2 = positions[j];
+        const opp1 = opportunities.find(o => o.ticker === pos1.ticker);
+        const opp2 = opportunities.find(o => o.ticker === pos2.ticker);
+
+        if (!opp1 || !opp2) continue;
+
+        // Check if same category (correlation risk)
+        if (opp1.category === opp2.category) {
+          const correlationStrength = opp1.category === 'crypto' ? 0.8 :
+                                      opp1.category === 'weather' ? 0.6 : 0.5;
+
+          risks.push({
+            pair: `${pos1.ticker} ↔ ${pos2.ticker}`,
+            category: opp1.category,
+            correlation: correlationStrength,
+            exposure1: pos1.value,
+            exposure2: pos2.value,
+            combinedExposure: pos1.value + pos2.value,
+            riskLevel: correlationStrength > 0.7 ? 'high' : correlationStrength > 0.4 ? 'medium' : 'low'
+          });
+        }
+
+        // Check for inverse correlations (hedging opportunities)
+        if (opp1.category !== opp2.category) {
+          // Different categories typically have lower correlation
+          const inverseCorrelation = this.checkInverseCorrelation(opp1, opp2);
+          if (inverseCorrelation) {
+            risks.push({
+              pair: `${pos1.ticker} ↔ ${pos2.ticker}`,
+              type: 'hedge',
+              category1: opp1.category,
+              category2: opp2.category,
+              correlation: inverseCorrelation.strength,
+              note: inverseCorrelation.note
+            });
+          }
+        }
+      }
+    }
+
+    return risks.sort((a, b) => (b.correlation || 0) - (a.correlation || 0));
+  }
+
+  checkInverseCorrelation(opp1, opp2) {
+    // Crypto often inversely correlates with Fed policy
+    if ((opp1.category === 'crypto' && opp2.category === 'economics') ||
+        (opp1.category === 'economics' && opp2.category === 'crypto')) {
+      return { strength: -0.3, note: 'Potential hedge: Crypto vs Fed policy' };
+    }
+
+    // Weather markets in different cities have low correlation
+    if (opp1.category === 'weather' && opp2.category === 'weather') {
+      const city1 = opp1.ticker.match(/KXHIGH([A-Z]+)/)?.[1];
+      const city2 = opp2.ticker.match(/KXHIGH([A-Z]+)/)?.[1];
+      if (city1 && city2 && city1 !== city2) {
+        return { strength: 0.3, note: 'Low correlation weather markets' };
+      }
+    }
+
+    return null;
+  }
+
+  generateHeatMap(positions, opportunities) {
+    const cells = [];
+
+    positions.forEach(pos => {
+      const opp = opportunities.find(o => o.ticker === pos.ticker);
+      if (!opp) return;
+
+      const category = opp.category || 'unknown';
+      const exposure = pos.value || 0;
+      const percentageOfBankroll = (exposure / this.bankroll) * 100;
+
+      // Calculate individual position risk
+      const edge = parseFloat(opp.edge) || 0;
+      const rScore = parseFloat(opp.rScore) || 0;
+      const isDeteriorating = opp.isEdgeDeteriorating;
+
+      // Risk factors
+      const concentrationRisk = Math.min(10, percentageOfBankroll / 5); // 0-10
+      const edgeRisk = isDeteriorating ? 5 : Math.max(0, (10 - edge) / 2); // 0-10
+      const qualityRisk = Math.max(0, 5 - rScore); // 0-10
+
+      const totalRisk = (concentrationRisk + edgeRisk + qualityRisk) / 3;
+
+      cells.push({
+        ticker: pos.ticker,
+        title: opp.title,
+        category,
+        exposure,
+        percentageOfBankroll: Math.round(percentageOfBankroll * 100) / 100,
+        riskScore: Math.round(totalRisk * 100) / 100,
+        riskLevel: this.getRiskLevelColor(totalRisk),
+        factors: {
+          concentration: Math.round(concentrationRisk * 100) / 100,
+          edge: Math.round(edgeRisk * 100) / 100,
+          quality: Math.round(qualityRisk * 100) / 100
+        },
+        edge: opp.edge,
+        rScore: opp.rScore,
+        isDeteriorating
+      });
+    });
+
+    return cells.sort((a, b) => b.riskScore - a.riskScore);
+  }
+
+  getRiskLevelColor(riskScore) {
+    if (riskScore >= 7) return { level: 'critical', color: '#ef4444', emoji: '🔴' };
+    if (riskScore >= 5) return { level: 'high', color: '#f97316', emoji: '🟠' };
+    if (riskScore >= 3) return { level: 'medium', color: '#eab308', emoji: '🟡' };
+    return { level: 'low', color: '#22c55e', emoji: '🟢' };
+  }
+
+  calculateRiskScore(analysis) {
+    let score = 0;
+
+    // Concentration risk (40% of score)
+    const maxConcentration = Math.max(...Object.values(analysis.concentration).map(c => c.percentage));
+    score += Math.min(40, maxConcentration * 0.8);
+
+    // Correlation risk (30% of score)
+    const highCorrCount = analysis.correlationRisk.filter(r => r.riskLevel === 'high').length;
+    score += Math.min(30, highCorrCount * 10);
+
+    // Heat map average risk (30% of score)
+    if (analysis.heatMap.length > 0) {
+      const avgRisk = analysis.heatMap.reduce((sum, cell) => sum + cell.riskScore, 0) / analysis.heatMap.length;
+      score += Math.min(30, avgRisk * 3);
+    }
+
+    return Math.round(score);
+  }
+
+  generateWarnings(analysis) {
+    const warnings = [];
+
+    // Concentration warnings
+    for (const [cat, data] of Object.entries(analysis.concentration)) {
+      if (data.percentage > 40) {
+        warnings.push({
+          type: 'concentration',
+          severity: 'critical',
+          message: `${cat.toUpperCase()} exposure at ${data.percentage}% - Consider diversifying`,
+          exposure: data.exposure
+        });
+      } else if (data.percentage > 25) {
+        warnings.push({
+          type: 'concentration',
+          severity: 'high',
+          message: `${cat.toUpperCase()} exposure at ${data.percentage}% - Monitor closely`,
+          exposure: data.exposure
+        });
+      }
+    }
+
+    // Correlation warnings
+    const highCorrelations = analysis.correlationRisk.filter(r => r.riskLevel === 'high');
+    if (highCorrelations.length > 0) {
+      warnings.push({
+        type: 'correlation',
+        severity: 'high',
+        message: `${highCorrelations.length} high-correlation pairs detected - Risk of simultaneous losses`,
+        pairs: highCorrelations.map(p => p.pair)
+      });
+    }
+
+    // Heat map warnings
+    const criticalPositions = analysis.heatMap.filter(c => c.riskLevel.level === 'critical');
+    criticalPositions.forEach(pos => {
+      warnings.push({
+        type: 'position',
+        severity: 'critical',
+        message: `${pos.ticker}: Risk score ${pos.riskScore} - Consider reducing position`,
+        ticker: pos.ticker,
+        riskScore: pos.riskScore
+      });
+    });
+
+    // Leverage warning
+    const totalExposure = analysis.totalExposure;
+    const leverage = totalExposure / analysis.bankroll;
+    if (leverage > 0.8) {
+      warnings.push({
+        type: 'leverage',
+        severity: leverage > 1.0 ? 'critical' : 'high',
+        message: `Total exposure at ${(leverage * 100).toFixed(0)}% of bankroll - High leverage risk`,
+        leverage
+      });
+    }
+
+    return warnings.sort((a, b) => {
+      const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      return severityOrder[a.severity] - severityOrder[b.severity];
+    });
+  }
+
+  printReport(analysis) {
+    console.log('\n🔥 PORTFOLIO HEAT MAP:');
+    console.log(`  Overall Risk Score: ${analysis.riskScore}/100 ${this.getRiskEmoji(analysis.riskScore)}`);
+    console.log(`  Total Exposure: $${analysis.totalExposure.toLocaleString()} (${((analysis.totalExposure / analysis.bankroll) * 100).toFixed(1)}% of bankroll)`);
+
+    // Concentration by category
+    console.log('\n  📊 CONCENTRATION BY CATEGORY:');
+    for (const [cat, data] of Object.entries(analysis.concentration)) {
+      if (data.exposure > 0) {
+        const emoji = data.riskLevel.emoji;
+        console.log(`    ${emoji} ${cat.toUpperCase()}: $${data.exposure.toLocaleString()} (${data.percentage}%) - ${data.riskLevel.level.toUpperCase()}`);
+      }
+    }
+
+    // Heat map cells
+    if (analysis.heatMap.length > 0) {
+      console.log('\n  🎯 POSITION RISK MAP:');
+      analysis.heatMap.forEach(cell => {
+        const emoji = cell.riskLevel.emoji;
+        console.log(`    ${emoji} ${cell.ticker}: ${cell.riskScore} risk | ${cell.percentageOfBankroll}% bankroll | ${cell.category}`);
+        console.log(`       Factors: Conc=${cell.factors.concentration}, Edge=${cell.factors.edge}, Quality=${cell.factors.quality}`);
+      });
+    }
+
+    // Correlation risks
+    if (analysis.correlationRisk.length > 0) {
+      console.log('\n  🔗 CORRELATION RISKS:');
+      analysis.correlationRisk.slice(0, 5).forEach(risk => {
+        const emoji = risk.riskLevel === 'high' ? '🔴' : risk.riskLevel === 'medium' ? '🟠' : '🟢';
+        if (risk.type === 'hedge') {
+          console.log(`    💚 ${risk.pair}: Hedge opportunity (${risk.note})`);
+        } else {
+          console.log(`    ${emoji} ${risk.pair}: ${risk.correlation} correlation`);
+        }
+      });
+    }
+
+    // Warnings
+    if (analysis.warnings.length > 0) {
+      console.log('\n  ⚠️  WARNINGS:');
+      analysis.warnings.forEach(w => {
+        const emoji = w.severity === 'critical' ? '🔴' : w.severity === 'high' ? '🟠' : '🟡';
+        console.log(`    ${emoji} ${w.message}`);
+      });
+    }
+  }
+
+  getRiskEmoji(score) {
+    if (score >= 70) return '🔴';
+    if (score >= 50) return '🟠';
+    if (score >= 30) return '🟡';
+    return '🟢';
+  }
+}
+
 async function cachedFetch(key, fetchFn, ttlMs) {
   const cached = cache.get(key);
   if (cached) {
@@ -2995,13 +3333,10 @@ async function main() {
   // Print win rate analytics report
   winRateAnalytics.printReport();
 
-  // Get recommendations based on historical performance
-  const winRateRecommendations = winRateAnalytics.getRecommendations();
-
-  // Run backtesting simulations
-  const backtestFramework = new BacktestingFramework();
-  const backtestResults = backtestFramework.runAllStrategies();
-  backtestFramework.printComparisonReport(backtestResults);
+  // Generate Portfolio Heat Map (using empty positions since this is a scanner, not portfolio tracker)
+  const portfolioHeatMap = new PortfolioHeatMap(10000);
+  const heatMapAnalysis = portfolioHeatMap.analyzePortfolio([], allTrades);
+  portfolioHeatMap.printReport(heatMapAnalysis);
   
   const arbitrage = detectArbitrage(allTrades);
   
@@ -3069,6 +3404,7 @@ async function main() {
     winRateRecommendations,
     twitterSentiment: categorySentiment,
     backtestResults,
+    heatMap: heatMapAnalysis,
     news: relevantNews.slice(0, 10), // Top 10 relevant news articles
     weatherLags,
     triggeredAlerts: triggeredAlerts.slice(0, 20), // Top 20 threshold alerts
