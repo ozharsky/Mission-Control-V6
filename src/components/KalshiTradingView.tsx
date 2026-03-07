@@ -75,6 +75,7 @@ interface KalshiTrade {
     profitPotential: string;
     pmUrl: string;
   };
+}
 
 interface PaperPosition {
   id: string;
