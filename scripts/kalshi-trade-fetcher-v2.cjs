@@ -286,6 +286,80 @@ function calculateRiskMetrics(trade, bankroll = 10000) {
   };
 }
 
+// Check Polymarket for arbitrage opportunities
+async function fetchPolymarketData() {
+  try {
+    // Polymarket Gamma API endpoint
+    const url = 'https://gamma-api.polymarket.com/events?active=true&closed=false&archived=false&limit=100';
+    const data = await fetchWithRetry(url, {}, 2);
+    return data || [];
+  } catch (e) {
+    console.log('⚠️ Polymarket fetch failed:', e.message);
+    return [];
+  }
+}
+
+// Map Kalshi ticker to Polymarket slug
+function getPolymarketSlug(kalshiTicker) {
+  const mapping = {
+    'KXBTC': 'bitcoin',
+    'KXETH': 'ethereum',
+    'KXFED': 'fed-funds-rate',
+    'KXCPI': 'cpi-inflation',
+    'KXJOBS': 'nonfarm-payrolls',
+    'KXTRUMP': 'trump-approval-rating'
+  };
+  
+  const series = kalshiTicker.split('-')[0];
+  return mapping[series];
+}
+
+// Calculate Polymarket arbitrage
+function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
+  const slug = getPolymarketSlug(kalshiTrade.ticker);
+  if (!slug) return null;
+  
+  // Find matching Polymarket event
+  const pmEvent = pmEvents.find(e => 
+    e.title?.toLowerCase().includes(slug) ||
+    e.slug?.includes(slug)
+  );
+  
+  if (!pmEvent || !pmEvent.markets || pmEvent.markets.length === 0) return null;
+  
+  // Get Polymarket price (Yes token price, 0-1 scale)
+  const pmMarket = pmEvent.markets[0];
+  const pmYesPrice = pmMarket.outcomePrices ? 
+    parseFloat(pmMarket.outcomePrices.split(',')[0]) * 100 : // Convert to cents
+    50; // Default if no price
+  
+  const kalshiYesPrice = kalshiTrade.yesPrice;
+  
+  // Calculate arbitrage
+  const priceDiff = Math.abs(kalshiYesPrice - pmYesPrice);
+  const percentDiff = (priceDiff / Math.min(kalshiYesPrice, pmYesPrice)) * 100;
+  
+  // Minimum 5% difference to qualify as arbitrage
+  if (percentDiff < 5) return null;
+  
+  // Determine which platform is cheaper
+  const buyOn = kalshiYesPrice < pmYesPrice ? 'Kalshi' : 'Polymarket';
+  const sellOn = kalshiYesPrice < pmYesPrice ? 'Polymarket' : 'Kalshi';
+  
+  return {
+    ticker: kalshiTrade.ticker,
+    kalshiPrice: kalshiYesPrice,
+    polymarketPrice: pmYesPrice.toFixed(1),
+    priceDiff: priceDiff.toFixed(1),
+    percentDiff: percentDiff.toFixed(1),
+    buyOn,
+    sellOn,
+    profitPotential: priceDiff.toFixed(1),
+    pmEventTitle: pmEvent.title,
+    pmUrl: `https://polymarket.com/event/${pmEvent.slug}`
+  };
+}
+
 // Check alert thresholds
 function checkAlerts(trade, momentum, whaleData, clv) {
   const alerts = [];
@@ -726,6 +800,26 @@ async function main() {
   // Save updated history
   await saveHistory(history);
   
+  // Fetch Polymarket data for cross-platform arbitrage
+  console.log('\n🔗 Checking Polymarket for arbitrage...');
+  const pmEvents = await fetchPolymarketData();
+  console.log(`  Found ${pmEvents.length} Polymarket events`);
+  
+  // Calculate Polymarket arbitrage opportunities
+  const polymarketArbs = [];
+  for (const trade of allTrades) {
+    const arb = calculatePolymarketArbitrage(trade, pmEvents);
+    if (arb) {
+      polymarketArbs.push(arb);
+      // Add polymarket data to trade
+      trade.polymarketArb = arb;
+    }
+  }
+  
+  if (polymarketArbs.length > 0) {
+    console.log(`  🎯 Found ${polymarketArbs.length} Polymarket arbitrage opportunities!`);
+  }
+  
   // Detect correlations
   const correlations = detectCorrelations(allTrades);
   
@@ -767,12 +861,13 @@ async function main() {
   
   const output = {
     scan_time: new Date().toISOString(),
-    source: 'kalshi-fetcher-v2.4',
+    source: 'kalshi-fetcher-v2.5',
     summary: {
       totalMarkets: SERIES.length * CONFIG.maxMarketsPerSeries,
       analyzed: allTrades.length,
       opportunities: topTrades.length,
       arbitrage: arbitrage.length,
+      polymarketArbs: polymarketArbs.length,
       whaleAlerts: whaleAlerts.length,
       correlations: correlations.length,
       totalAlerts,
@@ -785,6 +880,7 @@ async function main() {
       }
     },
     arbitrage,
+    polymarketArbs,
     whaleAlerts,
     correlations,
     errors,
@@ -807,8 +903,17 @@ async function main() {
   }
   
   console.log('\n📊 RESULTS:');
-  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Alerts: ${totalAlerts} | Errors: ${errors.length}`);
+  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Polymarket: ${polymarketArbs.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Alerts: ${totalAlerts} | Errors: ${errors.length}`);
   console.log('By category:', output.summary.byCategory);
+  
+  // Show Polymarket arbitrage opportunities
+  if (polymarketArbs.length > 0) {
+    console.log('\n🔗 POLYMARKET ARBITRAGE:');
+    polymarketArbs.slice(0, 5).forEach(a => {
+      console.log(`  ${a.ticker}: Buy on ${a.buyOn} @ ${a.buyOn === 'Kalshi' ? a.kalshiPrice : a.polymarketPrice}¢ → Sell on ${a.sellOn} @ ${a.sellOn === 'Kalshi' ? a.kalshiPrice : a.polymarketPrice}¢`);
+      console.log(`     Profit: ${a.profitPotential}¢ (${a.percentDiff}% spread)`);
+    });
+  }
   
   // Show alerts summary
   const urgentAlerts = topTrades.flatMap(t => t.alerts?.filter(a => a.severity === 'urgent') || []);
