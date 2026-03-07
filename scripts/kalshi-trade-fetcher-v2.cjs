@@ -71,6 +71,16 @@ const CONFIG = {
     rssTtl: 15 * 60 * 1000,        // 15 minutes
     nwsTtl: 60 * 60 * 1000,        // 1 hour
     polymarketTtl: 5 * 60 * 1000,  // 5 minutes
+  },
+  // Alert thresholds
+  alerts: {
+    edge: { min: 20, urgent: 30 },              // Edge % thresholds
+    whale: { minMultiplier: 5, minVolume: 50000 }, // Whale activity
+    arbitrage: { minSpread: 10 },               // Arbitrage spread %
+    rScore: { min: 2.5 },                       // R-Score threshold
+    priceChange: { min: 10 },                   // 24h price change %
+    sentiment: { min: 0.5 },                    // Sentiment score threshold
+    weatherLag: { minDiff: 15 }                 // Weather lag % difference
   }
 };
 
@@ -145,6 +155,150 @@ class MemoryCache {
 
 // Initialize cache
 const cache = new MemoryCache();
+
+// Alert Manager - track and deliver alerts
+class AlertManager {
+  constructor() {
+    this.alerts = [];
+    this.triggeredKeys = new Set(); // Track already-triggered alerts to avoid duplicates
+  }
+  
+  checkThresholds(trades, polymarketArbs, weatherLags) {
+    const newAlerts = [];
+    
+    for (const trade of trades) {
+      // Edge threshold
+      if (parseFloat(trade.edge) >= CONFIG.alerts.edge.urgent) {
+        newAlerts.push(this.createAlert('edge', 'urgent', 
+          `🔥 ${trade.ticker}: Edge ${trade.edge}% (threshold: ${CONFIG.alerts.edge.urgent}%)`,
+          trade));
+      } else if (parseFloat(trade.edge) >= CONFIG.alerts.edge.min) {
+        newAlerts.push(this.createAlert('edge', 'high',
+          `📈 ${trade.ticker}: Edge ${trade.edge}% (threshold: ${CONFIG.alerts.edge.min}%)`,
+          trade));
+      }
+      
+      // R-Score threshold
+      if (parseFloat(trade.rScore) >= CONFIG.alerts.rScore.min) {
+        newAlerts.push(this.createAlert('rScore', 'high',
+          `⭐ ${trade.ticker}: R-Score ${trade.rScore} (threshold: ${CONFIG.alerts.rScore.min})`,
+          trade));
+      }
+      
+      // Whale activity threshold
+      if (trade.whale && parseFloat(trade.whaleSpikeRatio) >= CONFIG.alerts.whale.minMultiplier) {
+        newAlerts.push(this.createAlert('whale', 'high',
+          `🐋 ${trade.ticker}: Whale activity ${trade.whaleSpikeRatio}x (threshold: ${CONFIG.alerts.whale.minMultiplier}x)`,
+          trade));
+      }
+      
+      // Price momentum threshold
+      if (trade.momentum === 'surging' && Math.abs(parseFloat(trade.momentumChange24h)) >= CONFIG.alerts.priceChange.min) {
+        newAlerts.push(this.createAlert('momentum', 'medium',
+          `🚀 ${trade.ticker}: Surging +${trade.momentumChange24h}% in 24h`,
+          trade));
+      }
+      
+      // News sentiment threshold
+      if (trade.sentimentSignal && Math.abs(trade.sentimentSignal.score) >= CONFIG.alerts.sentiment.min) {
+        const direction = trade.sentimentSignal.score > 0 ? 'bullish' : 'bearish';
+        newAlerts.push(this.createAlert('sentiment', 'medium',
+          `📰 ${trade.ticker}: ${direction} news sentiment (${trade.sentimentSignal.score.toFixed(2)})`,
+          trade));
+      }
+    }
+    
+    // Arbitrage alerts
+    for (const arb of polymarketArbs) {
+      if (parseFloat(arb.percentDiff) >= CONFIG.alerts.arbitrage.minSpread) {
+        newAlerts.push(this.createAlert('arbitrage', 'urgent',
+          `🔗 ARBITRAGE: ${arb.ticker} ${arb.percentDiff}% spread (Buy on ${arb.buyOn})`,
+          null, arb));
+      }
+    }
+    
+    // Weather lag alerts
+    for (const lag of weatherLags) {
+      if (Math.abs(parseFloat(lag.probabilityDiff)) >= CONFIG.alerts.weatherLag.minDiff) {
+        newAlerts.push(this.createAlert('weatherLag', 'high',
+          `🌤️ WEATHER LAG: ${lag.city} ${lag.targetDate} - NWS ${lag.forecastHigh}°F vs Kalshi ${lag.kalshiProbability}% (${lag.probabilityDiff}% diff)`,
+          null, null, lag));
+      }
+    }
+    
+    // Filter out duplicates
+    const uniqueAlerts = newAlerts.filter(alert => {
+      const key = `${alert.type}-${alert.ticker || alert.arb?.ticker || alert.lag?.city}`;
+      if (this.triggeredKeys.has(key)) return false;
+      this.triggeredKeys.add(key);
+      return true;
+    });
+    
+    this.alerts.push(...uniqueAlerts);
+    return uniqueAlerts;
+  }
+  
+  createAlert(type, severity, message, trade = null, arb = null, lag = null) {
+    return {
+      id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      type,
+      severity,
+      message,
+      timestamp: new Date().toISOString(),
+      ticker: trade?.ticker || arb?.ticker,
+      trade,
+      arb,
+      lag
+    };
+  }
+  
+  getUrgentAlerts() {
+    return this.alerts.filter(a => a.severity === 'urgent');
+  }
+  
+  getHighAlerts() {
+    return this.alerts.filter(a => a.severity === 'high');
+  }
+  
+  formatForDiscord() {
+    const urgent = this.getUrgentAlerts();
+    const high = this.getHighAlerts();
+    
+    let formatted = '';
+    
+    if (urgent.length > 0) {
+      formatted += '## 🚨 URGENT ALERTS\n';
+      urgent.forEach(a => formatted += `- ${a.message}\n`);
+      formatted += '\n';
+    }
+    
+    if (high.length > 0) {
+      formatted += '## ⚠️ HIGH PRIORITY\n';
+      high.slice(0, 5).forEach(a => formatted += `- ${a.message}\n`);
+    }
+    
+    return formatted || null;
+  }
+  
+  printSummary() {
+    const urgent = this.getUrgentAlerts().length;
+    const high = this.getHighAlerts().length;
+    const medium = this.alerts.filter(a => a.severity === 'medium').length;
+    
+    if (this.alerts.length > 0) {
+      console.log('\n🚨 ALERT SUMMARY:');
+      if (urgent > 0) console.log(`  🔥 URGENT: ${urgent}`);
+      if (high > 0) console.log(`  ⚠️ HIGH: ${high}`);
+      if (medium > 0) console.log(`  ℹ️ MEDIUM: ${medium}`);
+      
+      console.log('\n📢 TOP ALERTS:');
+      this.alerts.slice(0, 5).forEach(a => {
+        const icon = a.severity === 'urgent' ? '🔥' : a.severity === 'high' ? '⚠️' : 'ℹ️';
+        console.log(`  ${icon} ${a.message}`);
+      });
+    }
+  }
+}
 
 // Cached fetch wrapper
 async function cachedFetch(key, fetchFn, ttlMs) {
@@ -1309,6 +1463,12 @@ async function main() {
     }
   }
   
+  // Check threshold-based alerts
+  console.log('\n🔔 Checking alert thresholds...');
+  const alertManager = new AlertManager();
+  const triggeredAlerts = alertManager.checkThresholds(allTrades, polymarketArbs, weatherLags);
+  alertManager.printSummary();
+  
   const fetchTime = ((Date.now() - scanStartTime) / 1000).toFixed(1);
   console.log(`\n⚡ Fetched ${SERIES.length} series in ${fetchTime}s (parallel mode)\n`);
   
@@ -1431,6 +1591,11 @@ async function main() {
   // Count all alerts
   const totalAlerts = topTrades.reduce((sum, t) => sum + (t.alerts?.length || 0), 0);
   
+  // Get threshold alert counts by severity
+  const thresholdUrgent = triggeredAlerts.filter(a => a.severity === 'urgent').length;
+  const thresholdHigh = triggeredAlerts.filter(a => a.severity === 'high').length;
+  const thresholdMedium = triggeredAlerts.filter(a => a.severity === 'medium').length;
+  
   const output = {
     scan_time: new Date().toISOString(),
     source: 'kalshi-fetcher-v2.6',
@@ -1446,6 +1611,12 @@ async function main() {
       relevantNews: relevantNews.length,
       weatherLags: weatherLags.length,
       totalAlerts,
+      triggeredAlerts: {
+        urgent: thresholdUrgent,
+        high: thresholdHigh,
+        medium: thresholdMedium,
+        total: triggeredAlerts.length
+      },
       errors: errors.length,
       byCategory: {
         weather: byCategory.weather.length,
@@ -1460,6 +1631,7 @@ async function main() {
     correlations,
     news: relevantNews.slice(0, 10), // Top 10 relevant news articles
     weatherLags,
+    triggeredAlerts: triggeredAlerts.slice(0, 20), // Top 20 threshold alerts
     errors,
     opportunities: topTrades
   };

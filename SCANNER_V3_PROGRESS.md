@@ -2,8 +2,8 @@
 
 ## Quick Wins (30 min each)
 - [x] 1. Parallel API Fetching - Fetch all series simultaneously
-- [ ] 2. Smart Caching Layer - Cache RSS/NWS/Polymarket data
-- [ ] 3. Threshold-Based Alerts - Customizable alert system
+- [x] 2. Smart Caching Layer - Cache RSS/NWS/Polymarket data
+- [ ] 3. Threshold-Based Alerts - Customizable alert system (IN PROGRESS)
 
 ## Medium Effort (1-2 hours)
 - [ ] 4. Edge Decay Tracking - Track edge changes over time
@@ -30,4 +30,5 @@
 
 ## Status
 **Started:** 2026-03-08 02:38 GMT+8
-**Current:** Item #1 - Parallel API Fetching
+**Current:** Item #3 - Threshold-Based Alerts
+**Last Commit:** 487b564 - Smart Caching Layer
