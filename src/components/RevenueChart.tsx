@@ -362,15 +362,15 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         </div>
       </div>
 
-      {/* Mini Charts Row */}
+      {/* Mini Charts Row - 2 columns on desktop */}
       {filteredData.length > 1 && (
-        <div className="grid grid-cols-1 gap-4 grid-cols-1">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
             <div className="mb-2 flex items-center gap-2">
               <Activity className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">Revenue Trend</span>
             </div>
-            <div className="h-16">
+            <div className="h-20">
               <LineChart data={filteredData.map(d => d.value)} color="primary" />
             </div>
           </div>
@@ -380,20 +380,27 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
               <ShoppingCart className="h-4 w-4 text-success" />
               <span className="text-sm font-medium">Orders Trend</span>
             </div>
-            <div className="h-16">
+            <div className="h-20">
               <LineChart data={filteredData.map(d => d.orders)} color="success" />
             </div>
           </div>
           
-          {/* MoM Growth Chart */}
+          {/* MoM Growth Chart - spans full width */}
           {stats.momGrowth.length > 1 && (
-            <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-info" />
-                <span className="text-sm font-medium">MoM Growth %</span>
+            <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4 lg:col-span-2">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-info" />
+                  <span className="text-sm font-medium">MoM Growth %</span>
+                </div>
+                <span className="text-xs text-gray-400">
+                  Avg: {stats.avgMomGrowth >= 0 ? '+' : ''}{stats.avgMomGrowth}%
+                </span>
               </div>
-              <div className="h-16">
+              <div className="h-20">
                 <svg viewBox="0 0 100 100" className="h-full w-full" preserveAspectRatio="none">
+                  {/* Zero line */}
+                  <line x1="0" y1="50" x2="100" y2="50" stroke="#374151" strokeWidth="0.5" strokeDasharray="2" />
                   {stats.momGrowth.slice(1).map((m, idx, arr) => {
                     const maxGrowth = Math.max(...arr.map(x => Math.abs(x.growth)), 10);
                     const x1 = (idx / (arr.length - 1 || 1)) * 100;
@@ -408,7 +415,8 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                         x2={x2}
                         y2={y2}
                         stroke={arr[idx + 1]?.growth >= 0 ? '#22c55e' : '#ef4444'}
-                        strokeWidth="2"
+                        strokeWidth="3"
+                        strokeLinecap="round"
                       />
                     );
                   })}
@@ -416,6 +424,8 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
               </div>
             </div>
           )}
+        </div>
+      )}
           
           <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
             <div className="mb-2 flex items-center gap-2">
