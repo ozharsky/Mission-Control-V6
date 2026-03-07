@@ -682,16 +682,16 @@ async function fetchRSSFeeds() {
     { name: 'NationalReview', url: 'https://www.nationalreview.com/feed/', category: 'politics' },
     // Markets/Finance
     { name: 'MarketWatch', url: 'https://www.marketwatch.com/rss/topstories', category: 'markets' },
-    { name: 'Kiplinger', url: 'https://www.kiplinger.com/feed', category: 'markets' },
     { name: 'Investing', url: 'https://www.investing.com/rss/news.rss', category: 'markets' },
     { name: 'FXStreet', url: 'https://www.fxstreet.com/rss/news', category: 'markets' },
+    { name: 'Barron', url: 'https://www.barrons.com/rss', category: 'markets' },
     // General News
     { name: 'NPR', url: 'https://feeds.npr.org/1001/rss.xml', category: 'general' },
-    { name: 'PBS', url: 'https://www.pbs.org/newshour/feeds/rss/politics', category: 'general' },
-    { name: 'CSMonitor', url: 'https://www.csmonitor.com/rss/top.rss', category: 'general' },
+    { name: 'USNews', url: 'https://www.usnews.com/rss/news', category: 'general' },
+    { name: 'TheHill', url: 'https://thehill.com/rss/syndicator/19110', category: 'general' },
     // Weather
     { name: 'NOAA', url: 'https://www.weather.gov/rss_page.php?site_name=nws', category: 'weather' },
-    { name: 'AccuWeather', url: 'https://www.accuweather.com/en-us/weather/news/news-rss.aspx', category: 'weather' }
+    { name: 'WeatherNation', url: 'https://weathernation.tv/feed/', category: 'weather' }
   ];
   
   const articles = [];
