@@ -1472,6 +1472,7 @@ async function main() {
   const allTrades = [];
   const errors = [];
   const whaleAlerts = [];
+  const edgeDecayTracker = new EdgeDecayTracker();
   
   // Process series in parallel with concurrency limit
   console.log(`📊 Fetching ${SERIES.length} series with max 5 concurrent...\n`);
@@ -1638,9 +1639,6 @@ async function main() {
   
   // Save updated history
   await saveHistory(history);
-  
-  // Initialize edge decay tracker
-  const edgeDecayTracker = new EdgeDecayTracker();
   
   // Fetch Polymarket data with caching
   console.log('\n🔗 Checking Polymarket for arbitrage...');

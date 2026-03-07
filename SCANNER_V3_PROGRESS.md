@@ -6,7 +6,7 @@
 - [x] 3. Threshold-Based Alerts - Customizable alert system (IN PROGRESS)
 
 ## Medium Effort (1-2 hours)
-- [ ] 4. Edge Decay Tracking - Track edge changes over time (IN PROGRESS)
+- [x] 4. Edge Decay Tracking - Track edge changes over time (IN PROGRESS)
 - [ ] 5. Multi-Factor Scoring - Replace composite score with weighted model
 - [ ] 6. Cross-Market Correlation Matrix - Track market relationships
 - [ ] 7. Win Rate by Category/Time - Historical performance analytics
