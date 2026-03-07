@@ -87,9 +87,6 @@ function LineChart({ data, color = 'primary' }: { data: number[]; color?: string
       />
     </svg>
   );
-}
-
-  const [viewMode, setViewMode] = useState<'chart' | 'table' | 'insights'>('chart');
 // Smooth mini sparkline with thin lines
 function SmoothMiniChart({ 
   data, 
@@ -202,7 +199,8 @@ function SmoothMiniChart({
   );
 }
 
-export function RevenueChart({ data, goal }: RevenueChartProps) {  const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m' | 'all'>('all');
+export function RevenueChart({ data, goal }: RevenueChartProps) {
+  const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m' | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<RevenueData | null>(null);
