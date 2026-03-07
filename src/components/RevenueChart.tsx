@@ -89,6 +89,75 @@ function LineChart({ data, color = 'primary' }: { data: number[]; color?: string
   );
 }
 
+// Mini sparkline chart for stat cards
+function MiniChart({ data, color, labels }: { data: number[]; color: string; labels?: string[] }) {
+  if (data.length === 0) return null;
+
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+
+  // Create SVG path
+  const points = data.map((val, idx) => {
+    const x = (idx / (data.length - 1 || 1)) * 100;
+    const y = 100 - ((val - min) / range) * 80 - 10;
+    return `${x},${y}`;
+  }).join(' ');
+
+  // Create area path (closed at bottom)
+  const areaPoints = `0,100 ${points} 100,100`;
+
+  const gradientId = `gradient-${color.replace('#', '').replace(/[^a-zA-Z0-9]/g, '')}`;
+
+  return (
+    <div className="relative h-24 w-full">
+      <svg viewBox="0 0 100 100" className="h-full w-full" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        <polygon points={areaPoints} fill={`url(#${gradientId})`} />
+
+        <polyline
+          points={points}
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {data.map((val, idx) => {
+          const x = (idx / (data.length - 1 || 1)) * 100;
+          const y = 100 - ((val - min) / range) * 80 - 10;
+          const isLast = idx === data.length - 1;
+          return (
+            <circle
+              key={idx}
+              cx={x}
+              cy={y}
+              r={isLast ? "3" : "2"}
+              fill={isLast ? color : "transparent"}
+              stroke={color}
+              strokeWidth="2"
+            />
+          );
+        })}
+      </svg>
+
+      {labels && labels.length > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[10px] text-gray-500 px-1">
+          {labels.filter((_, i) => i === 0 || i === Math.floor(labels.length / 2) || i === labels.length - 1).map((label, i) => (
+            <span key={i}>{label}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 export function RevenueChart({ data, goal }: RevenueChartProps) {
   const [viewMode, setViewMode] = useState<'chart' | 'table' | 'insights'>('chart');
   const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m' | 'all'>('all');
@@ -362,41 +431,43 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         </div>
       </div>
 
-      {/* Mini Charts - Revenue & Orders Stats */}
+      {/* Mini Charts - Revenue & Orders Trends */}
       {filteredData.length > 1 && (
-        <div className="grid grid-cols-2 gap-4">
-          {/* Revenue Trend Stat */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Revenue Trend Chart */}
           <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium text-gray-300">Revenue Trend</span>
               </div>
-              <span className="text-xs text-gray-500">vs last month</span>
+              <span className={`text-xs font-medium ${stats.trend >= 0 ? 'text-success' : 'text-danger'}`}>
+                {stats.trend >= 0 ? '↑' : '↓'} {Math.abs(stats.trend)}%
+              </span>
             </div>
-            <div className="text-2xl font-bold text-primary">
-              {formatCurrency(filteredData[filteredData.length - 1]?.value || 0)}
-            </div>
-            <div className={`text-sm ${stats.trend >= 0 ? 'text-success' : 'text-danger'}`}>
-              {stats.trend >= 0 ? '↑' : '↓'} {Math.abs(stats.trend)}%
-            </div>
+            <MiniChart 
+              data={filteredData.map(d => d.value)} 
+              color="#6366f1" 
+              labels={filteredData.map(d => d.month.slice(5))}
+            />
           </div>
           
-          {/* Orders Trend Stat */}
+          {/* Orders Trend Chart */}
           <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium text-gray-300">Orders Trend</span>
               </div>
-              <span className="text-xs text-gray-500">vs last month</span>
+              <span className="text-xs font-medium text-success">
+                {stats.orders} total
+              </span>
             </div>
-            <div className="text-2xl font-bold text-success">
-              {filteredData[filteredData.length - 1]?.orders || 0}
-            </div>
-            <div className="text-sm text-gray-500">
-              Total: {stats.orders} orders
-            </div>
+            <MiniChart 
+              data={filteredData.map(d => d.orders)} 
+              color="#22c55e" 
+              labels={filteredData.map(d => d.month.slice(5))}
+            />
           </div>
         </div>
       )}
