@@ -624,18 +624,137 @@ function detectCorrelations(trades) {
   return correlations;
 }
 
-// Calculate composite score combining all factors
+// Multi-Factor Scoring Model (v3.0)
+// Weighted scoring: Edge (40%), Liquidity (20%), Time (15%), History (15%), Sentiment (10%)
+const SCORING_WEIGHTS = {
+  edgeQuality: 0.40,
+  liquidityDepth: 0.20,
+  timeToExpiration: 0.15,
+  historicalAccuracy: 0.15,
+  newsSentiment: 0.10
+};
+
+function calculateMultiFactorScore(trade, momentum, clv, whaleData, sentiment = null) {
+  const scores = {
+    edgeQuality: calculateEdgeQualityScore(trade, clv),
+    liquidityDepth: calculateLiquidityScore(trade, whaleData),
+    timeToExpiration: calculateTimeScore(trade),
+    historicalAccuracy: calculateHistoricalAccuracyScore(trade, momentum),
+    newsSentiment: calculateSentimentScore(trade, sentiment)
+  };
+
+  // Weighted sum
+  let weightedScore = 0;
+  let totalWeight = 0;
+
+  for (const [factor, weight] of Object.entries(SCORING_WEIGHTS)) {
+    weightedScore += scores[factor] * weight;
+    totalWeight += weight;
+  }
+
+  const finalScore = weightedScore / totalWeight;
+
+  return {
+    total: Math.round(finalScore * 100) / 100,
+    breakdown: scores,
+    weights: SCORING_WEIGHTS
+  };
+}
+
+// Edge Quality (40%): Based on R-score and edge stability
+function calculateEdgeQualityScore(trade, clv) {
+  let score = parseFloat(trade.rScore) || 0;
+
+  // Normalize to 0-10 scale (R-score typically 0-5)
+  score = Math.min(10, score * 2);
+
+  // Bonus for stable/improving edge
+  if (!clv.isEdgeDeteriorating) score += 1;
+  if (clv.edgeChange > 0) score += 0.5;
+
+  // Penalty for decaying edge
+  if (clv.isEdgeDeteriorating) score -= 1.5;
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// Liquidity Depth (20%): Based on volume, spread, whale activity
+function calculateLiquidityScore(trade, whaleData) {
+  let score = 5; // Start neutral
+
+  const volume = trade.volume || 0;
+  const spread = parseFloat(trade.spread) || 0;
+
+  // Volume scoring (higher = better)
+  if (volume > 100000) score += 2;
+  else if (volume > 50000) score += 1.5;
+  else if (volume > 10000) score += 1;
+  else if (volume < 1000) score -= 1;
+
+  // Spread scoring (lower = better)
+  if (spread < 2) score += 1.5;
+  else if (spread < 5) score += 1;
+  else if (spread > 10) score -= 1;
+
+  // Whale activity bonus
+  if (whaleData.isWhale) score += 0.5;
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// Time to Expiration (15%): Closer expiration = higher confidence
+function calculateTimeScore(trade) {
+  if (!trade.closeTime) return 5;
+
+  const close = new Date(trade.closeTime);
+  const now = new Date();
+  const hoursUntil = (close - now) / (1000 * 60 * 60);
+  const daysUntil = hoursUntil / 24;
+
+  // Optimal: 1-7 days out (high confidence)
+  if (daysUntil <= 1) return 8;
+  if (daysUntil <= 3) return 9;
+  if (daysUntil <= 7) return 8.5;
+  if (daysUntil <= 14) return 7;
+  if (daysUntil <= 30) return 6;
+
+  // Too far out = lower confidence
+  return 4;
+}
+
+// Historical Accuracy (15%): Based on momentum and past performance
+function calculateHistoricalAccuracyScore(trade, momentum) {
+  let score = 5;
+
+  // Momentum bonus
+  if (momentum.trend === 'surging') score += 2;
+  else if (momentum.trend === 'rising') score += 1;
+  else if (momentum.trend === 'falling') score -= 0.5;
+  else if (momentum.trend === 'crashing') score -= 1.5;
+
+  // Volume trend
+  const volumeChange = momentum.change24h || 0;
+  if (volumeChange > 50) score += 1;
+  else if (volumeChange > 20) score += 0.5;
+  else if (volumeChange < -30) score -= 0.5;
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// News Sentiment (10%): Based on sentiment analysis
+function calculateSentimentScore(trade, sentiment) {
+  if (!sentiment || !trade.sentimentSignal) return 5; // Neutral if no data
+
+  const score = trade.sentimentSignal.score || 0;
+
+  // Convert -1 to +1 scale to 0-10
+  return 5 + (score * 5);
+}
+
+// Legacy function - kept for backward compatibility
 function calculateCompositeScore(trade, momentum, clv, whaleData) {
-  let score = parseFloat(trade.rScore);
-  
-  if (momentum.trend === 'surging') score += 0.5;
-  else if (momentum.trend === 'rising') score += 0.3;
-  else if (momentum.trend === 'crashing') score -= 0.5;
-  
-  if (whaleData.isWhale) score += 0.3;
-  if (clv.isEdgeDeteriorating) score -= 0.5;
-  
-  return Math.max(0, score);
+  const multiFactor = calculateMultiFactorScore(trade, momentum, clv, whaleData);
+  return multiFactor.total;
 }
 
 // Brier Score calculation - measures prediction accuracy
@@ -1729,7 +1848,9 @@ async function main() {
     const whaleData = detectWhale(trade.volume, history, trade.ticker);
     const clv = calculateHistoricalEdge(parseFloat(trade.edge), history, trade.ticker);
     
-    trade.compositeScore = calculateCompositeScore(trade, momentum, clv, whaleData).toFixed(2);
+    const multiFactorScore = calculateMultiFactorScore(trade, momentum, clv, whaleData, relevantNews);
+    trade.compositeScore = multiFactorScore.total.toFixed(2);
+    trade.multiFactorScore = multiFactorScore; // Store full breakdown
   }
   
   // Re-sort by composite score
@@ -1831,6 +1952,19 @@ async function main() {
   console.log('\n📊 RESULTS:');
   console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Polymarket: ${polymarketArbs.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Weather Lags: ${weatherLags.length} | Alerts: ${totalAlerts} | Errors: ${errors.length}`);
   console.log('By category:', output.summary.byCategory);
+
+  // Show multi-factor scoring summary
+  if (topTrades.length > 0) {
+    console.log('\n🎯 MULTI-FACTOR SCORING (v3.0):');
+    console.log('  Weights: Edge 40% | Liquidity 20% | Time 15% | History 15% | Sentiment 10%');
+    topTrades.slice(0, 3).forEach((t, i) => {
+      if (t.multiFactorScore) {
+        const b = t.multiFactorScore.breakdown;
+        console.log(`  ${i + 1}. ${t.ticker}: ${t.multiFactorScore.total} total`);
+        console.log(`     Edge: ${b.edgeQuality.toFixed(1)} | Liq: ${b.liquidityDepth.toFixed(1)} | Time: ${b.timeToExpiration.toFixed(1)} | Hist: ${b.historicalAccuracy.toFixed(1)} | Sent: ${b.newsSentiment.toFixed(1)}`);
+      }
+    });
+  }
   
   // Show alternative data summary
   if (relevantNews.length > 0) {
@@ -1876,7 +2010,14 @@ async function main() {
     const whaleIcon = t.whale ? '🐋 ' : '';
     const urgentIcon = t.recommendation === 'buy_urgent' ? '🔥 ' : '';
     console.log(`${i + 1}. ${urgentIcon}${whaleIcon}${t.ticker} | ${t.title.slice(0, 25)}...`);
-    console.log(`   📊 Composite: ${t.compositeScore} | ${momentumIcon} ${t.yesPrice}¢ | 📈 +${t.edge}% edge | ⭐ ${t.rScore} R-score`);
+    console.log(`   📊 Score: ${t.compositeScore} | ${momentumIcon} ${t.yesPrice}¢ | 📈 +${t.edge}% edge | ⭐ ${t.rScore} R-score`);
+
+    // Show multi-factor breakdown
+    if (t.multiFactorScore) {
+      const b = t.multiFactorScore.breakdown;
+      console.log(`   🎯 Factors: Edge=${b.edgeQuality.toFixed(1)} Liq=${b.liquidityDepth.toFixed(1)} Time=${b.timeToExpiration.toFixed(1)} Hist=${b.historicalAccuracy.toFixed(1)} Sent=${b.newsSentiment.toFixed(1)}`);
+    }
+
     if (t.whale) console.log(`   🐋 ${t.whaleSpikeRatio}x volume spike`);
     if (t.isEdgeDeteriorating) console.log(`   ⚠️ Edge deteriorating: ${t.edgeChange}%`);
     if (t.riskMetrics) {
