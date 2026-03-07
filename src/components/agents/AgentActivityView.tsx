@@ -87,34 +87,49 @@ function ActivityTimelineChart({ logs }: { logs: ActivityLogEntry[] }) {
       </div>
       
       {/* Bar Chart */}
-      <div className="h-48 flex items-end gap-2">
+      <div className="h-48 flex items-end gap-2 border-b border-gray-700 pb-1">
         {groupedData.dates.map((date) => {
           const dateData = groupedData.data[date] || {};
           const total = Object.values(dateData).reduce((sum, count) => sum + count, 0);
+          const barHeight = maxValue > 0 ? (total / maxValue) * 100 : 0;
           
           return (
-            <div key={date} className="flex-1 flex flex-col items-center gap-1">
-              <div className="w-full flex items-end justify-center gap-px h-full">
-                {groupedData.agents.map(agentId => {
-                  const count = dateData[agentId] || 0;
-                  const agentHeight = total > 0 ? (count / maxValue) * 100 : 0;
-                  return (
-                    <div
-                      key={agentId}
-                      className="w-2 rounded-t"
-                      style={{ 
-                        height: `${agentHeight}%`,
-                        backgroundColor: getAgentColor(agentId)
-                      }}
-                      title={`${AGENT_NAMES[agentId as keyof typeof AGENT_NAMES] || agentId}: ${count}`}
-                    />
-                  );
-                })}
+            <div key={date} className="flex-1 flex flex-col items-center gap-1 min-w-[30px]">
+              <div className="w-full flex items-end justify-center h-40 relative">
+                {/* Stacked bar for each agent */}
+                <div className="w-6 flex flex-col-reverse rounded-t overflow-hidden" style={{ height: `${barHeight}%`, minHeight: total > 0 ? '4px' : '0' }}>
+                  {groupedData.agents.map(agentId => {
+                    const count = dateData[agentId] || 0;
+                    const segmentHeight = total > 0 ? (count / total) * 100 : 0;
+                    if (count === 0) return null;
+                    return (
+                      <div
+                        key={agentId}
+                        className="w-full"
+                        style={{ 
+                          height: `${segmentHeight}%`,
+                          backgroundColor: getAgentColor(agentId),
+                          minHeight: '2px'
+                        }}
+                        title={`${AGENT_NAMES[agentId as keyof typeof AGENT_NAMES] || agentId}: ${count}`}
+                      />
+                    );
+                  })}
+                </div>
+                {/* Total count label */}
+                {total > 0 && (
+                  <span className="absolute -top-4 text-[10px] text-gray-400">{total}</span>
+                )}
               </div>
-              <span className="text-[10px] text-gray-500 rotate-0 whitespace-nowrap">{date}</span>
+              <span className="text-[10px] text-gray-500 whitespace-nowrap">{date}</span>
             </div>
           );
         })}
+      </div>
+      
+      {/* Summary */}
+      <div className="text-sm text-gray-400 text-center">
+        Showing {groupedData.dates.length} days • {logs.length} total activities
       </div>
     </div>
   );
