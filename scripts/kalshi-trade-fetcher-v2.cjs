@@ -180,6 +180,65 @@ function calculateHistoricalEdge(currentEdge, history, ticker) {
   return { edgeChange, avgHistoricalEdge, isEdgeDeteriorating };
 }
 
+// Detect correlated markets within a category
+function detectCorrelations(trades) {
+  const correlations = [];
+  
+  // Group by category
+  const byCategory = {};
+  for (const t of trades) {
+    if (!byCategory[t.category]) byCategory[t.category] = [];
+    byCategory[t.category].push(t);
+  }
+  
+  // Check for correlations within each category
+  for (const [category, categoryTrades] of Object.entries(byCategory)) {
+    if (categoryTrades.length < 2) continue;
+    
+    for (let i = 0; i < categoryTrades.length; i++) {
+      for (let j = i + 1; j < categoryTrades.length; j++) {
+        const t1 = categoryTrades[i];
+        const t2 = categoryTrades[j];
+        
+        const t1Base = t1.ticker.split('-').slice(0, 2).join('-');
+        const t2Base = t2.ticker.split('-').slice(0, 2).join('-');
+        
+        if (t1Base === t2Base && t1.ticker !== t2.ticker) {
+          const priceDiff = Math.abs(t1.yesPrice - t2.yesPrice);
+          const volumeRatio = Math.max(t1.volume, t2.volume) / Math.min(t1.volume, t2.volume);
+          
+          if (priceDiff < 20 && volumeRatio < 3) {
+            correlations.push({
+              type: 'same_event',
+              category,
+              market1: t1.ticker,
+              market2: t2.ticker,
+              priceDiff,
+              correlation: 'high'
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  return correlations;
+}
+
+// Calculate composite score combining all factors
+function calculateCompositeScore(trade, momentum, clv, whaleData) {
+  let score = parseFloat(trade.rScore);
+  
+  if (momentum.trend === 'surging') score += 0.5;
+  else if (momentum.trend === 'rising') score += 0.3;
+  else if (momentum.trend === 'crashing') score -= 0.5;
+  
+  if (whaleData.isWhale) score += 0.3;
+  if (clv.isEdgeDeteriorating) score -= 0.5;
+  
+  return Math.max(0, score);
+}
+
 async function fetchWithRetry(url, options = {}, retries = CONFIG.maxRetries) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -464,6 +523,22 @@ async function main() {
   // Save updated history
   await saveHistory(history);
   
+  // Detect correlations
+  const correlations = detectCorrelations(allTrades);
+  
+  // Calculate composite scores for top trades
+  for (const trade of allTrades) {
+    const tickerHistory = history[trade.ticker] || [];
+    const momentum = calculateMomentum(trade.yesPrice, history, trade.ticker);
+    const whaleData = detectWhale(trade.volume, history, trade.ticker);
+    const clv = calculateHistoricalEdge(parseFloat(trade.edge), history, trade.ticker);
+    
+    trade.compositeScore = calculateCompositeScore(trade, momentum, clv, whaleData).toFixed(2);
+  }
+  
+  // Re-sort by composite score
+  allTrades.sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
+  
   const arbitrage = detectArbitrage(allTrades);
   
   const byCategory = {
@@ -474,7 +549,7 @@ async function main() {
   };
   
   for (const cat in byCategory) {
-    byCategory[cat].sort((a, b) => parseFloat(b.rScore) - parseFloat(a.rScore));
+    byCategory[cat].sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
   }
   
   const topTrades = [
@@ -482,17 +557,18 @@ async function main() {
     ...byCategory.crypto.slice(0, 10),
     ...byCategory.politics.slice(0, 10),
     ...byCategory.economics.slice(0, 10)
-  ].sort((a, b) => parseFloat(b.rScore) - parseFloat(a.rScore));
+  ].sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
   
   const output = {
     scan_time: new Date().toISOString(),
-    source: 'kalshi-fetcher-v2.2',
+    source: 'kalshi-fetcher-v2.3',
     summary: {
       totalMarkets: SERIES.length * CONFIG.maxMarketsPerSeries,
       analyzed: allTrades.length,
       opportunities: topTrades.length,
       arbitrage: arbitrage.length,
       whaleAlerts: whaleAlerts.length,
+      correlations: correlations.length,
       errors: errors.length,
       byCategory: {
         weather: byCategory.weather.length,
@@ -503,6 +579,7 @@ async function main() {
     },
     arbitrage,
     whaleAlerts,
+    correlations,
     errors,
     opportunities: topTrades
   };
@@ -523,8 +600,15 @@ async function main() {
   }
   
   console.log('\n📊 RESULTS:');
-  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Whales: ${whaleAlerts.length} | Errors: ${errors.length}`);
+  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Errors: ${errors.length}`);
   console.log('By category:', output.summary.byCategory);
+  
+  if (correlations.length > 0) {
+    console.log('\n🔗 CORRELATIONS:');
+    correlations.slice(0, 5).forEach(c => {
+      console.log(`  ${c.category}: ${c.market1} ↔ ${c.market2} (${c.correlation})`);
+    });
+  }
   
   if (whaleAlerts.length > 0) {
     console.log('\n🐋 WHALE ALERTS:');
@@ -538,8 +622,8 @@ async function main() {
     const momentumIcon = t.momentum === 'surging' ? '🚀' : t.momentum === 'rising' ? '📈' : t.momentum === 'falling' ? '📉' : t.momentum === 'crashing' ? '💥' : '➡️';
     const whaleIcon = t.whale ? '🐋 ' : '';
     const urgentIcon = t.recommendation === 'buy_urgent' ? '🔥 ' : '';
-    console.log(`${i + 1}. ${urgentIcon}${whaleIcon}${t.ticker} | ${t.title.slice(0, 30)}...`);
-    console.log(`   ${momentumIcon} ${t.yesPrice}¢ | 📈 +${t.edge}% edge | ⭐ ${t.rScore} R-score | 💧 ${t.health} | 24h: ${t.momentumChange24h > 0 ? '+' : ''}${t.momentumChange24h}%`);
+    console.log(`${i + 1}. ${urgentIcon}${whaleIcon}${t.ticker} | ${t.title.slice(0, 25)}...`);
+    console.log(`   📊 Composite: ${t.compositeScore} | ${momentumIcon} ${t.yesPrice}¢ | 📈 +${t.edge}% edge | ⭐ ${t.rScore} R-score`);
     if (t.whale) console.log(`   🐋 ${t.whaleSpikeRatio}x volume spike`);
     if (t.isEdgeDeteriorating) console.log(`   ⚠️ Edge deteriorating: ${t.edgeChange}%`);
   });
