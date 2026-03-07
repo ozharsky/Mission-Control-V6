@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   TrendingUp, TrendingDown, Wallet, Target, Activity, BarChart3, 
   Calendar, Clock, Filter, ArrowUpRight, ArrowDownRight, RefreshCw,
@@ -267,6 +267,7 @@ export function KalshiTradingView() {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [scanSummary, setScanSummary] = useState<any>(null);
   const [isLoadingTrades, setIsLoadingTrades] = useState(true);
+  const hasLoadedScanner = useRef(false);
 
   // Load positions and stats from Firebase on mount
   useEffect(() => {
@@ -306,10 +307,16 @@ export function KalshiTradingView() {
 
   // Load scanner data and merge with RESEARCHED_TRADES
   useEffect(() => {
+    // Prevent duplicate loads on React strict mode re-renders
+    if (hasLoadedScanner.current) return;
+    hasLoadedScanner.current = true;
+    
     const loadScannerData = async () => {
       setIsLoadingTrades(true);
       try {
         console.log('Loading scanner data...');
+        console.log('Current trades count before load:', trades.length);
+        
         // Try to load from Firebase first (if scanner writes there)
         const scannerOutput = await getData('v6/kalshi/latest_scan');
         
@@ -329,7 +336,7 @@ export function KalshiTradingView() {
             const researchedTrades = transformResearchedTrades();
             console.log(`Have ${researchedTrades.length} researched trades`);
             
-            // Create a map to deduplicate by ticker
+            // Create a map to deduplicate by ticker - START FRESH EACH TIME
             const tradeMap = new Map<string, KalshiTrade>();
             
             // Add scanner trades first (they take priority)
@@ -351,12 +358,14 @@ export function KalshiTradingView() {
               return acc;
             }, {}));
             
+            // REPLACE trades completely, don't append
             setTrades(mergedTrades);
             setLastUpdated(new Date(scannerOutput.scan_time || Date.now()));
             setScanSummary(scannerOutput.summary);
           } else {
-            // No scanner trades, use researched
+            // No scanner trades, use researched only
             const researched = transformResearchedTrades();
+            console.log(`Using ${researched.length} researched trades only`);
             setTrades(researched);
           }
         } else {
@@ -378,7 +387,12 @@ export function KalshiTradingView() {
     loadScannerData();
     
     // Refresh every 5 minutes to check for new scanner data
-    const interval = setInterval(loadScannerData, 5 * 60 * 1000);
+    const interval = setInterval(() => {
+      console.log('Refreshing scanner data...');
+      hasLoadedScanner.current = false; // Reset flag for refresh
+      loadScannerData();
+    }, 5 * 60 * 1000);
+    
     return () => clearInterval(interval);
   }, []);
 
