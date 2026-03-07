@@ -362,67 +362,42 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         </div>
       </div>
 
-      {/* Mini Charts Row - 2 columns on desktop */}
+      {/* Mini Charts - Revenue & Orders Stats */}
       {filteredData.length > 1 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
+          {/* Revenue Trend Stat */}
           <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Revenue Trend</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-gray-300">Revenue Trend</span>
+              </div>
+              <span className="text-xs text-gray-500">vs last month</span>
             </div>
-            <div className="h-20">
-              <LineChart data={filteredData.map(d => d.value)} color="primary" />
+            <div className="text-2xl font-bold text-primary">
+              {formatCurrency(filteredData[filteredData.length - 1]?.value || 0)}
+            </div>
+            <div className={`text-sm ${stats.trend >= 0 ? 'text-success' : 'text-danger'}`}>
+              {stats.trend >= 0 ? '↑' : '↓'} {Math.abs(stats.trend)}%
             </div>
           </div>
           
+          {/* Orders Trend Stat */}
           <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4 text-success" />
-              <span className="text-sm font-medium">Orders Trend</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-success" />
+                <span className="text-sm font-medium text-gray-300">Orders Trend</span>
+              </div>
+              <span className="text-xs text-gray-500">vs last month</span>
             </div>
-            <div className="h-20">
-              <LineChart data={filteredData.map(d => d.orders)} color="success" />
+            <div className="text-2xl font-bold text-success">
+              {filteredData[filteredData.length - 1]?.orders || 0}
+            </div>
+            <div className="text-sm text-gray-500">
+              Total: {stats.orders} orders
             </div>
           </div>
-          
-          {/* MoM Growth Chart - spans full width */}
-          {stats.momGrowth.length > 1 && (
-            <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4 lg:col-span-2">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-info" />
-                  <span className="text-sm font-medium">MoM Growth %</span>
-                </div>
-                <span className="text-xs text-gray-400">
-                  Avg: {stats.avgMomGrowth >= 0 ? '+' : ''}{stats.avgMomGrowth}%
-                </span>
-              </div>
-              <div className="h-20">
-                <svg viewBox="0 0 100 100" className="h-full w-full" preserveAspectRatio="none">
-                  <line x1="0" y1="50" x2="100" y2="50" stroke="#374151" strokeWidth="0.5" strokeDasharray="2" />
-                  {stats.momGrowth.slice(1).map((m, idx, arr) => {
-                    const maxGrowth = Math.max(...arr.map(x => Math.abs(x.growth)), 10);
-                    const x1 = (idx / (arr.length - 1 || 1)) * 100;
-                    const x2 = ((idx + 1) / (arr.length - 1 || 1)) * 100;
-                    const y1 = 50 - (arr[idx]?.growth / maxGrowth) * 40;
-                    const y2 = 50 - (arr[idx + 1]?.growth / maxGrowth) * 40;
-                    return (
-                      <line
-                        key={idx}
-                        x1={x1}
-                        y1={y1}
-                        x2={x2}
-                        y2={y2}
-                        stroke={arr[idx + 1]?.growth >= 0 ? '#22c55e' : '#ef4444'}
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                    );
-                  })}
-                </svg>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
