@@ -222,7 +222,7 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
         sources: opp.signals ? Object.keys(opp.signals).filter(k => k !== 'baseSignal') : []
       }
     };
-  }).filter((t: KalshiTrade) => t.edge > 0);
+  }); // Removed edge > 0 filter since scanner already filters
 }
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -315,10 +315,14 @@ export function KalshiTradingView() {
         
         if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities)) {
           console.log(`Loaded ${scannerOutput.opportunities.length} opportunities from scanner`);
-          console.log('Sample opportunity:', scannerOutput.opportunities[0]);
+          console.log('Categories from scanner:', scannerOutput.summary?.byCategory);
           
           const transformed = transformScannerOutput(scannerOutput);
           console.log(`Transformed ${transformed.length} scanner trades`);
+          console.log('Transformed categories:', transformed.reduce((acc: any, t) => {
+            acc[t.category] = (acc[t.category] || 0) + 1;
+            return acc;
+          }, {}));
           
           if (transformed.length > 0) {
             // Get researched trades
@@ -342,6 +346,10 @@ export function KalshiTradingView() {
             
             const mergedTrades = Array.from(tradeMap.values());
             console.log(`Final merged trades: ${mergedTrades.length}`);
+            console.log('Merged categories:', mergedTrades.reduce((acc: any, t) => {
+              acc[t.category] = (acc[t.category] || 0) + 1;
+              return acc;
+            }, {}));
             
             setTrades(mergedTrades);
             setLastUpdated(new Date(scannerOutput.scan_time || Date.now()));

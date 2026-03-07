@@ -152,20 +152,23 @@ async function fetchKalshiMarkets() {
   // Sort by edge descending
   opportunities.sort((a, b) => parseFloat(b.edge) - parseFloat(a.edge));
   
+  // Calculate summary from ALL opportunities (not sliced)
+  const summary = {
+    totalMarkets: seriesToFetch.length * 5,
+    analyzed: opportunities.length,
+    opportunities: opportunities.length,
+    byCategory: {
+      weather: opportunities.filter(o => o.category === 'weather').length,
+      crypto: opportunities.filter(o => o.category === 'crypto').length,
+      politics: opportunities.filter(o => o.category === 'politics').length,
+      economics: opportunities.filter(o => o.category === 'economics').length,
+    }
+  };
+  
   return {
     scan_time: new Date().toISOString(),
-    summary: {
-      totalMarkets: seriesToFetch.length * 5,
-      analyzed: opportunities.length,
-      opportunities: opportunities.length,
-      byCategory: {
-        weather: opportunities.filter(o => o.category === 'weather').length,
-        crypto: opportunities.filter(o => o.category === 'crypto').length,
-        politics: opportunities.filter(o => o.category === 'politics').length,
-        economics: opportunities.filter(o => o.category === 'economics').length,
-      }
-    },
-    opportunities: opportunities.slice(0, 20) // Top 20
+    summary,
+    opportunities: opportunities // Save ALL, don't slice
   };
 }
 
