@@ -26,6 +26,8 @@ interface KalshiTrade {
   strikePrice?: number;
   floor?: number;
   cap?: number;
+  trueProbability?: number;
+  multiplier?: number;
   research?: {
     catalyst: string;
     confidence: 'high' | 'medium' | 'low';
@@ -140,6 +142,8 @@ function transformResearchedTrades(): KalshiTrade[] {
       recommendation: recommendation,
       floor,
       cap,
+      trueProbability: trade.research?.trueProbability,
+      multiplier: trade.payout?.multiplier,
       research: {
         catalyst: trade.research?.catalyst || '',
         confidence: trade.research?.confidence || 'medium',
@@ -618,6 +622,44 @@ export function KalshiTradingView() {
                         </div>
                       </div>
                       <div>
+                        <p className="text-sm text-gray-400">Backtested Edge Calculation</p>
+                        <div className="mt-1 space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">True Probability:</span>
+                            <span className="text-white font-medium">{trade.trueProbability}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Market Price:</span>
+                            <span className="text-white">{trade.yesPrice}¢</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Edge:</span>
+                            <span className="text-success font-medium">+{trade.edge}¢</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">R-Score:</span>
+                            <span className={`font-medium ${trade.rScore >= 1.5 ? 'text-success' : 'text-primary'}`}>
+                              {trade.rScore.toFixed(2)}
+                            </span>
+                          </div>
+                          {trade.multiplier && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Multiplier:</span>
+                              <span className="text-primary font-medium">{trade.multiplier.toFixed(1)}x</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Confidence:</span>
+                            <span className={`capitalize ${
+                              trade.research?.confidence === 'high' ? 'text-success' : 
+                              trade.research?.confidence === 'medium' ? 'text-warning' : 'text-gray-400'
+                            }`}>
+                              {trade.research?.confidence}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
                         <p className="text-sm text-gray-400">Market Details</p>
                         {trade.floor !== undefined && trade.cap !== undefined ? (
                           <div className="mt-1">
@@ -637,9 +679,7 @@ export function KalshiTradingView() {
                         ) : trade.subtitle ? (
                           <p className="mt-1 text-white">{trade.subtitle}</p>
                         ) : null}
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Expires</p>
+                        <p className="mt-3 text-sm text-gray-400">Expires</p>
                         <p className="text-white">{new Date(trade.expiration).toLocaleDateString('en-US', { 
                           weekday: 'short', 
                           month: 'short', 
