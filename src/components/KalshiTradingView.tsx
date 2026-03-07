@@ -75,6 +75,28 @@ interface KalshiTrade {
     profitPotential: string;
     pmUrl: string;
   };
+  // v2.6 fields - Alternative Data
+  sentimentSignal?: {
+    score: number;
+    label: string;
+    source: string;
+    headline: string;
+    timestamp: string;
+  };
+  nwsSignal?: {
+    city: string;
+    targetDate: string;
+    targetTemp: number;
+    isAbove: boolean;
+    forecastHigh: number;
+    forecastDay: string;
+    nwsForecast: string;
+    impliedProbability: string;
+    kalshiProbability: string;
+    probabilityDiff: string;
+    lagDetected: boolean;
+    recommendation: string;
+  };
 }
 
 interface PaperPosition {
@@ -307,7 +329,10 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
         catalyst: opp.catalyst || subtitle || 'Scanner-identified opportunity',
         confidence: opp.confidence || 'medium',
         sources: opp.sources || ['Kalshi API']
-      }
+      },
+      // v2.6 fields
+      sentimentSignal: opp.sentimentSignal,
+      nwsSignal: opp.nwsSignal
     };
   }); // Removed edge > 0 filter since scanner already filters
 }
@@ -1301,6 +1326,69 @@ export function KalshiTradingView() {
                               >
                                 View on Polymarket <ArrowUpRight className="h-3 w-3" />
                               </a>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* News Sentiment Signal */}
+                        {trade.sentimentSignal && (
+                          <div className={`mt-2 rounded p-2 border ${
+                            trade.sentimentSignal.label === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                            trade.sentimentSignal.label === 'negative' ? 'bg-rose-500/10 border-rose-500/30' :
+                            'bg-gray-500/10 border-gray-500/30'
+                          }`}>
+                            <p className={`text-sm font-medium ${
+                              trade.sentimentSignal.label === 'positive' ? 'text-emerald-400' :
+                              trade.sentimentSignal.label === 'negative' ? 'text-rose-400' :
+                              'text-gray-400'
+                            }`}>
+                              📰 News Sentiment: {trade.sentimentSignal.label.toUpperCase()}
+                            </p>
+                            <div className="mt-1 space-y-1 text-xs">
+                              <p className="text-gray-300 line-clamp-2">"{trade.sentimentSignal.headline}"</p>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Source:</span>
+                                <span className="text-gray-400">{trade.sentimentSignal.source}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Score:</span>
+                                <span className={trade.sentimentSignal.score > 0 ? 'text-emerald-400' : trade.sentimentSignal.score < 0 ? 'text-rose-400' : 'text-gray-400'}>
+                                  {trade.sentimentSignal.score > 0 ? '+' : ''}{trade.sentimentSignal.score.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* NWS Weather Lag Signal */}
+                        {trade.nwsSignal && trade.nwsSignal.lagDetected && (
+                          <div className="mt-2 rounded bg-amber-500/10 p-2 border border-amber-500/30">
+                            <p className="text-sm text-amber-400 font-medium">🌤️ NWS Weather Lag Detected</p>
+                            <div className="mt-1 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">NWS Forecast:</span>
+                                <span className="text-white">{trade.nwsSignal.forecastHigh}°F</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Market Implied:</span>
+                                <span className="text-white">{trade.nwsSignal.kalshiProbability}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">True Probability:</span>
+                                <span className="text-amber-400">{trade.nwsSignal.impliedProbability}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Edge:</span>
+                                <span className={parseFloat(trade.nwsSignal.probabilityDiff) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                  {parseFloat(trade.nwsSignal.probabilityDiff) > 0 ? '+' : ''}{trade.nwsSignal.probabilityDiff}%
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Recommendation:</span>
+                                <span className={trade.nwsSignal.recommendation === 'BUY_YES' ? 'text-emerald-400 font-medium' : trade.nwsSignal.recommendation === 'BUY_NO' ? 'text-rose-400 font-medium' : 'text-gray-400'}>
+                                  {trade.nwsSignal.recommendation.replace('_', ' ')}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         )}
