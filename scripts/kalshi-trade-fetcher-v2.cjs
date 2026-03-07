@@ -1056,6 +1056,7 @@ function detectWeatherLag(kalshiMarket, nwsForecast) {
 
 async function main() {
   console.log('🔍 Starting Kalshi Trade Fetch v2.2...\n');
+  const scanStartTime = Date.now();
   
   // Load historical data
   const history = await loadHistory();
@@ -1065,15 +1066,34 @@ async function main() {
   const errors = [];
   const whaleAlerts = [];
   
-  for (let i = 0; i < SERIES.length; i++) {
-    const series = SERIES[i];
-    if (i > 0) await delay(CONFIG.requestDelay);
+  // Process series in parallel with concurrency limit
+  console.log(`📊 Fetching ${SERIES.length} series with max 5 concurrent...\n`);
+  
+  for (let i = 0; i < SERIES.length; i += 5) {
+    const batch = SERIES.slice(i, i + 5);
+    const batchResults = await Promise.all(
+      batch.map(async (series) => {
+        try {
+          const data = await fetchMarkets(series.ticker);
+          return { series, data, error: null };
+        } catch (err) {
+          return { series, data: null, error: err };
+        }
+      })
+    );
     
-    try {
-      console.log(`📊 ${series.name}...`);
-      const data = await fetchMarkets(series.ticker);
+    // Process batch results
+    for (const result of batchResults) {
+      const { series, data, error } = result;
+      
+      if (error) {
+        console.error(`  ❌ ${series.name}: ${error.message}`);
+        errors.push({ series: series.ticker, error: error.message, timestamp: new Date().toISOString() });
+        continue;
+      }
+      
       const markets = data.markets || [];
-      console.log(`  Found ${markets.length} markets`);
+      console.log(`✅ ${series.name}: ${markets.length} markets`);
       
       for (const m of markets.slice(0, CONFIG.maxMarketsPerSeries)) {
         const yesPrice = m.yes_ask || m.yes_price || 0;
@@ -1200,11 +1220,11 @@ async function main() {
           });
         }
       }
-    } catch (err) {
-      console.error(`  ❌ ${series.name}: ${err.message}`);
-      errors.push({ series: series.ticker, error: err.message, timestamp: new Date().toISOString() });
     }
   }
+  
+  const fetchTime = ((Date.now() - scanStartTime) / 1000).toFixed(1);
+  console.log(`\n⚡ Fetched ${SERIES.length} series in ${fetchTime}s (parallel mode)\n`);
   
   // Save updated history
   await saveHistory(history);
