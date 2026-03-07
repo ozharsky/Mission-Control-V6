@@ -62,10 +62,123 @@ const CONFIG = {
   minHoursToClose: 1,
   kellyFraction: 0.5,
   maxSpread: 10,
-  minLiquidityScore: 20
+  minLiquidityScore: 20,
+  whaleVolumeThreshold: 50000,  // Volume spike threshold for whale detection
+  whaleVolumeMultiplier: 3,      // 3x average volume = whale
+  historyRetentionDays: 7       // Keep 7 days of price history
 };
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Load historical data for comparison
+async function loadHistory() {
+  try {
+    if (db) {
+      const snapshot = await db.ref('v6/kalshi/history').get();
+      return snapshot.val() || {};
+    }
+    // Try local file fallback
+    const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
+    if (fs.existsSync(historyPath)) {
+      return JSON.parse(fs.readFileSync(historyPath, 'utf8'));
+    }
+  } catch (e) {
+    console.log('⚠️ Could not load history:', e.message);
+  }
+  return {};
+}
+
+// Save historical data
+async function saveHistory(history) {
+  try {
+    // Clean old data
+    const cutoff = Date.now() - (CONFIG.historyRetentionDays * 24 * 60 * 60 * 1000);
+    for (const ticker in history) {
+      history[ticker] = history[ticker].filter(h => h.timestamp > cutoff);
+    }
+    
+    if (db) {
+      await db.ref('v6/kalshi/history').set(history);
+    }
+    
+    // Also save locally
+    const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
+    fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
+  } catch (e) {
+    console.error('❌ Failed to save history:', e.message);
+  }
+}
+
+// Detect whale activity
+function detectWhale(currentVolume, history, ticker) {
+  if (!history || history.length < 3) return { isWhale: false, avgVolume: 0, spikeRatio: 1 };
+  
+  const tickerHistory = history[ticker] || [];
+  if (tickerHistory.length < 3) return { isWhale: false, avgVolume: 0, spikeRatio: 1 };
+  
+  // Calculate average volume from last 5 data points
+  const recentVolumes = tickerHistory.slice(-5).map(h => h.volume);
+  const avgVolume = recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length;
+  
+  // Detect spike
+  const spikeRatio = currentVolume / avgVolume;
+  const isWhale = spikeRatio >= CONFIG.whaleVolumeMultiplier && currentVolume >= CONFIG.whaleVolumeThreshold;
+  
+  return { isWhale, avgVolume, spikeRatio };
+}
+
+// Calculate price momentum
+function calculateMomentum(currentPrice, history, ticker) {
+  if (!history || !history[ticker] || history[ticker].length < 2) {
+    return { momentum: 0, trend: 'flat', change24h: 0 };
+  }
+  
+  const tickerHistory = history[ticker];
+  const now = Date.now();
+  const oneDayAgo = now - (24 * 60 * 60 * 1000);
+  
+  // Find price 24h ago
+  const dayAgoEntry = tickerHistory.find(h => h.timestamp > oneDayAgo);
+  const price24hAgo = dayAgoEntry ? dayAgoEntry.price : tickerHistory[0].price;
+  
+  // Calculate momentum (price velocity)
+  const recent = tickerHistory.slice(-3);
+  const momentum = recent.length >= 2 
+    ? (recent[recent.length - 1].price - recent[0].price) / recent.length
+    : 0;
+  
+  // Calculate 24h change
+  const change24h = ((currentPrice - price24hAgo) / price24hAgo) * 100;
+  
+  // Determine trend
+  let trend = 'flat';
+  if (change24h > 5) trend = 'surging';
+  else if (change24h > 2) trend = 'rising';
+  else if (change24h < -5) trend = 'crashing';
+  else if (change24h < -2) trend = 'falling';
+  
+  return { momentum, trend, change24h };
+}
+
+// Calculate historical edge (CLV - Closing Line Value)
+function calculateHistoricalEdge(currentEdge, history, ticker) {
+  if (!history || !history[ticker] || history[ticker].length < 3) {
+    return { edgeChange: 0, avgHistoricalEdge: currentEdge, isEdgeDeteriorating: false };
+  }
+  
+  const tickerHistory = history[ticker];
+  const historicalEdges = tickerHistory.map(h => h.edge).filter(e => e !== undefined);
+  
+  if (historicalEdges.length === 0) {
+    return { edgeChange: 0, avgHistoricalEdge: currentEdge, isEdgeDeteriorating: false };
+  }
+  
+  const avgHistoricalEdge = historicalEdges.reduce((a, b) => a + b, 0) / historicalEdges.length;
+  const edgeChange = currentEdge - avgHistoricalEdge;
+  const isEdgeDeteriorating = edgeChange < -2; // Edge dropped by more than 2%
+  
+  return { edgeChange, avgHistoricalEdge, isEdgeDeteriorating };
+}
 
 async function fetchWithRetry(url, options = {}, retries = CONFIG.maxRetries) {
   for (let i = 0; i < retries; i++) {
@@ -224,10 +337,15 @@ function detectArbitrage(markets) {
 }
 
 async function main() {
-  console.log('🔍 Starting Kalshi Trade Fetch v2.1...\n');
+  console.log('🔍 Starting Kalshi Trade Fetch v2.2...\n');
+  
+  // Load historical data
+  const history = await loadHistory();
+  console.log(`📚 Loaded history for ${Object.keys(history).length} markets\n`);
   
   const allTrades = [];
   const errors = [];
+  const whaleAlerts = [];
   
   for (let i = 0; i < SERIES.length; i++) {
     const series = SERIES[i];
@@ -253,8 +371,27 @@ async function main() {
           continue;
         }
         
+        // Detect whale activity
+        const whaleData = detectWhale(volume, history, m.ticker);
+        if (whaleData.isWhale) {
+          console.log(`  🐋 WHALE ALERT: ${m.ticker} - Volume ${whaleData.spikeRatio.toFixed(1)}x average!`);
+          whaleAlerts.push({
+            ticker: m.ticker,
+            volume,
+            avgVolume: whaleData.avgVolume,
+            spikeRatio: whaleData.spikeRatio,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Calculate momentum
+        const momentum = calculateMomentum(yesPrice, history, m.ticker);
+        
         // Calculate edge with time adjustment
         const edgeCalc = calculateEdge(yesPrice, series.baseProb, volume, m.close_time, series.category);
+        
+        // Calculate historical edge (CLV tracking)
+        const clv = calculateHistoricalEdge(edgeCalc.edge, history, m.ticker);
         
         if (yesPrice >= CONFIG.minPrice && yesPrice <= CONFIG.maxPrice && 
             volume >= CONFIG.minVolume && edgeCalc.edge >= CONFIG.minEdge) {
@@ -263,6 +400,11 @@ async function main() {
           let recommendation = 'hold';
           if (edgeCalc.rScore >= 2.0) recommendation = 'strong_buy';
           else if (edgeCalc.rScore >= 1.5) recommendation = 'buy';
+          
+          // Determine urgency based on edge deterioration
+          if (clv.isEdgeDeteriorating && edgeCalc.rScore >= 1.5) {
+            recommendation = 'buy_urgent';
+          }
           
           allTrades.push({
             ticker: m.ticker,
@@ -292,7 +434,24 @@ async function main() {
             health: health.health,
             spread: health.avgSpread.toFixed(1),
             liquidityScore: health.liquidityScore,
-            sources: ['Kalshi API', 'Volume Analysis', 'Time Decay']
+            // New analytics fields
+            whale: whaleData.isWhale,
+            whaleSpikeRatio: whaleData.spikeRatio.toFixed(1),
+            momentum: momentum.trend,
+            momentumChange24h: momentum.change24h.toFixed(1),
+            edgeChange: clv.edgeChange.toFixed(1),
+            avgHistoricalEdge: clv.avgHistoricalEdge.toFixed(1),
+            isEdgeDeteriorating: clv.isEdgeDeteriorating,
+            sources: ['Kalshi API', 'Volume Analysis', 'Time Decay', 'Momentum', 'CLV']
+          });
+          
+          // Update history
+          if (!history[m.ticker]) history[m.ticker] = [];
+          history[m.ticker].push({
+            timestamp: Date.now(),
+            price: yesPrice,
+            volume,
+            edge: edgeCalc.edge
           });
         }
       }
@@ -301,6 +460,9 @@ async function main() {
       errors.push({ series: series.ticker, error: err.message, timestamp: new Date().toISOString() });
     }
   }
+  
+  // Save updated history
+  await saveHistory(history);
   
   const arbitrage = detectArbitrage(allTrades);
   
@@ -324,12 +486,13 @@ async function main() {
   
   const output = {
     scan_time: new Date().toISOString(),
-    source: 'kalshi-fetcher-v2.1',
+    source: 'kalshi-fetcher-v2.2',
     summary: {
       totalMarkets: SERIES.length * CONFIG.maxMarketsPerSeries,
       analyzed: allTrades.length,
       opportunities: topTrades.length,
       arbitrage: arbitrage.length,
+      whaleAlerts: whaleAlerts.length,
       errors: errors.length,
       byCategory: {
         weather: byCategory.weather.length,
@@ -339,6 +502,7 @@ async function main() {
       }
     },
     arbitrage,
+    whaleAlerts,
     errors,
     opportunities: topTrades
   };
@@ -359,13 +523,25 @@ async function main() {
   }
   
   console.log('\n📊 RESULTS:');
-  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Errors: ${errors.length}`);
+  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Whales: ${whaleAlerts.length} | Errors: ${errors.length}`);
   console.log('By category:', output.summary.byCategory);
   
-  console.log('\n🎯 TOP 5:');
+  if (whaleAlerts.length > 0) {
+    console.log('\n🐋 WHALE ALERTS:');
+    whaleAlerts.forEach(w => {
+      console.log(`  ${w.ticker}: ${w.spikeRatio}x volume spike (${w.volume.toLocaleString()} vs avg ${Math.round(w.avgVolume).toLocaleString()})`);
+    });
+  }
+  
+  console.log('\n🎯 TOP 5 OPPORTUNITIES:');
   topTrades.slice(0, 5).forEach((t, i) => {
-    console.log(`${i + 1}. ${t.ticker} | ${t.title.slice(0, 35)}...`);
-    console.log(`   💰 ${t.yesPrice}¢ | 📈 +${t.edge}% edge | ⭐ ${t.rScore} R-score | 💧 ${t.health} liquidity`);
+    const momentumIcon = t.momentum === 'surging' ? '🚀' : t.momentum === 'rising' ? '📈' : t.momentum === 'falling' ? '📉' : t.momentum === 'crashing' ? '💥' : '➡️';
+    const whaleIcon = t.whale ? '🐋 ' : '';
+    const urgentIcon = t.recommendation === 'buy_urgent' ? '🔥 ' : '';
+    console.log(`${i + 1}. ${urgentIcon}${whaleIcon}${t.ticker} | ${t.title.slice(0, 30)}...`);
+    console.log(`   ${momentumIcon} ${t.yesPrice}¢ | 📈 +${t.edge}% edge | ⭐ ${t.rScore} R-score | 💧 ${t.health} | 24h: ${t.momentumChange24h > 0 ? '+' : ''}${t.momentumChange24h}%`);
+    if (t.whale) console.log(`   🐋 ${t.whaleSpikeRatio}x volume spike`);
+    if (t.isEdgeDeteriorating) console.log(`   ⚠️ Edge deteriorating: ${t.edgeChange}%`);
   });
   
   return output;
