@@ -88,10 +88,29 @@ const RECOMMENDATION_COLORS: Record<string, string> = {
 };
 
 const HEALTH_COLORS: Record<string, string> = {
-  good: 'bg-success/20 text-success',
-  fair: 'bg-warning/20 text-warning',
-  poor: 'bg-danger/20 text-danger'
+  good: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  fair: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  poor: 'bg-rose-500/20 text-rose-400 border-rose-500/30'
 };
+
+// Liquidity bar component
+function LiquidityBar({ score, spread }: { score?: number; spread?: string }) {
+  if (!score && !spread) return null;
+  
+  const width = score ? `${Math.min(100, score)}%` : '50%';
+  const color = score && score >= 70 ? 'bg-emerald-500' : score && score >= 40 ? 'bg-amber-500' : 'bg-rose-500';
+  
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <div className="flex-1 h-1.5 bg-surface-hover rounded-full overflow-hidden">
+        <div className={`h-full ${color} rounded-full`} style={{ width }} />
+      </div>
+      <span className="text-xs text-gray-500">
+        {score ? `${score}/100` : ''} {spread ? `· ${spread}¢` : ''}
+      </span>
+    </div>
+  );
+}
 
 // Transform RESEARCHED_TRADES to KalshiTrade format
 function transformResearchedTrades(): KalshiTrade[] {
