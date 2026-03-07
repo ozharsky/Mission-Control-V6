@@ -241,7 +241,41 @@ function FilePreviewModal({
 }) {
   const isImage = file.type?.startsWith('image/') || false;
   const isPDF = file.type?.includes('pdf') || file.name?.toLowerCase().endsWith('.pdf');
+  const isMarkdown = file.name?.toLowerCase().endsWith('.md') || file.type?.includes('markdown');
+  const isText = file.type?.startsWith('text/') || file.name?.match(/\.(txt|json|js|ts|jsx|tsx|css|html)$/);
   const [imgError, setImgError] = useState(false);
+  const [textContent, setTextContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch text content for markdown/text files
+  useEffect(() => {
+    if ((isMarkdown || isText) && file.url) {
+      setLoading(true);
+      fetch(file.url)
+        .then(res => res.text())
+        .then(text => {
+          setTextContent(text);
+          setLoading(false);
+        })
+        .catch(() => {
+          setTextContent(null);
+          setLoading(false);
+        });
+    }
+  }, [file.url, isMarkdown, isText]);
+
+  // Simple markdown to HTML converter
+  const renderMarkdown = (md: string): string => {
+    return md
+      .replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold mt-5 mb-3">$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-6 mb-4">$1</h1>')
+      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+      .replace(/\*(.*)\*/gim, '<em>$1</em>')
+      .replace(/`([^`]+)`/gim, '<code class="bg-surface-hover px-1 py-0.5 rounded text-sm">$1</code>')
+      .replace(/^\- (.*$)/gim, '<li class="ml-4">$1</li>')
+      .replace(/\n/gim, '<br />');
+  };
 
   return (
     <div 
@@ -249,13 +283,16 @@ function FilePreviewModal({
       onClick={onClose}
     >
       <div 
-        className="relative max-w-4xl w-full max-h-[90vh] bg-surface rounded-2xl border border-surface-hover overflow-hidden"
+        className="relative max-w-4xl w-full max-h-[90vh] bg-surface rounded-2xl border border-surface-hover overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-surface-hover">
           <div className="flex items-center gap-3 min-w-0">
-            {isImage ? <Image className="h-5 w-5 text-primary" /> : isPDF ? <FileText className="h-5 w-5 text-danger" /> : <File className="h-5 w-5 text-gray-400" />}
+            {isImage ? <Image className="h-5 w-5 text-primary" /> : 
+             isPDF ? <FileText className="h-5 w-5 text-danger" /> : 
+             isMarkdown ? <FileText className="h-5 w-5 text-blue-400" /> :
+             <File className="h-5 w-5 text-gray-400" />}
             <span className="font-medium truncate">{file.name}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -276,12 +313,12 @@ function FilePreviewModal({
         </div>
 
         {/* Preview Content */}
-        <div className="p-4 flex items-center justify-center min-h-[300px] max-h-[70vh] overflow-auto">
+        <div className="flex-1 p-4 overflow-auto">
           {isImage && !imgError ? (
             <img 
               src={file.url} 
               alt={file.name}
-              className="max-w-full max-h-[60vh] object-contain rounded-lg"
+              className="max-w-full max-h-[60vh] object-contain rounded-lg mx-auto"
               onError={() => setImgError(true)}
             />
           ) : isPDF ? (
@@ -292,6 +329,25 @@ function FilePreviewModal({
                 title={file.name}
               />
             </div>
+          ) : isMarkdown || isText ? (
+            loading ? (
+              <div className="flex items-center justify-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : textContent ? (
+              <div className="max-w-none">
+                {isMarkdown ? (
+                  <div 
+                    className="prose prose-invert max-w-none"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(textContent) }}
+                  />
+                ) : (
+                  <pre className="bg-surface-hover p-4 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap">{textContent}</pre>
+                )}
+              </div>
+            ) : (
+              <div className="text-center text-gray-400">Failed to load file content</div>
+            )
           ) : (
             <div className="text-center">
               <File className="h-16 w-16 text-gray-600 mx-auto mb-4" />
@@ -315,6 +371,7 @@ function FilePreviewModal({
       </div>
     </div>
   );
+}
 }
 
 export function FileManager({ projectId }: FileManagerProps) {
