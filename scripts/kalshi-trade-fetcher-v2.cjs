@@ -632,6 +632,306 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
   };
 }
 
+// ==================== ALTERNATIVE DATA MODULES ====================
+
+// RSS News Feed Parser - fetch news from multiple sources
+async function fetchRSSFeeds() {
+  const feeds = [
+    { name: 'Reuters', url: 'https://www.reutersagency.com/feed/?taxonomy=markets&post_type=reuters-best' },
+    { name: 'Bloomberg', url: 'https://feeds.bloomberg.com/markets/news.rss' },
+    { name: 'WSJ', url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml' },
+    { name: 'Politico', url: 'https://www.politico.com/rss/politics08.xml' },
+    { name: 'Weather', url: 'https://w1.weather.gov/xml/current_obs/all.xml' }
+  ];
+  
+  const articles = [];
+  
+  for (const feed of feeds) {
+    try {
+      const data = await fetchWithRetry(feed.url, {}, 1);
+      const items = parseRSS(data, feed.name);
+      articles.push(...items);
+    } catch (e) {
+      console.log(`  ⚠️ RSS ${feed.name} failed: ${e.message}`);
+    }
+  }
+  
+  return articles.slice(0, 50); // Limit to recent 50 articles
+}
+
+function parseRSS(xmlData, source) {
+  // Simple regex-based RSS parser (no XML lib to keep dependencies minimal)
+  const items = [];
+  const itemRegex = /<item>[\s\S]*?<\/item>/g;
+  const titleRegex = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i;
+  const descRegex = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i;
+  const pubDateRegex = /<pubDate>(.*?)<\/pubDate>/i;
+  const linkRegex = /<link>(.*?)<\/link>/i;
+  
+  const matches = xmlData.match(itemRegex) || [];
+  
+  for (const item of matches.slice(0, 10)) {
+    const title = (item.match(titleRegex)?.[1] || '').trim();
+    const description = (item.match(descRegex)?.[1] || '').trim();
+    const pubDate = item.match(pubDateRegex)?.[1];
+    const link = item.match(linkRegex)?.[1];
+    
+    if (title) {
+      items.push({
+        source,
+        title: title.replace(/<[^>]+>/g, ''), // Strip HTML
+        description: description.replace(/<[^>]+>/g, ''),
+        pubDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+        link,
+        relevance: 0,
+        sentiment: 0
+      });
+    }
+  }
+  
+  return items;
+}
+
+// NLP Sentiment Analysis - keyword-based scoring
+function analyzeSentiment(text) {
+  if (!text) return { score: 0, label: 'neutral', confidence: 0 };
+  
+  const lowerText = text.toLowerCase();
+  
+  // Positive keywords
+  const positiveWords = [
+    'surge', 'surges', 'rally', 'rallies', 'gain', 'gains', 'up', 'rise', 'rises', 'rising',
+    'bullish', 'strong', 'growth', 'boom', 'soar', 'soars', 'jump', 'jumps', 'outperform',
+    'beat', 'beats', 'exceed', 'exceeds', 'positive', 'optimistic', 'confidence', 'confident',
+    'support', 'approval', 'approve', 'approves', 'pass', 'passes', 'agreement', 'deal'
+  ];
+  
+  // Negative keywords
+  const negativeWords = [
+    'drop', 'drops', 'fall', 'falls', 'falling', 'plunge', 'plunges', 'crash', 'crashes',
+    'bearish', 'weak', 'decline', 'declines', 'down', 'slide', 'slides', 'tumble', 'tumbles',
+    'miss', 'misses', 'underperform', 'negative', 'pessimistic', 'concern', 'worry', 'worries',
+    'oppose', 'opposes', 'veto', 'reject', 'rejects', 'block', 'blocks', 'delay', 'delays'
+  ];
+  
+  // Crypto-specific
+  const cryptoPositive = ['adoption', 'institutional', 'etf', 'halving', 'upgrade', 'merge'];
+  const cryptoNegative = ['ban', 'regulation', 'sec', 'lawsuit', 'hack', 'exploit', 'rug'];
+  
+  // Politics-specific
+  const politicsPositive = ['bipartisan', 'consensus', 'deal', 'agreement', 'pass', 'sign'];
+  const politicsNegative = ['shutdown', 'impeachment', 'investigation', 'scandal', 'controversy'];
+  
+  // Weather-specific
+  const weatherHot = ['heat', 'hot', 'warm', 'record high', 'above average', 'drought'];
+  const weatherCold = ['cold', 'freeze', 'frost', 'snow', 'blizzard', 'below average'];
+  
+  let score = 0;
+  let matches = 0;
+  
+  // Count matches
+  const countMatches = (words, weight) => {
+    words.forEach(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'g');
+      const count = (lowerText.match(regex) || []).length;
+      score += count * weight;
+      matches += count;
+    });
+  };
+  
+  countMatches(positiveWords, 1);
+  countMatches(negativeWords, -1);
+  countMatches(cryptoPositive, 1.5);
+  countMatches(cryptoNegative, -1.5);
+  countMatches(politicsPositive, 1.2);
+  countMatches(politicsNegative, -1.2);
+  
+  // Weather detection
+  const weatherScore = {
+    hot: 0,
+    cold: 0
+  };
+  weatherHot.forEach(w => {
+    if (lowerText.includes(w)) weatherScore.hot++;
+  });
+  weatherCold.forEach(w => {
+    if (lowerText.includes(w)) weatherScore.cold++;
+  });
+  
+  // Normalize score (-1 to 1 range)
+  const normalizedScore = Math.max(-1, Math.min(1, score / Math.max(matches, 3)));
+  
+  let label = 'neutral';
+  if (normalizedScore > 0.2) label = 'positive';
+  else if (normalizedScore < -0.2) label = 'negative';
+  
+  return {
+    score: normalizedScore,
+    label,
+    confidence: Math.min(matches / 5, 1),
+    weatherBias: weatherScore.hot > weatherScore.cold ? 'hot' : 
+                 weatherScore.cold > weatherScore.hot ? 'cold' : 'neutral'
+  };
+}
+
+// Match news articles to relevant markets
+function matchNewsToMarkets(articles, trades) {
+  const keywordMap = {
+    'KXBTC': ['bitcoin', 'btc', 'crypto', 'cryptocurrency'],
+    'KXETH': ['ethereum', 'eth', 'crypto', 'cryptocurrency'],
+    'KXSOL': ['solana', 'sol', 'crypto'],
+    'KXTRUMP': ['trump', 'president', 'biden', 'white house'],
+    'KXTRUTHSOCIAL': ['truth social', 'trump media', 'djt'],
+    'KXFED': ['fed', 'federal reserve', 'interest rate', 'powell'],
+    'KXCPI': ['inflation', 'cpi', 'consumer price'],
+    'KXJOBS': ['jobs', 'employment', 'unemployment', 'nfp', 'payroll'],
+    'KXGDP': ['gdp', 'economy', 'economic growth'],
+    'KXHIGHNY': ['new york', 'nyc', 'manhattan', 'weather'],
+    'KXHIGHCHI': ['chicago', 'illinois', 'midwest', 'weather'],
+    'KXHIGHTSEA': ['seattle', 'washington', 'pacific northwest', 'weather'],
+    'KXHIGHMIA': ['miami', 'florida', 'southeast', 'weather']
+  };
+  
+  for (const article of articles) {
+    const text = `${article.title} ${article.description}`.toLowerCase();
+    const sentiment = analyzeSentiment(text);
+    article.sentiment = sentiment.score;
+    article.sentimentLabel = sentiment.label;
+    article.weatherBias = sentiment.weatherBias;
+    
+    for (const trade of trades) {
+      const series = trade.ticker.split('-')[0];
+      const keywords = keywordMap[series] || [];
+      
+      const isRelevant = keywords.some(kw => text.includes(kw));
+      if (isRelevant) {
+        article.relevance = Math.max(article.relevance, 0.7);
+        trade.sentimentSignal = {
+          score: sentiment.score,
+          label: sentiment.label,
+          source: article.source,
+          headline: article.title.slice(0, 100),
+          timestamp: article.pubDate
+        };
+      }
+    }
+  }
+  
+  return articles.filter(a => a.relevance > 0);
+}
+
+// NWS Weather Lag Detection - compare Kalshi with National Weather Service
+async function fetchNWSForecast(city) {
+  // NWS API endpoints for major cities
+  const nwsStations = {
+    'NYC': { station: 'KNYC', grid: 'OKX/33,37', lat: 40.71, lon: -74.01 },
+    'CHI': { station: 'KORD', grid: 'LOT/65,77', lat: 41.88, lon: -87.63 },
+    'SEA': { station: 'KSEA', grid: 'SEW/124,69', lat: 47.61, lon: -122.33 },
+    'MIA': { station: 'KMIA', grid: 'MFL/108,49', lat: 25.76, lon: -80.19 },
+    'PHX': { station: 'KPHX', grid: 'PSR/158,58', lat: 33.45, lon: -112.07 }
+  };
+  
+  const station = nwsStations[city];
+  if (!station) return null;
+  
+  try {
+    // NWS API requires user agent
+    const url = `https://api.weather.gov/gridpoints/${station.grid.split('/')[0]}/${station.grid.split('/')[1]}/forecast`;
+    const data = await fetchWithRetry(url, { headers: { 'User-Agent': 'KalshiScanner/2.5' } }, 2);
+    
+    return parseNWSForecast(data);
+  } catch (e) {
+    console.log(`  ⚠️ NWS ${city} fetch failed: ${e.message}`);
+    return null;
+  }
+}
+
+function parseNWSForecast(data) {
+  const periods = data.properties?.periods || [];
+  const highs = [];
+  
+  for (const period of periods.slice(0, 7)) { // Next 7 days
+    if (period.isDaytime) {
+      highs.push({
+        date: period.startTime,
+        day: period.name,
+        highTemp: period.temperature,
+        shortForecast: period.shortForecast,
+        detailedForecast: period.detailedForecast
+      });
+    }
+  }
+  
+  return highs;
+}
+
+function detectWeatherLag(kalshiMarket, nwsForecast) {
+  if (!nwsForecast || nwsForecast.length === 0) return null;
+  
+  // Parse Kalshi market for temperature range and date
+  // Example: KXHIGHNY-26MAR08-B44.5 (NYC High March 8, 2026, Below 44.5°F)
+  const match = kalshiMarket.ticker.match(/KXHIGH([A-Z]+)-(\d{2})([A-Z]{3})(\d{2})-([AB])(\d+\.?\d*)/);
+  if (!match) return null;
+  
+  const [, cityCode, , monthStr, dayStr, side, tempStr] = match;
+  const targetTemp = parseFloat(tempStr);
+  const isAbove = side === 'A';
+  
+  // Map city code to NWS station
+  const cityMap = { 'NY': 'NYC', 'CHI': 'CHI', 'SEA': 'SEA', 'MIA': 'MIA', 'TPHX': 'PHX' };
+  const city = cityMap[cityCode];
+  if (!city) return null;
+  
+  // Find matching forecast day
+  const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const monthIdx = monthNames.indexOf(monthStr);
+  const day = parseInt(dayStr);
+  
+  const forecastDay = nwsForecast.find(f => {
+    const fDate = new Date(f.date);
+    return fDate.getMonth() === monthIdx && fDate.getDate() === day;
+  });
+  
+  if (!forecastDay) return null;
+  
+  // Calculate probability based on forecast
+  const forecastHigh = forecastDay.highTemp;
+  const tempDiff = forecastHigh - targetTemp;
+  
+  // Simple model: 5°F buffer zone where probability is uncertain
+  let impliedProb;
+  if (isAbove) {
+    if (tempDiff > 5) impliedProb = 0.85;
+    else if (tempDiff > 0) impliedProb = 0.65;
+    else if (tempDiff > -5) impliedProb = 0.35;
+    else impliedProb = 0.15;
+  } else {
+    if (tempDiff < -5) impliedProb = 0.85;
+    else if (tempDiff < 0) impliedProb = 0.65;
+    else if (tempDiff < 5) impliedProb = 0.35;
+    else impliedProb = 0.15;
+  }
+  
+  // Compare with Kalshi market price
+  const kalshiProb = kalshiMarket.yesPrice / 100;
+  const probabilityDiff = (impliedProb - kalshiProb) * 100; // In percentage points
+  
+  return {
+    city,
+    targetDate: `${monthStr}${dayStr}`,
+    targetTemp,
+    isAbove,
+    forecastHigh,
+    forecastDay: forecastDay.day,
+    nwsForecast: forecastDay.shortForecast,
+    impliedProbability: (impliedProb * 100).toFixed(1),
+    kalshiProbability: (kalshiProb * 100).toFixed(1),
+    probabilityDiff: probabilityDiff.toFixed(1),
+    lagDetected: Math.abs(probabilityDiff) > 10, // >10% difference = potential lag
+    recommendation: probabilityDiff > 10 ? 'BUY_YES' : probabilityDiff < -10 ? 'BUY_NO' : 'HOLD'
+  };
+}
+
 async function main() {
   console.log('🔍 Starting Kalshi Trade Fetch v2.2...\n');
   
@@ -809,6 +1109,64 @@ async function main() {
   // Detect correlations
   const correlations = detectCorrelations(allTrades);
   
+  // ==================== ALTERNATIVE DATA INTEGRATION ====================
+  
+  // Fetch and analyze RSS news feeds
+  console.log('\n📰 Fetching RSS news feeds...');
+  const newsArticles = await fetchRSSFeeds();
+  console.log(`  Found ${newsArticles.length} news articles`);
+  
+  const relevantNews = matchNewsToMarkets(newsArticles, allTrades);
+  console.log(`  ${relevantNews.length} articles relevant to tracked markets`);
+  
+  // Show top sentiment signals
+  const positiveNews = relevantNews.filter(n => n.sentiment > 0.3);
+  const negativeNews = relevantNews.filter(n => n.sentiment < -0.3);
+  if (positiveNews.length > 0) console.log(`  📈 ${positiveNews.length} bullish signals`);
+  if (negativeNews.length > 0) console.log(`  📉 ${negativeNews.length} bearish signals`);
+  
+  // NWS Weather Lag Detection for weather markets
+  console.log('\n🌤️ Checking NWS weather forecasts for lag detection...');
+  const weatherLags = [];
+  const weatherTrades = allTrades.filter(t => t.category === 'weather');
+  
+  // Fetch forecasts for each unique city
+  const nwsForecasts = {};
+  for (const trade of weatherTrades) {
+    const cityCode = trade.ticker.match(/KXHIGH([A-Z]+)/)?.[1];
+    if (!cityCode || nwsForecasts[cityCode]) continue;
+    
+    const cityMap = { 'NY': 'NYC', 'CHI': 'CHI', 'SEA': 'SEA', 'MIA': 'MIA', 'TPHX': 'PHX' };
+    const city = cityMap[cityCode];
+    if (city) {
+      const forecast = await fetchNWSForecast(city);
+      if (forecast) {
+        nwsForecasts[cityCode] = forecast;
+        console.log(`  ✅ NWS ${city}: ${forecast.length} days forecast`);
+      }
+    }
+  }
+  
+  // Detect lag for each weather trade
+  for (const trade of weatherTrades) {
+    const cityCode = trade.ticker.match(/KXHIGH([A-Z]+)/)?.[1];
+    const forecast = nwsForecasts[cityCode];
+    if (forecast) {
+      const lag = detectWeatherLag(trade, forecast);
+      if (lag && lag.lagDetected) {
+        weatherLags.push(lag);
+        trade.nwsSignal = lag;
+        console.log(`  🔥 LAG: ${trade.ticker} - NWS says ${lag.forecastHigh}°F, Kalshi implies ${lag.kalshiProbability}% (diff: ${lag.probabilityDiff}%)`);
+      }
+    }
+  }
+  
+  if (weatherLags.length > 0) {
+    console.log(`  🎯 Found ${weatherLags.length} weather lag opportunities!`);
+  }
+  
+  // ==================== END ALTERNATIVE DATA ====================
+  
   // Calculate composite scores for top trades
   for (const trade of allTrades) {
     const tickerHistory = history[trade.ticker] || [];
@@ -847,14 +1205,18 @@ async function main() {
   
   const output = {
     scan_time: new Date().toISOString(),
-    source: 'kalshi-fetcher-v2.4',
+    source: 'kalshi-fetcher-v2.6',
     summary: {
       totalMarkets: SERIES.length * CONFIG.maxMarketsPerSeries,
       analyzed: allTrades.length,
       opportunities: topTrades.length,
       arbitrage: arbitrage.length,
+      polymarketArbs: polymarketArbs.length,
       whaleAlerts: whaleAlerts.length,
       correlations: correlations.length,
+      newsArticles: newsArticles.length,
+      relevantNews: relevantNews.length,
+      weatherLags: weatherLags.length,
       totalAlerts,
       errors: errors.length,
       byCategory: {
@@ -865,8 +1227,11 @@ async function main() {
       }
     },
     arbitrage,
+    polymarketArbs,
     whaleAlerts,
     correlations,
+    news: relevantNews.slice(0, 10), // Top 10 relevant news articles
+    weatherLags,
     errors,
     opportunities: topTrades
   };
@@ -887,8 +1252,23 @@ async function main() {
   }
   
   console.log('\n📊 RESULTS:');
-  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Alerts: ${totalAlerts} | Errors: ${errors.length}`);
+  console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Polymarket: ${polymarketArbs.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Weather Lags: ${weatherLags.length} | Alerts: ${totalAlerts} | Errors: ${errors.length}`);
   console.log('By category:', output.summary.byCategory);
+  
+  // Show alternative data summary
+  if (relevantNews.length > 0) {
+    const avgSentiment = relevantNews.reduce((sum, n) => sum + n.sentiment, 0) / relevantNews.length;
+    const sentimentEmoji = avgSentiment > 0.2 ? '📈' : avgSentiment < -0.2 ? '📉' : '➡️';
+    console.log(`\n📰 NEWS SENTIMENT: ${sentimentEmoji} ${avgSentiment > 0 ? '+' : ''}${avgSentiment.toFixed(2)} (${relevantNews.length} relevant articles)`);
+  }
+  
+  if (weatherLags.length > 0) {
+    console.log('\n🌤️ WEATHER LAG OPPORTUNITIES:');
+    weatherLags.slice(0, 5).forEach(w => {
+      const action = w.recommendation === 'BUY_YES' ? '🔥 BUY YES' : w.recommendation === 'BUY_NO' ? '❄️ BUY NO' : 'HOLD';
+      console.log(`  ${w.city} ${w.targetDate}: ${action} - NWS ${w.forecastHigh}°F vs Kalshi ${w.kalshiProbability}% (${w.probabilityDiff > 0 ? '+' : ''}${w.probabilityDiff}%)`);
+    });
+  }
   
   // Show alerts summary
   const urgentAlerts = topTrades.flatMap(t => t.alerts?.filter(a => a.severity === 'urgent') || []);
