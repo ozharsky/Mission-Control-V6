@@ -75,9 +75,12 @@ async function loadHistory() {
   try {
     if (db) {
       const snapshot = await db.ref('v6/kalshi/history').get();
-      return snapshot.val() || {};
+      const data = snapshot.val() || {};
+      // Convert sanitized keys back to original ticker format if needed
+      // For now, tickers with dots are rare so we just return as-is
+      return data;
     }
-    // Try local file fallback
+    // Try local file fallback (uses original ticker names)
     const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
     if (fs.existsSync(historyPath)) {
       return JSON.parse(fs.readFileSync(historyPath, 'utf8'));
@@ -88,20 +91,28 @@ async function loadHistory() {
   return {};
 }
 
+// Sanitize ticker for Firebase key (replace invalid chars)
+function sanitizeTicker(ticker) {
+  return ticker.replace(/[.#$\[\]/]/g, '_');
+}
+
 // Save historical data
 async function saveHistory(history) {
   try {
-    // Clean old data
+    // Clean old data and sanitize keys
     const cutoff = Date.now() - (CONFIG.historyRetentionDays * 24 * 60 * 60 * 1000);
+    const sanitizedHistory = {};
+    
     for (const ticker in history) {
-      history[ticker] = history[ticker].filter(h => h.timestamp > cutoff);
+      const safeTicker = sanitizeTicker(ticker);
+      sanitizedHistory[safeTicker] = history[ticker].filter(h => h.timestamp > cutoff);
     }
     
     if (db) {
-      await db.ref('v6/kalshi/history').set(history);
+      await db.ref('v6/kalshi/history').set(sanitizedHistory);
     }
     
-    // Also save locally
+    // Also save locally (use original keys for local file)
     const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
     fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
   } catch (e) {
