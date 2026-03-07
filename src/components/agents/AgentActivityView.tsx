@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Database } from 'firebase/database';
 import { Activity, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, Bot } from 'lucide-react';
 import { initActivityLogger, ActivityLogEntry, AgentMetrics, DailyStats } from '../../services/agentActivityLogger';
@@ -37,6 +37,99 @@ const CATEGORY_EMOJIS: Record<string, string> = {
   error: '❌',
   workflow: '⚡',
 };
+
+// Activity Timeline Chart Component
+function ActivityTimelineChart({ logs }: { logs: ActivityLogEntry[] }) {
+  // Group logs by date and agent
+  const groupedData = useMemo(() => {
+    const data: Record<string, Record<string, number>> = {};
+    const agents = new Set<string>();
+    
+    logs.forEach(log => {
+      const date = new Date(log.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (!data[date]) data[date] = {};
+      if (!data[date][log.agentId]) data[date][log.agentId] = 0;
+      data[date][log.agentId]++;
+      agents.add(log.agentId);
+    });
+    
+    // Sort dates
+    const sortedDates = Object.keys(data).sort((a, b) => {
+      return new Date(a).getTime() - new Date(b).getTime();
+    });
+    
+    return { data, dates: sortedDates.slice(-14), agents: Array.from(agents) }; // Last 14 days
+  }, [logs]);
+
+  if (groupedData.dates.length === 0) return null;
+
+  const maxValue = Math.max(
+    ...groupedData.dates.map(date => 
+      Object.values(groupedData.data[date] || {}).reduce((sum, count) => sum + count, 0)
+    ),
+    1
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3">
+        {groupedData.agents.map(agentId => (
+          <div key={agentId} className="flex items-center gap-1 text-sm">
+            <span>{AGENT_EMOJIS[agentId as keyof typeof AGENT_EMOJIS] || AGENT_EMOJI_FALLBACKS[agentId] || '🤖'}</span>
+            <span className="text-gray-400">{AGENT_NAMES[agentId as keyof typeof AGENT_NAMES] || agentId}</span>
+          </div>
+        ))}
+      </div>
+      
+      {/* Bar Chart */}
+      <div className="h-48 flex items-end gap-2">
+        {groupedData.dates.map((date) => {
+          const dateData = groupedData.data[date] || {};
+          const total = Object.values(dateData).reduce((sum, count) => sum + count, 0);
+          
+          return (
+            <div key={date} className="flex-1 flex flex-col items-center gap-1">
+              <div className="w-full flex items-end justify-center gap-px h-full">
+                {groupedData.agents.map(agentId => {
+                  const count = dateData[agentId] || 0;
+                  const agentHeight = total > 0 ? (count / maxValue) * 100 : 0;
+                  return (
+                    <div
+                      key={agentId}
+                      className="w-2 rounded-t"
+                      style={{ 
+                        height: `${agentHeight}%`,
+                        backgroundColor: getAgentColor(agentId)
+                      }}
+                      title={`${AGENT_NAMES[agentId as keyof typeof AGENT_NAMES] || agentId}: ${count}`}
+                    />
+                  );
+                })}
+              </div>
+              <span className="text-[10px] text-gray-500 rotate-0 whitespace-nowrap">{date}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function getAgentColor(agentId: string): string {
+  const colors: Record<string, string> = {
+    architect: '#6366f1',
+    inventor: '#f59e0b',
+    analyst: '#22c55e',
+    scout: '#3b82f6',
+    writer: '#ec4899',
+    reviewer: '#8b5cf6',
+    strategist: '#f97316',
+    researcher: '#14b8a6',
+    kimiclaw: '#ef4444',
+  };
+  return colors[agentId] || '#6b7280';
+}
 
 export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
   const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
@@ -217,6 +310,16 @@ export function AgentActivityView({ firebaseDb }: AgentActivityViewProps) {
           ))}
         </div>
       </div>
+
+      {/* Activity Timeline Chart */}
+      {logs.length > 0 && (
+        <div className="rounded-xl border border-surface-hover bg-surface p-6">
+          <h3 className="mb-4 text-lg font-semibold flex items-center gap-2">
+            📈 Activity Timeline (Last 14 Days)
+          </h3>
+          <ActivityTimelineChart logs={logs} />
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
