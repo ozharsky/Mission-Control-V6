@@ -967,6 +967,303 @@ class WinRateAnalytics {
   }
 }
 
+// Twitter/X Sentiment Analysis (v3.0 #8)
+// Fetches and analyzes social media sentiment for market-moving keywords
+class TwitterSentimentAnalyzer {
+  constructor() {
+    // Keywords to track by category
+    this.keywords = {
+      crypto: ['bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol', 'cardano', 'ada', 'crypto', 'cryptocurrency'],
+      weather: ['weather', 'forecast', 'temperature', 'heat wave', 'cold snap', 'nyc weather', 'chicago weather'],
+      politics: ['trump', 'biden', 'election', 'president', 'approval rating', 'zelenskyy', 'truth social'],
+      economics: ['fed', 'federal reserve', 'cpi', 'inflation', 'jobs report', 'gdp', 'interest rates', 'fomc']
+    };
+
+    // Keyword-to-category mapping for quick lookup
+    this.keywordToCategory = {};
+    for (const [cat, words] of Object.entries(this.keywords)) {
+      words.forEach(word => this.keywordToCategory[word.toLowerCase()] = cat);
+    }
+
+    // Bearer token for Twitter API (from env or null for fallback)
+    this.bearerToken = process.env.TWITTER_BEARER_TOKEN || null;
+
+    // Sentiment keywords for scoring
+    this.sentimentWords = {
+      positive: ['bullish', 'moon', 'pump', 'surge', 'rally', 'breakout', ' ATH', 'all time high', 'strong', 'buy', 'accumulate', 'support'],
+      negative: ['bearish', 'dump', 'crash', 'plunge', 'collapse', 'correction', 'weak', 'sell', 'short', 'resistance', 'fear', 'panic'],
+      uncertainty: ['uncertain', 'volatile', 'unclear', 'wait', 'cautious', 'sidelines', 'chop', 'range bound']
+    };
+
+    // Cache for rate limiting
+    this.cachePath = path.join(__dirname, '..', 'kalshi_data', 'twitter_cache.json');
+    this.cache = this.loadCache();
+  }
+
+  loadCache() {
+    try {
+      if (fs.existsSync(this.cachePath)) {
+        const data = JSON.parse(fs.readFileSync(this.cachePath, 'utf8'));
+        // Filter out entries older than 15 minutes
+        const cutoff = Date.now() - (15 * 60 * 1000);
+        return Object.fromEntries(
+          Object.entries(data).filter(([_, v]) => v.timestamp > cutoff)
+        );
+      }
+    } catch (e) {
+      console.error('❌ Failed to load Twitter cache:', e.message);
+    }
+    return {};
+  }
+
+  saveCache() {
+    try {
+      fs.mkdirSync(path.dirname(this.cachePath), { recursive: true });
+      fs.writeFileSync(this.cachePath, JSON.stringify(this.cache, null, 2));
+    } catch (e) {
+      console.error('❌ Failed to save Twitter cache:', e.message);
+    }
+  }
+
+  // Fetch tweets using Twitter API v2 (requires bearer token)
+  async fetchTweetsWithAPI(query, maxResults = 10) {
+    if (!this.bearerToken) {
+      return null;
+    }
+
+    try {
+      const url = `https://api.twitter.com/2/tweets/search/recent?query=${encodeURIComponent(query)}&max_results=${maxResults}&tweet.fields=created_at,public_metrics,author_id`;
+
+      const response = await new Promise((resolve, reject) => {
+        https.get(url, {
+          headers: {
+            'Authorization': `Bearer ${this.bearerToken}`
+          }
+        }, (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => {
+            if (res.statusCode === 200) {
+              try {
+                resolve(JSON.parse(data));
+              } catch (e) {
+                reject(new Error('Invalid JSON'));
+              }
+            } else {
+              reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+            }
+          });
+        }).on('error', reject);
+      });
+
+      return response.data || [];
+    } catch (e) {
+      console.error(`⚠️  Twitter API error: ${e.message}`);
+      return null;
+    }
+  }
+
+  // Fallback: Generate synthetic sentiment from RSS/news data when Twitter API unavailable
+  async fetchFallbackSentiment() {
+    console.log('  📝 Using RSS/news as fallback for social sentiment');
+    return null; // Will be populated from RSS data later
+  }
+
+  // Analyze sentiment of a text
+  analyzeSentiment(text) {
+    const lowerText = text.toLowerCase();
+    let score = 0;
+    let wordCount = 0;
+
+    // Count positive words
+    this.sentimentWords.positive.forEach(word => {
+      const count = (lowerText.match(new RegExp(word, 'g')) || []).length;
+      score += count * 1;
+      wordCount += count;
+    });
+
+    // Count negative words
+    this.sentimentWords.negative.forEach(word => {
+      const count = (lowerText.match(new RegExp(word, 'g')) || []).length;
+      score -= count * 1;
+      wordCount += count;
+    });
+
+    // Uncertainty reduces confidence
+    let uncertainty = 0;
+    this.sentimentWords.uncertainty.forEach(word => {
+      const count = (lowerText.match(new RegExp(word, 'g')) || []).length;
+      uncertainty += count * 0.5;
+    });
+
+    // Normalize to -1 to +1 range
+    const normalizedScore = wordCount > 0 ? score / Math.sqrt(wordCount) : 0;
+    const confidence = Math.min(1, wordCount / 5 + uncertainty / 10);
+
+    return {
+      score: Math.max(-1, Math.min(1, normalizedScore)),
+      confidence: confidence,
+      wordCount,
+      magnitude: Math.abs(normalizedScore)
+    };
+  }
+
+  // Match keywords to a trade
+  matchKeywordsToTrade(trade) {
+    const matches = [];
+    const text = `${trade.title} ${trade.subtitle || ''} ${trade.category}`.toLowerCase();
+
+    for (const [keyword, category] of Object.entries(this.keywordToCategory)) {
+      if (text.includes(keyword)) {
+        matches.push({ keyword, category });
+      }
+    }
+
+    // Also check if trade category matches
+    if (this.keywords[trade.category]) {
+      matches.push(...this.keywords[trade.category].map(k => ({ keyword: k, category: trade.category })));
+    }
+
+    return [...new Map(matches.map(m => [m.keyword, m])).values()]; // Deduplicate
+  }
+
+  // Fetch sentiment for all categories
+  async fetchCategorySentiment() {
+    const results = {};
+
+    // Check cache first
+    if (this.cache.categorySentiment && Date.now() - this.cache.categorySentiment.timestamp < 15 * 60 * 1000) {
+      console.log('  💾 Using cached Twitter sentiment');
+      return this.cache.categorySentiment.data;
+    }
+
+    console.log('\n🐦 Fetching Twitter/X sentiment...');
+
+    // Try API first
+    if (this.bearerToken) {
+      for (const [category, keywords] of Object.entries(this.keywords)) {
+        const query = keywords.join(' OR ') + ' -is:retweet lang:en';
+        const tweets = await this.fetchTweetsWithAPI(query, 10);
+
+        if (tweets && tweets.length > 0) {
+          const sentiments = tweets.map(t => this.analyzeSentiment(t.text));
+          const avgScore = sentiments.reduce((sum, s) => sum + s.score, 0) / sentiments.length;
+          const avgConfidence = sentiments.reduce((sum, s) => sum + s.confidence, 0) / sentiments.length;
+
+          results[category] = {
+            score: Math.round(avgScore * 100) / 100,
+            confidence: Math.round(avgConfidence * 100) / 100,
+            tweetCount: tweets.length,
+            sampleTweets: tweets.slice(0, 3).map(t => t.text.substring(0, 100)),
+            source: 'twitter_api'
+          };
+        }
+      }
+    }
+
+    // If no API results, we'll use RSS/news as fallback
+    if (Object.keys(results).length === 0) {
+      console.log('  ⚠️  Twitter API unavailable - will use news sentiment as proxy');
+      results.fallback = true;
+    }
+
+    // Cache results
+    this.cache.categorySentiment = {
+      timestamp: Date.now(),
+      data: results
+    };
+    this.saveCache();
+
+    return results;
+  }
+
+  // Calculate sentiment signal for a specific trade
+  calculateTradeSentiment(trade, categorySentiment, relevantNews) {
+    const matches = this.matchKeywordsToTrade(trade);
+
+    if (matches.length === 0) return null;
+
+    // Use Twitter sentiment if available
+    let sentiment = null;
+    let source = 'none';
+
+    if (categorySentiment[trade.category] && !categorySentiment.fallback) {
+      sentiment = categorySentiment[trade.category];
+      source = 'twitter';
+    }
+    // Fall back to relevant news sentiment
+    else if (relevantNews && relevantNews.length > 0) {
+      const tradeNews = relevantNews.filter(n =>
+        matches.some(m => n.title.toLowerCase().includes(m.keyword) || n.summary.toLowerCase().includes(m.keyword))
+      );
+
+      if (tradeNews.length > 0) {
+        const avgNewsSentiment = tradeNews.reduce((sum, n) => sum + n.sentiment, 0) / tradeNews.length;
+        sentiment = {
+          score: avgNewsSentiment,
+          confidence: Math.min(1, tradeNews.length / 3),
+          tweetCount: tradeNews.length,
+          source: 'news_proxy'
+        };
+        source = 'news';
+      }
+    }
+
+    if (!sentiment) return null;
+
+    // Determine signal strength
+    let signal = 'neutral';
+    let strength = 'weak';
+
+    if (sentiment.score > 0.3) {
+      signal = 'bullish';
+      strength = sentiment.score > 0.6 ? 'strong' : 'moderate';
+    } else if (sentiment.score < -0.3) {
+      signal = 'bearish';
+      strength = sentiment.score < -0.6 ? 'strong' : 'moderate';
+    }
+
+    // Calculate social score impact (0-10)
+    const socialScore = (sentiment.score + 1) * 5; // Convert -1..1 to 0..10
+
+    return {
+      score: sentiment.score,
+      confidence: sentiment.confidence,
+      signal,
+      strength,
+      socialScore: Math.round(socialScore * 10) / 10,
+      source,
+      matchedKeywords: matches.map(m => m.keyword),
+      sampleData: sentiment.sampleTweets || sentiment.tweetCount
+    };
+  }
+
+  printReport(categorySentiment) {
+    console.log('\n🐦 SOCIAL SENTIMENT ANALYSIS:');
+
+    if (categorySentiment.fallback) {
+      console.log('  ⚠️  Twitter API unavailable - using news sentiment as proxy');
+      return;
+    }
+
+    for (const [category, data] of Object.entries(categorySentiment)) {
+      if (category === 'fallback') continue;
+
+      const emoji = data.score > 0.2 ? '📈' : data.score < -0.2 ? '📉' : '➡️';
+      const sentimentLabel = data.score > 0.2 ? 'BULLISH' : data.score < -0.2 ? 'BEARISH' : 'NEUTRAL';
+
+      console.log(`  ${emoji} ${category.toUpperCase()}: ${sentimentLabel} (${data.score > 0 ? '+' : ''}${data.score}) | ${data.tweetCount} tweets | ${Math.round(data.confidence * 100)}% confidence`);
+
+      // Show sample tweets
+      if (data.sampleTweets && data.sampleTweets.length > 0) {
+        data.sampleTweets.forEach((tweet, i) => {
+          console.log(`     ${i + 1}. "${tweet.substring(0, 60)}${tweet.length > 60 ? '...' : ''}"`);
+        });
+      }
+    }
+  }
+}
+
 async function cachedFetch(key, fetchFn, ttlMs) {
   const cached = cache.get(key);
   if (cached) {
@@ -2092,6 +2389,7 @@ async function main() {
   const whaleAlerts = [];
   const edgeDecayTracker = new EdgeDecayTracker();
   const winRateAnalytics = new WinRateAnalytics();
+  const twitterSentiment = new TwitterSentimentAnalyzer();
   
   // Process series in parallel with concurrency limit
   console.log(`📊 Fetching ${SERIES.length} series with max 5 concurrent...\n`);
@@ -2297,6 +2595,10 @@ async function main() {
   const negativeNews = relevantNews.filter(n => n.sentiment < -0.3);
   if (positiveNews.length > 0) console.log(`  📈 ${positiveNews.length} bullish signals`);
   if (negativeNews.length > 0) console.log(`  📉 ${negativeNews.length} bearish signals`);
+
+  // Fetch Twitter/X sentiment
+  const categorySentiment = await twitterSentiment.fetchCategorySentiment();
+  twitterSentiment.printReport(categorySentiment);
   
   // NWS Weather Lag Detection for weather markets
   console.log('\n🌤️ Checking NWS weather forecasts for lag detection...');
@@ -2350,6 +2652,12 @@ async function main() {
     const multiFactorScore = calculateMultiFactorScore(trade, momentum, clv, whaleData, relevantNews);
     trade.compositeScore = multiFactorScore.total.toFixed(2);
     trade.multiFactorScore = multiFactorScore; // Store full breakdown
+
+    // Calculate Twitter/X sentiment for this trade
+    const twitterSignal = twitterSentiment.calculateTradeSentiment(trade, categorySentiment, relevantNews);
+    if (twitterSignal) {
+      trade.twitterSignal = twitterSignal;
+    }
 
     // Record for win rate analytics
     winRateAnalytics.recordTradeOpportunity(trade);
@@ -2419,6 +2727,7 @@ async function main() {
       newsArticles: newsArticles.length,
       relevantNews: relevantNews.length,
       weatherLags: weatherLags.length,
+      twitterSentiment: Object.keys(categorySentiment).filter(k => k !== 'fallback').length,
       totalAlerts,
       triggeredAlerts: {
         urgent: thresholdUrgent,
@@ -2440,6 +2749,7 @@ async function main() {
     correlations,
     winRateStats: winRateAnalytics.calculateStats(),
     winRateRecommendations,
+    twitterSentiment: categorySentiment,
     news: relevantNews.slice(0, 10), // Top 10 relevant news articles
     weatherLags,
     triggeredAlerts: triggeredAlerts.slice(0, 20), // Top 20 threshold alerts
@@ -2503,7 +2813,15 @@ async function main() {
     });
   }
   
-  // Show correlation signals
+  // Show Twitter sentiment signals
+  const tradesWithTwitter = topTrades.filter(t => t.twitterSignal && (t.twitterSignal.strength === 'strong' || t.twitterSignal.strength === 'moderate'));
+  if (tradesWithTwitter.length > 0) {
+    console.log('\n🐦 TWITTER SENTIMENT SIGNALS:');
+    tradesWithTwitter.slice(0, 5).forEach(t => {
+      const emoji = t.twitterSignal.signal === 'bullish' ? '📈' : t.twitterSignal.signal === 'bearish' ? '📉' : '➡️';
+      console.log(`  ${emoji} ${t.ticker}: ${t.twitterSignal.signal.toUpperCase()} (${t.twitterSignal.strength}) | Score: ${t.twitterSignal.score > 0 ? '+' : ''}${t.twitterSignal.score} | Source: ${t.twitterSignal.source}`);
+    });
+  }
   const corrSignals = correlationMatrix.getCorrelationSignals(correlations);
   if (corrSignals.length > 0) {
     console.log('\n🔗 CORRELATION SIGNALS:');
@@ -2536,6 +2854,7 @@ async function main() {
 
     if (t.whale) console.log(`   🐋 ${t.whaleSpikeRatio}x volume spike`);
     if (t.isEdgeDeteriorating) console.log(`   ⚠️ Edge deteriorating: ${t.edgeChange}%`);
+    if (t.twitterSignal) console.log(`   🐦 Twitter: ${t.twitterSignal.signal.toUpperCase()} (${t.twitterSignal.strength}) | ${t.twitterSignal.score > 0 ? '+' : ''}${t.twitterSignal.score}`);
     if (t.riskMetrics) {
       console.log(`   💰 EV: $${t.riskMetrics.expectedValue} | Sharpe: ${t.riskMetrics.sharpeRatio} | Risk: ${t.riskMetrics.riskOfRuin}`);
     }
