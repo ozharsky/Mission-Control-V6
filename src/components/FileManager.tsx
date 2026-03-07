@@ -43,12 +43,14 @@ function FileCard({
   viewMode, 
   onDelete, 
   onDownload,
+  onPreview,
   projectName
 }: { 
   file: FileItem; 
   viewMode: 'grid' | 'list';
   onDelete?: (file: FileItem) => void;
   onDownload?: (file: FileItem) => void;
+  onPreview?: (file: FileItem) => void;
   projectName?: string;
 }) {
   const Icon = getFileIcon(file.type || '');
@@ -119,6 +121,13 @@ function FileCard({
 
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button 
+            onClick={() => onPreview?.(file)}
+            className="flex h-11 w-11 items-center justify-center rounded-lg p-2 hover:bg-surface-hover"
+            title="Preview"
+          >
+            <Eye className="h-4 w-4"></Eye>
+          </button>
+          <button 
             onClick={() => onDownload?.(file)}
             className="flex h-11 w-11 items-center justify-center rounded-lg p-2 hover:bg-surface-hover"
             title="Download"
@@ -140,14 +149,9 @@ function FileCard({
   return (
     <div className="group relative rounded-xl border border-surface-hover bg-background p-3 sm:p-4 transition-all hover:border-primary hover:shadow-lg touch-feedback"
     >
-      <div className="mb-2 sm:mb-3 aspect-square rounded-lg bg-surface overflow-hidden">
+      <div className="mb-2 sm:mb-3 aspect-square rounded-lg bg-surface overflow-hidden cursor-pointer" onClick={() => onPreview?.(file)}>
         {isImage && safeFile.thumbnailUrl && !imgError ? (
-          <a 
-            href={safeFile.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block h-full w-full"
-          >
+          <div className="block h-full w-full">
             <img 
               src={safeFile.thumbnailUrl} 
               alt={safeFile.name}
@@ -155,7 +159,7 @@ function FileCard({
               onError={() => setImgError(true)}
               loading="lazy"
             />
-          </a>
+          </div>
         ) : (
           <div className="flex h-full items-center justify-center"
           >
@@ -200,6 +204,13 @@ function FileCard({
       <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
       >
         <button 
+          onClick={() => onPreview?.(file)}
+          className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface p-2 shadow-lg hover:bg-surface-hover"
+          title="Preview"
+        >
+          <Eye className="h-4 w-4"></Eye>
+        </button>
+        <button 
           onClick={() => onDownload?.(file)}
           className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface p-2 shadow-lg hover:bg-surface-hover"
           title="Download"
@@ -218,6 +229,94 @@ function FileCard({
   );
 }
 
+// File Preview Modal Component
+function FilePreviewModal({ 
+  file, 
+  onClose, 
+  onDownload 
+}: { 
+  file: FileItem; 
+  onClose: () => void;
+  onDownload: (file: FileItem) => void;
+}) {
+  const isImage = file.type?.startsWith('image/') || false;
+  const isPDF = file.type?.includes('pdf') || file.name?.toLowerCase().endsWith('.pdf');
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="relative max-w-4xl w-full max-h-[90vh] bg-surface rounded-2xl border border-surface-hover overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-surface-hover">
+          <div className="flex items-center gap-3 min-w-0">
+            {isImage ? <Image className="h-5 w-5 text-primary" /> : isPDF ? <FileText className="h-5 w-5 text-danger" /> : <File className="h-5 w-5 text-gray-400" />}
+            <span className="font-medium truncate">{file.name}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => onDownload(file)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-white text-sm hover:bg-primary-hover"
+            >
+              <Download className="h-4 w-4" />
+              Download
+            </button>
+            <button 
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-surface-hover"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Preview Content */}
+        <div className="p-4 flex items-center justify-center min-h-[300px] max-h-[70vh] overflow-auto">
+          {isImage && !imgError ? (
+            <img 
+              src={file.url} 
+              alt={file.name}
+              className="max-w-full max-h-[60vh] object-contain rounded-lg"
+              onError={() => setImgError(true)}
+            />
+          ) : isPDF ? (
+            <div className="w-full h-[60vh] bg-white rounded-lg overflow-hidden">
+              <iframe 
+                src={file.url}
+                className="w-full h-full"
+                title={file.name}
+              />
+            </div>
+          ) : (
+            <div className="text-center">
+              <File className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400 mb-2">Preview not available for this file type</p>
+              <p className="text-sm text-gray-500">{file.type || 'Unknown type'}</p>
+              <button 
+                onClick={() => onDownload(file)}
+                className="mt-4 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover"
+              >
+                Download to view
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between p-4 border-t border-surface-hover text-sm text-gray-400">
+          <span>{formatSize(file.size)}</span>
+          <span>{new Date(file.uploadedAt).toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FileManager({ projectId }: FileManagerProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -227,6 +326,7 @@ export function FileManager({ projectId }: FileManagerProps) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [linkToProject, setLinkToProject] = useState(projectId || '');
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileStorage = getFileStorage();
   const { projects } = useAppStore();
@@ -328,6 +428,10 @@ export function FileManager({ projectId }: FileManagerProps) {
 
   const handleDownload = (file: FileItem) => {
     window.open(file.url, '_blank');
+  };
+
+  const handlePreview = (file: FileItem) => {
+    setPreviewFile(file);
   };
 
   const getProjectName = (projectId?: string) => {
@@ -457,6 +561,7 @@ export function FileManager({ projectId }: FileManagerProps) {
             viewMode={viewMode}
             onDelete={handleDelete}
             onDownload={handleDownload}
+            onPreview={handlePreview}
             projectName={getProjectName(file.projectId)}
           />
         ))}
@@ -468,6 +573,15 @@ export function FileManager({ projectId }: FileManagerProps) {
           <h3 className="mb-2 text-xl font-semibold">No files found</h3>
           <p className="text-gray-500">{searchQuery ? 'Try a different search' : 'Upload your first file'}</p>
         </div>
+      )}
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <FilePreviewModal 
+          file={previewFile} 
+          onClose={() => setPreviewFile(null)} 
+          onDownload={handleDownload}
+        />
       )}
     </div>
   );
