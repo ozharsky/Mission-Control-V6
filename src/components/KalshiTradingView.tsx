@@ -43,8 +43,27 @@ interface KalshiTrade {
   edgeChange?: string;
   avgHistoricalEdge?: string;
   isEdgeDeteriorating?: boolean;
-  // v2.3 fields
+  // v2.4 fields
   compositeScore?: string;
+  riskMetrics?: {
+    expectedValue: string;
+    stdDev: string;
+    sharpeRatio: string;
+    maxDrawdown: string;
+    riskOfRuin: 'low' | 'medium' | 'high';
+    positionPctOfBankroll: string;
+  };
+  alerts?: Array<{
+    type: string;
+    severity: 'info' | 'medium' | 'high' | 'urgent';
+    message: string;
+    ticker: string;
+  }>;
+  attribution?: Array<{
+    factor: string;
+    contribution: number;
+    description: string;
+  }>;
   research?: {
     catalyst: string;
     confidence: 'high' | 'medium' | 'low';
@@ -274,6 +293,10 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
       liquidityScore: opp.liquidityScore,
       timeAdjustment: opp.timeAdjustment,
       volumeBoost: opp.volumeBoost,
+      // v2.4 fields
+      riskMetrics: opp.riskMetrics,
+      alerts: opp.alerts,
+      attribution: opp.attribution,
       research: {
         catalyst: opp.catalyst || subtitle || 'Scanner-identified opportunity',
         confidence: opp.confidence || 'medium',
@@ -867,6 +890,13 @@ export function KalshiTradingView() {
                     <span className="font-bold text-purple-400">{scanSummary.whaleAlerts}</span>
                   </div>
                 )}
+                {scanSummary.totalAlerts > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🚨</span>
+                    <span className="text-sm text-gray-400">Alerts:</span>
+                    <span className="font-bold text-rose-400">{scanSummary.totalAlerts}</span>
+                  </div>
+                )}
                 {scanSummary.correlations > 0 && (
                   <div className="flex items-center gap-2">
                     <span className="text-lg">🔗</span>
@@ -986,6 +1016,18 @@ export function KalshiTradingView() {
                           {trade.momentum === 'surging' ? '🚀' : trade.momentum === 'rising' ? '📈' : trade.momentum === 'falling' ? '📉' : '💥'} {trade.momentumChange24h}%
                         </span>
                       )}
+                      {trade.alerts?.map((alert, idx) => (
+                        <span 
+                          key={idx}
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            alert.severity === 'urgent' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50' :
+                            alert.severity === 'high' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50' :
+                            'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                          }`}
+                        >
+                          {alert.severity === 'urgent' ? '🚨' : alert.severity === 'high' ? '⚠️' : 'ℹ️'} {alert.type}
+                        </span>
+                      ))}
                     </div>
                     <h3 className="mt-2 truncate text-lg font-semibold text-white">{trade.title}</h3>
                     
@@ -1145,6 +1187,75 @@ export function KalshiTradingView() {
                               {parseFloat(trade.timeAdjustment || '0') > 0 && ` (+${trade.timeAdjustment}% time)`}
                               {parseFloat(trade.volumeBoost || '0') > 0 && ` (+${trade.volumeBoost}% volume)`}
                             </p>
+                          </div>
+                        )}
+                        
+                        {/* Risk Metrics */}
+                        {trade.riskMetrics && (
+                          <div className="mt-2 rounded bg-surface-hover/50 p-2">
+                            <p className="text-sm text-gray-500">Risk Analysis</p>
+                            <div className="mt-1 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Expected Value:</span>
+                                <span className={parseFloat(trade.riskMetrics.expectedValue) >= 0 ? 'text-success' : 'text-danger'}>
+                                  ${trade.riskMetrics.expectedValue}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Sharpe Ratio:</span>
+                                <span className={parseFloat(trade.riskMetrics.sharpeRatio) >= 1 ? 'text-success' : 'text-gray-300'}>
+                                  {trade.riskMetrics.sharpeRatio}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Risk Level:</span>
+                                <span className={trade.riskMetrics.riskOfRuin === 'low' ? 'text-success' : trade.riskMetrics.riskOfRuin === 'medium' ? 'text-warning' : 'text-danger'}>
+                                  {trade.riskMetrics.riskOfRuin.toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Position Size:</span>
+                                <span className="text-gray-300">{trade.riskMetrics.positionPctOfBankroll}% of bankroll</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Performance Attribution */}
+                        {trade.attribution && trade.attribution.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-sm text-gray-500">Score Attribution</p>
+                            <div className="mt-1 space-y-1">
+                              {trade.attribution.slice(0, 3).map((attr, idx) => (
+                                <div key={idx} className="flex justify-between text-xs">
+                                  <span className="text-gray-400">{attr.factor}:</span>
+                                  <span className={attr.contribution >= 0 ? 'text-success' : 'text-danger'}>
+                                    {attr.contribution >= 0 ? '+' : ''}{attr.contribution.toFixed(2)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Active Alerts */}
+                        {trade.alerts && trade.alerts.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-sm text-gray-500">Active Alerts</p>
+                            <div className="mt-1 space-y-1">
+                              {trade.alerts.map((alert, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className={`text-xs p-1.5 rounded ${
+                                    alert.severity === 'urgent' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                                    alert.severity === 'high' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                                    'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                  }`}
+                                >
+                                  {alert.severity === 'urgent' ? '🚨' : alert.severity === 'high' ? '⚠️' : 'ℹ️'} {alert.message}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                         
