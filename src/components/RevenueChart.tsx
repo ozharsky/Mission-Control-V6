@@ -209,6 +209,44 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
     }
   };
 
+  // Export data as CSV
+  const handleExportCSV = () => {
+    if (filteredData.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    // CSV header
+    const headers = ['Month', 'Revenue', 'Orders', 'Avg Order Value'];
+    
+    // CSV rows
+    const rows = filteredData.map(item => [
+      item.month,
+      item.value.toFixed(2),
+      item.orders.toString(),
+      item.orders > 0 ? (item.value / item.orders).toFixed(2) : '0.00'
+    ]);
+
+    // Add summary row
+    const totalRevenue = filteredData.reduce((sum, item) => sum + item.value, 0);
+    const totalOrders = filteredData.reduce((sum, item) => sum + item.orders, 0);
+    rows.push(['TOTAL', totalRevenue.toFixed(2), totalOrders.toString(), '']);
+
+    // Create CSV content
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `revenue-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const openEditModal = (entry: RevenueData) => {
     setEditingEntry({ ...entry });
   };
@@ -439,6 +477,9 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
             </button>
             <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm">
               <Upload className="h-4 w-4" /> Import
+            </button>
+            <button onClick={handleExportCSV} className="flex items-center gap-2 rounded-lg border border-surface-hover px-3 py-2 text-sm hover:bg-surface-hover">
+              <Download className="h-4 w-4" /> Export CSV
             </button>
 
             <div className="flex rounded-lg border border-surface-hover">

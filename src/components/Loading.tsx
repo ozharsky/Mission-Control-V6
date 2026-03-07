@@ -58,6 +58,59 @@ export function SkeletonCard() {
   );
 }
 
+// Skeleton loader for stat cards (with icon, value, label)
+export function SkeletonStatCard() {
+  return (
+    <div className="animate-pulse rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="flex items-start justify-between">
+        <div className="h-10 w-10 rounded-xl bg-surface-hover"></div>
+        <div className="h-4 w-12 rounded bg-surface-hover"></div>
+      </div>
+      <div className="mt-3 space-y-2">
+        <div className="h-8 w-28 rounded bg-surface-hover"></div>
+        <div className="h-3 w-20 rounded bg-surface-hover"></div>
+      </div>
+    </div>
+  );
+}
+
+// Skeleton loader for charts
+export function SkeletonChart() {
+  return (
+    <div className="animate-pulse rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="h-5 w-32 rounded bg-surface-hover"></div>
+        <div className="h-4 w-20 rounded bg-surface-hover"></div>
+      </div>
+      <div className="h-48 rounded-lg bg-surface-hover"></div>
+    </div>
+  );
+}
+
+// Skeleton loader for tables
+export function SkeletonTable({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="animate-pulse space-y-3">
+      {/* Header */}
+      <div className="flex gap-4 rounded-lg bg-surface-hover p-3">
+        <div className="h-4 w-1/4 rounded bg-surface"></div>
+        <div className="h-4 w-1/4 rounded bg-surface"></div>
+        <div className="h-4 w-1/4 rounded bg-surface"></div>
+        <div className="h-4 w-1/4 rounded bg-surface"></div>
+      </div>
+      {/* Rows */}
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex gap-4 rounded-lg border border-surface-hover bg-surface p-3">
+          <div className="h-4 w-1/4 rounded bg-surface-hover"></div>
+          <div className="h-4 w-1/4 rounded bg-surface-hover"></div>
+          <div className="h-4 w-1/4 rounded bg-surface-hover"></div>
+          <div className="h-4 w-1/4 rounded bg-surface-hover"></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Skeleton loader for lists
 export function SkeletonList({ count = 3 }: { count?: number }) {
   return (
@@ -73,6 +126,50 @@ export function SkeletonList({ count = 3 }: { count?: number }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Skeleton loader for dashboard widgets
+export function SkeletonWidget() {
+  return (
+    <div className="animate-pulse rounded-xl border border-surface-hover bg-surface p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="h-5 w-5 rounded bg-surface-hover"></div>
+        <div className="h-4 w-24 rounded bg-surface-hover"></div>
+      </div>
+      <div className="space-y-2">
+        <div className="h-6 w-full rounded bg-surface-hover"></div>
+        <div className="h-6 w-3/4 rounded bg-surface-hover"></div>
+        <div className="h-6 w-1/2 rounded bg-surface-hover"></div>
+      </div>
+    </div>
+  );
+}
+
+// Full page loading state
+export function SkeletonPage() {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="animate-pulse flex items-center justify-between">
+        <div className="h-8 w-48 rounded bg-surface-hover"></div>
+        <div className="h-10 w-32 rounded bg-surface-hover"></div>
+      </div>
+      
+      {/* Stats row */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+      </div>
+      
+      {/* Main content */}
+      <SkeletonChart />
+      
+      {/* List */}
+      <SkeletonList count={5} />
     </div>
   );
 }
