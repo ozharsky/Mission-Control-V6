@@ -137,6 +137,15 @@ interface KalshiTrade {
     entriesCount: number;
   };
   stabilityScore?: number;
+  // v3.0 fields - Heat Map
+  riskMetrics?: {
+    expectedValue: string;
+    stdDev: string;
+    sharpeRatio: string;
+    maxDrawdown: string;
+    riskOfRuin: 'low' | 'medium' | 'high';
+    positionPctOfBankroll: string;
+  };
 }
 
 interface PaperPosition {
@@ -166,6 +175,57 @@ interface PortfolioStats {
   roi: number;
   maxDrawdown: number;
   openPositions: number;
+}
+
+// Heat Map Types
+interface HeatMapAnalysis {
+  timestamp: string;
+  bankroll: number;
+  totalExposure: number;
+  concentration: Record<string, {
+    exposure: number;
+    percentage: number;
+    riskLevel: {
+      level: 'critical' | 'high' | 'medium' | 'low';
+      color: string;
+      emoji: string;
+    };
+  }>;
+  correlationRisk: Array<{
+    pair: string;
+    category?: string;
+    type?: 'hedge';
+    correlation?: number;
+    riskLevel?: 'high' | 'medium' | 'low';
+    note?: string;
+  }>;
+  heatMap: Array<{
+    ticker: string;
+    title: string;
+    category: string;
+    exposure: number;
+    percentageOfBankroll: number;
+    riskScore: number;
+    riskLevel: {
+      level: string;
+      color: string;
+      emoji: string;
+    };
+    factors: {
+      concentration: number;
+      edge: number;
+      quality: number;
+    };
+    edge?: string;
+    rScore?: string;
+    isDeteriorating?: boolean;
+  }>;
+  riskScore: number;
+  warnings: Array<{
+    type: string;
+    severity: 'critical' | 'high' | 'medium' | 'low';
+    message: string;
+  }>;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -401,7 +461,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function KalshiTradingView() {
-  const [activeTab, setActiveTab] = useState<'opportunities' | 'portfolio' | 'history'>('opportunities');
+  const [activeTab, setActiveTab] = useState<'opportunities' | 'portfolio' | 'history' | 'heatmap'>('opportunities');
   const [trades, setTrades] = useState<KalshiTrade[]>([]); // Start empty, load from scanner
   const [positions, setPositions] = useState<PaperPosition[]>([]);
   const [stats, setStats] = useState<PortfolioStats>({
@@ -424,6 +484,7 @@ export function KalshiTradingView() {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [scanSummary, setScanSummary] = useState<any>(null);
   const [isLoadingTrades, setIsLoadingTrades] = useState(true);
+  const [heatMap, setHeatMap] = useState<HeatMapAnalysis | null>(null);
   const hasLoadedScanner = useRef(false);
 
   // Load positions and stats from Firebase on mount
@@ -486,6 +547,12 @@ export function KalshiTradingView() {
           setTrades(updatedTrades);
           setLastUpdated(new Date());
           setScanSummary(scannerOutput.summary);
+          
+          // Load heat map data if available
+          if (scannerOutput.heatMap) {
+            setHeatMap(scannerOutput.heatMap);
+          }
+          
           console.log(`✅ Displaying ${updatedTrades.length} trades with live prices`);
         } else {
           console.log('No scanner data - using fallback');
@@ -881,6 +948,14 @@ export function KalshiTradingView() {
             }`}
           >
             History
+          </button>
+          <button
+            onClick={() => setActiveTab('heatmap')}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'heatmap' ? 'bg-primary text-white' : 'bg-surface text-gray-300 hover:bg-surface-hover'
+            }`}
+          >
+            Risk Heat Map
           </button>
           <button
             onClick={async () => {
@@ -1712,6 +1787,157 @@ export function KalshiTradingView() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Heat Map Tab */}
+      {activeTab === 'heatmap' && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-white">Portfolio Risk Heat Map</h2>
+          {!heatMap ? (
+            <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
+              <Activity className="mx-auto h-12 w-12 text-gray-500" />
+              <p className="mt-4 text-gray-400">Heat Map data not available</p>
+              <p className="text-sm text-gray-500">Run a scan to generate risk analysis</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Overall Risk Score */}
+              <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Overall Risk Score</p>
+                    <p className={`text-3xl font-bold ${
+                      heatMap.riskScore >= 70 ? 'text-red-500' :
+                      heatMap.riskScore >= 50 ? 'text-orange-500' :
+                      heatMap.riskScore >= 30 ? 'text-yellow-500' :
+                      'text-green-500'
+                    }`}>
+                      {heatMap.riskScore}/100
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-400">Total Exposure</p>
+                    <p className="text-xl font-bold text-white">${heatMap.totalExposure?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">
+                      {heatMap.bankroll > 0 ? ((heatMap.totalExposure / heatMap.bankroll) * 100).toFixed(1) : 0}% of bankroll
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Concentration by Category */}
+              <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                <h3 className="text-sm font-medium text-gray-400 mb-3">Concentration by Category</h3>
+                <div className="space-y-2">
+                  {Object.entries(heatMap.concentration || {}).map(([cat, data]: [string, any]) => {
+                    if (data.exposure <= 0) return null;
+                    return (
+                      <div key={cat} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-3 h-3 rounded-full`} style={{ backgroundColor: data.riskLevel?.color }} />
+                          <span className="capitalize text-white">{cat}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-white font-medium">${data.exposure?.toLocaleString()}</span>
+                          <span className="text-gray-400 text-sm ml-2">({data.percentage}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Warnings */}
+              {heatMap.warnings && heatMap.warnings.length > 0 && (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4">
+                  <h3 className="text-sm font-medium text-rose-400 mb-3">⚠️ Risk Warnings</h3>
+                  <div className="space-y-2">
+                    {heatMap.warnings.map((warning: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <span className={
+                          warning.severity === 'critical' ? 'text-red-500' :
+                          warning.severity === 'high' ? 'text-orange-500' :
+                          'text-yellow-500'
+                        }>
+                          {warning.severity === 'critical' ? '🔴' : warning.severity === 'high' ? '🟠' : '🟡'}
+                        </span>
+                        <span className="text-sm text-gray-300">{warning.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Heat Map Grid */}
+              {heatMap.heatMap && heatMap.heatMap.length > 0 && (
+                <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                  <h3 className="text-sm font-medium text-gray-400 mb-3">Position Risk Map</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {heatMap.heatMap.map((cell: any) => (
+                      <div
+                        key={cell.ticker}
+                        className="rounded-lg border p-3 transition-all"
+                        style={{
+                          borderColor: cell.riskLevel?.color || '#4b5563',
+                          backgroundColor: `${cell.riskLevel?.color}20` || '#1f2937'
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white font-medium text-sm">{cell.ticker}</span>
+                          <span className="text-lg">{cell.riskLevel?.emoji}</span>
+                        </div>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Risk Score:</span>
+                            <span className="text-white">{cell.riskScore?.toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Exposure:</span>
+                            <span className="text-white">{cell.percentageOfBankroll}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Category:</span>
+                            <span className="capitalize text-white">{cell.category}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Correlation Risks */}
+              {heatMap.correlationRisk && heatMap.correlationRisk.length > 0 && (
+                <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                  <h3 className="text-sm font-medium text-gray-400 mb-3">Correlation Analysis</h3>
+                  <div className="space-y-2">
+                    {heatMap.correlationRisk.slice(0, 5).map((risk: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          {risk.type === 'hedge' ? (
+                            <span className="text-green-400">💚</span>
+                          ) : (
+                            <span className={
+                              risk.riskLevel === 'high' ? 'text-red-400' :
+                              risk.riskLevel === 'medium' ? 'text-orange-400' :
+                              'text-green-400'
+                            }>
+                              {risk.riskLevel === 'high' ? '🔴' : risk.riskLevel === 'medium' ? '🟠' : '🟢'}
+                            </span>
+                          )}
+                          <span className="text-gray-300">{risk.pair}</span>
+                        </div>
+                        {risk.note && (
+                          <span className="text-xs text-gray-500">{risk.note}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
