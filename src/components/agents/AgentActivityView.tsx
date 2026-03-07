@@ -43,19 +43,23 @@ function ActivityTimelineChart({ logs }: { logs: ActivityLogEntry[] }) {
   // Group logs by date and agent
   const groupedData = useMemo(() => {
     const data: Record<string, Record<string, number>> = {};
+    const dateTimestamps: Record<string, number> = {};
     const agents = new Set<string>();
     
     logs.forEach(log => {
       const date = new Date(log.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      if (!data[date]) data[date] = {};
+      if (!data[date]) {
+        data[date] = {};
+        dateTimestamps[date] = log.timestamp;
+      }
       if (!data[date][log.agentId]) data[date][log.agentId] = 0;
       data[date][log.agentId]++;
       agents.add(log.agentId);
     });
     
-    // Sort dates
+    // Sort dates by timestamp
     const sortedDates = Object.keys(data).sort((a, b) => {
-      return new Date(a).getTime() - new Date(b).getTime();
+      return dateTimestamps[a] - dateTimestamps[b];
     });
     
     return { data, dates: sortedDates.slice(-14), agents: Array.from(agents) }; // Last 14 days
