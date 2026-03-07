@@ -24,7 +24,7 @@ interface KalshiTrade {
   edge: number;
   rScore: number;
   kellyPct: number;
-  recommendation: 'strong_buy' | 'buy' | 'hold' | 'avoid';
+  recommendation: 'strong_buy' | 'buy' | 'buy_urgent' | 'hold' | 'avoid';
   strikePrice?: number;
   floor?: number;
   cap?: number;
@@ -35,6 +35,14 @@ interface KalshiTrade {
   health?: 'good' | 'fair' | 'poor';
   spread?: string;
   liquidityScore?: number;
+  // v2.2 fields
+  whale?: boolean;
+  whaleSpikeRatio?: string;
+  momentum?: 'surging' | 'rising' | 'flat' | 'falling' | 'crashing';
+  momentumChange24h?: string;
+  edgeChange?: string;
+  avgHistoricalEdge?: string;
+  isEdgeDeteriorating?: boolean;
   research?: {
     catalyst: string;
     confidence: 'high' | 'medium' | 'low';
@@ -830,6 +838,13 @@ export function KalshiTradingView() {
                   <span className="text-sm text-gray-400">Opportunities:</span>
                   <span className="font-bold text-success">{scanSummary.opportunities}</span>
                 </div>
+                {scanSummary.whaleAlerts > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🐋</span>
+                    <span className="text-sm text-gray-400">Whales:</span>
+                    <span className="font-bold text-purple-400">{scanSummary.whaleAlerts}</span>
+                  </div>
+                )}
                 {scanSummary.byCategory && Object.entries(scanSummary.byCategory).map(([cat, count]) => (
                   count > 0 && (
                     <div key={cat} className="flex items-center gap-1 text-xs">
@@ -838,7 +853,8 @@ export function KalshiTradingView() {
                     </div>
                   )
                 ))}
-              </div>            </div>
+              </div>
+            </div>
           )}
 
           {/* Loading State */}
@@ -918,11 +934,26 @@ export function KalshiTradingView() {
                         {trade.category}
                       </span>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${RECOMMENDATION_COLORS[trade.recommendation]}`}>
-                        {trade.recommendation.replace('_', ' ').toUpperCase()}
+                        {trade.recommendation === 'buy_urgent' ? '🔥 BUY URGENT' : trade.recommendation.replace('_', ' ').toUpperCase()}
                       </span>
                       {trade.health && (
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${HEALTH_COLORS[trade.health] || 'bg-gray-500/20 text-gray-400'}`}>
-                          {trade.health} {trade.spread && `(${trade.spread}¢ spread)`}
+                          {trade.health}
+                        </span>
+                      )}
+                      {trade.whale && (
+                        <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                          🐋 {trade.whaleSpikeRatio}x whale
+                        </span>
+                      )}
+                      {trade.momentum && trade.momentum !== 'flat' && (
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          trade.momentum === 'surging' ? 'bg-emerald-500/20 text-emerald-400' :
+                          trade.momentum === 'rising' ? 'bg-green-500/20 text-green-400' :
+                          trade.momentum === 'falling' ? 'bg-amber-500/20 text-amber-400' :
+                          'bg-rose-500/20 text-rose-400'
+                        }`}>
+                          {trade.momentum === 'surging' ? '🚀' : trade.momentum === 'rising' ? '📈' : trade.momentum === 'falling' ? '📉' : '💥'} {trade.momentumChange24h}%
                         </span>
                       )}
                     </div>
