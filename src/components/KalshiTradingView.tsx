@@ -305,13 +305,9 @@ export function KalshiTradingView() {
     loadFromFirebase();
   }, []);
 
-  // Load scanner data and merge with RESEARCHED_TRADES - RUNS ONCE ON MOUNT ONLY
+  // Load scanner data - ONLY DATA SOURCE
   useEffect(() => {
-    // Prevent any duplicate loads
-    if (hasLoadedScanner.current) {
-      console.log('Already loaded scanner data, skipping');
-      return;
-    }
+    if (hasLoadedScanner.current) return;
     hasLoadedScanner.current = true;
     
     const loadScannerData = async () => {
@@ -319,44 +315,28 @@ export function KalshiTradingView() {
       try {
         console.log('=== LOADING KALSHI DATA ===');
         
-        // Try to load from Firebase first
+        // Load from Firebase (scanner writes here)
         const scannerOutput = await getData('v6/kalshi/latest_scan');
-        console.log('Raw scanner output:', scannerOutput ? `Found ${scannerOutput.opportunities?.length || 0} opportunities` : 'No data');
         
         if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities) && scannerOutput.opportunities.length > 0) {
           console.log(`Using SCANNER data: ${scannerOutput.opportunities.length} opportunities`);
-          console.log('Scanner categories:', scannerOutput.summary?.byCategory);
-          
           const transformed = transformScannerOutput(scannerOutput);
-          console.log(`Transformed: ${transformed.length} trades`);
-          
-          // ONLY use scanner data - don't add researched trades on top
-          // The scanner already found the best opportunities
           setTrades(transformed);
           setLastUpdated(new Date(scannerOutput.scan_time || Date.now()));
           setScanSummary(scannerOutput.summary);
-          
-          console.log(`✅ Set ${transformed.length} scanner trades`);
         } else {
-          // Fallback to researched trades only if NO scanner data
-          console.log('No scanner data - using RESEARCHED_TRADES fallback');
-          const researched = transformResearchedTrades();
-          console.log(`✅ Set ${researched.length} researched trades`);
-          setTrades(researched);
+          console.log('No scanner data - using fallback');
+          setTrades(transformResearchedTrades());
         }
       } catch (e) {
-        console.error('Failed to load scanner data:', e);
-        const researched = transformResearchedTrades();
-        setTrades(researched);
+        console.error('Failed:', e);
+        setTrades(transformResearchedTrades());
       } finally {
         setIsLoadingTrades(false);
       }
     };
     
     loadScannerData();
-    
-    // NO INTERVAL - Don't auto-refresh to prevent accumulation
-    // User can manually refresh if needed
   }, []);
 
   // Save positions to Firebase when they change
@@ -623,7 +603,7 @@ export function KalshiTradingView() {
             History
           </button>
           <button
-            onClick={fetchLiveData}
+            onClick={() => window.location.reload()}
             disabled={isLoading}
             className="flex items-center gap-2 rounded-lg bg-surface px-3 py-2 text-sm text-gray-300 hover:bg-surface-hover disabled:opacity-50"
           >
