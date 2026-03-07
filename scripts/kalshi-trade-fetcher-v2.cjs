@@ -637,52 +637,91 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
 // RSS News Feed Parser - fetch news from multiple sources
 async function fetchRSSFeeds() {
   const feeds = [
-    { name: 'Reuters', url: 'https://www.reutersagency.com/feed/?taxonomy=markets&post_type=reuters-best' },
-    { name: 'Bloomberg', url: 'https://feeds.bloomberg.com/markets/news.rss' },
-    { name: 'WSJ', url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml' },
-    { name: 'Politico', url: 'https://www.politico.com/rss/politics08.xml' },
-    { name: 'Weather', url: 'https://w1.weather.gov/xml/current_obs/all.xml' }
+    // Crypto
+    { name: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', category: 'crypto' },
+    { name: 'Cointelegraph', url: 'https://cointelegraph.com/rss', category: 'crypto' },
+    // Politics
+    { name: 'Politico', url: 'https://www.politico.com/rss/politics08.xml', category: 'politics' },
+    { name: 'TheHill', url: 'https://thehill.com/rss/syndicator/19110', category: 'politics' },
+    // Markets/Finance
+    { name: 'MarketWatch', url: 'https://www.marketwatch.com/rss/topstories', category: 'markets' },
+    { name: 'YahooFinance', url: 'https://finance.yahoo.com/news/rssindex', category: 'markets' },
+    // General News
+    { name: 'BBC', url: 'http://feeds.bbci.co.uk/news/world/rss.xml', category: 'general' },
+    { name: 'CNN', url: 'http://rss.cnn.com/rss/edition.rss', category: 'general' },
+    // Weather
+    { name: 'WeatherChannel', url: 'https://weather.com/en-us/weather/today/l/98354:4:US', category: 'weather', isWeather: true }
   ];
   
   const articles = [];
   
   for (const feed of feeds) {
     try {
-      const data = await fetchWithRetry(feed.url, {}, 1);
-      const items = parseRSS(data, feed.name);
-      articles.push(...items);
+      // Add timeout and better headers
+      const data = await fetchWithRetry(feed.url, { 
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (compatible; KalshiScanner/2.6)',
+          'Accept': 'application/rss+xml, application/xml, text/xml'
+        }
+      }, 1);
+      
+      // Check if we got valid XML
+      if (!data || typeof data !== 'string' || data.length < 100) {
+        console.log(`  ⚠️ RSS ${feed.name}: Empty or invalid response`);
+        continue;
+      }
+      
+      const items = parseRSS(data, feed.name, feed.category);
+      if (items.length > 0) {
+        console.log(`  ✅ ${feed.name}: ${items.length} articles`);
+        articles.push(...items);
+      } else {
+        console.log(`  ⚠️ ${feed.name}: No articles parsed`);
+      }
     } catch (e) {
-      console.log(`  ⚠️ RSS ${feed.name} failed: ${e.message}`);
+      console.log(`  ⚠️ RSS ${feed.name}: ${e.message.slice(0, 50)}`);
     }
   }
+  
+  // Sort by date, newest first
+  articles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
   
   return articles.slice(0, 50); // Limit to recent 50 articles
 }
 
-function parseRSS(xmlData, source) {
-  // Simple regex-based RSS parser (no XML lib to keep dependencies minimal)
+function parseRSS(xmlData, source, category = 'general') {
   const items = [];
-  const itemRegex = /<item>[\s\S]*?<\/item>/g;
-  const titleRegex = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i;
-  const descRegex = /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i;
-  const pubDateRegex = /<pubDate>(.*?)<\/pubDate>/i;
-  const linkRegex = /<link>(.*?)<\/link>/i;
   
-  const matches = xmlData.match(itemRegex) || [];
+  // Try multiple patterns for different RSS formats
+  const itemPatterns = [
+    /<item>[\s\S]*?<\/item>/gi,  // Standard RSS
+    /<entry>[\s\S]*?<\/entry>/gi  // Atom format
+  ];
+  
+  let matches = [];
+  for (const pattern of itemPatterns) {
+    const found = xmlData.match(pattern);
+    if (found && found.length > 0) {
+      matches = found;
+      break;
+    }
+  }
   
   for (const item of matches.slice(0, 10)) {
-    const title = (item.match(titleRegex)?.[1] || '').trim();
-    const description = (item.match(descRegex)?.[1] || '').trim();
-    const pubDate = item.match(pubDateRegex)?.[1];
-    const link = item.match(linkRegex)?.[1];
+    // Try multiple patterns for title
+    const title = extractField(item, ['title']) || '';
+    const description = extractField(item, ['description', 'summary', 'content']) || '';
+    const pubDate = extractField(item, ['pubDate', 'published', 'updated', 'date']);
+    const link = extractField(item, ['link', 'id']);
     
-    if (title) {
+    if (title && title.length > 5) { // Filter out empty/short titles
       items.push({
         source,
-        title: title.replace(/<[^>]+>/g, ''), // Strip HTML
-        description: description.replace(/<[^>]+>/g, ''),
-        pubDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-        link,
+        category,
+        title: cleanText(title),
+        description: cleanText(description).slice(0, 500),
+        pubDate: parseDate(pubDate),
+        link: extractLink(link),
         relevance: 0,
         sentiment: 0
       });
@@ -690,6 +729,54 @@ function parseRSS(xmlData, source) {
   }
   
   return items;
+}
+
+function extractField(xml, fieldNames) {
+  for (const field of fieldNames) {
+    // Try CDATA version first
+    const cdataRegex = new RegExp(`<${field}[\s\S]*?>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/${field}>`, 'i');
+    const normalRegex = new RegExp(`<${field}[\s]*[^>]*>([^<]*)<\/${field}>`, 'i');
+    
+    const cdataMatch = xml.match(cdataRegex);
+    if (cdataMatch) return cdataMatch[1].trim();
+    
+    const normalMatch = xml.match(normalRegex);
+    if (normalMatch) return normalMatch[1].trim();
+  }
+  return null;
+}
+
+function extractLink(linkField) {
+  if (!linkField) return null;
+  // Handle href attribute format: <link href="..." />
+  const hrefMatch = linkField.match(/href="([^"]+)"/);
+  if (hrefMatch) return hrefMatch[1];
+  return linkField.trim();
+}
+
+function cleanText(text) {
+  if (!text) return '';
+  return text
+    .replace(/<[^>]+>/g, ' ') // Strip HTML tags
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#\d+;/g, match => String.fromCharCode(parseInt(match.slice(2, -1))))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseDate(dateStr) {
+  if (!dateStr) return new Date().toISOString();
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return new Date().toISOString();
+    return date.toISOString();
+  } catch (e) {
+    return new Date().toISOString();
+  }
 }
 
 // NLP Sentiment Analysis - keyword-based scoring
