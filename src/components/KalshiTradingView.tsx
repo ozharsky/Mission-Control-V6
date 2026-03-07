@@ -97,6 +97,46 @@ interface KalshiTrade {
     lagDetected: boolean;
     recommendation: string;
   };
+  // v3.0 fields - Multi-Factor Scoring
+  multiFactorScore?: {
+    total: number;
+    breakdown: {
+      edgeQuality: number;
+      liquidityDepth: number;
+      timeToExpiration: number;
+      historicalAccuracy: number;
+      newsSentiment: number;
+    };
+    weights: {
+      edgeQuality: number;
+      liquidityDepth: number;
+      timeToExpiration: number;
+      historicalAccuracy: number;
+      newsSentiment: number;
+    };
+  };
+  // v3.0 fields - Twitter/X Sentiment
+  twitterSignal?: {
+    score: number;
+    confidence: number;
+    signal: 'bullish' | 'bearish' | 'neutral';
+    strength: 'strong' | 'moderate' | 'weak';
+    socialScore: number;
+    source: 'twitter' | 'news' | 'none';
+    matchedKeywords: string[];
+    sampleData?: string[] | number;
+  };
+  // v3.0 fields - Edge Decay
+  decayAnalysis?: {
+    decayRate: number;
+    trend: 'improving_fast' | 'improving' | 'stable' | 'decaying' | 'decaying_fast';
+    edge24hAgo: number;
+    edgeChange24h: number;
+    decayRateWeek?: number;
+    weekTrend?: 'strong_improvement' | 'strong_decay' | null;
+    entriesCount: number;
+  };
+  stabilityScore?: number;
 }
 
 interface PaperPosition {
@@ -332,7 +372,12 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
       },
       // v2.6 fields
       sentimentSignal: opp.sentimentSignal,
-      nwsSignal: opp.nwsSignal
+      nwsSignal: opp.nwsSignal,
+      // v3.0 fields
+      multiFactorScore: opp.multiFactorScore,
+      twitterSignal: opp.twitterSignal,
+      decayAnalysis: opp.decayAnalysis,
+      stabilityScore: opp.stabilityScore
     };
   }); // Removed edge > 0 filter since scanner already filters
 }
@@ -1389,6 +1434,120 @@ export function KalshiTradingView() {
                                   {trade.nwsSignal.recommendation.replace('_', ' ')}
                                 </span>
                               </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Multi-Factor Scoring */}
+                        {trade.multiFactorScore && (
+                          <div className="mt-2 rounded bg-surface-hover/50 p-2">
+                            <p className="text-sm text-gray-500">Multi-Factor Score: <span className="text-primary font-bold">{trade.multiFactorScore.total.toFixed(2)}</span></p>
+                            <div className="mt-1 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Edge Quality (40%):</span>
+                                <span className={trade.multiFactorScore.breakdown.edgeQuality >= 7 ? 'text-success' : trade.multiFactorScore.breakdown.edgeQuality >= 4 ? 'text-warning' : 'text-gray-400'}>
+                                  {trade.multiFactorScore.breakdown.edgeQuality.toFixed(1)}/10
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Liquidity (20%):</span>
+                                <span className={trade.multiFactorScore.breakdown.liquidityDepth >= 7 ? 'text-success' : trade.multiFactorScore.breakdown.liquidityDepth >= 4 ? 'text-warning' : 'text-gray-400'}>
+                                  {trade.multiFactorScore.breakdown.liquidityDepth.toFixed(1)}/10
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Time (15%):</span>
+                                <span className={trade.multiFactorScore.breakdown.timeToExpiration >= 7 ? 'text-success' : trade.multiFactorScore.breakdown.timeToExpiration >= 4 ? 'text-warning' : 'text-gray-400'}>
+                                  {trade.multiFactorScore.breakdown.timeToExpiration.toFixed(1)}/10
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">History (15%):</span>
+                                <span className={trade.multiFactorScore.breakdown.historicalAccuracy >= 7 ? 'text-success' : trade.multiFactorScore.breakdown.historicalAccuracy >= 4 ? 'text-warning' : 'text-gray-400'}>
+                                  {trade.multiFactorScore.breakdown.historicalAccuracy.toFixed(1)}/10
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Sentiment (10%):</span>
+                                <span className={trade.multiFactorScore.breakdown.newsSentiment >= 7 ? 'text-success' : trade.multiFactorScore.breakdown.newsSentiment >= 4 ? 'text-warning' : 'text-gray-400'}>
+                                  {trade.multiFactorScore.breakdown.newsSentiment.toFixed(1)}/10
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Twitter/X Sentiment */}
+                        {trade.twitterSignal && trade.twitterSignal.signal !== 'neutral' && (
+                          <div className={`mt-2 rounded p-2 border ${
+                            trade.twitterSignal.signal === 'bullish' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                            'bg-rose-500/10 border-rose-500/30'
+                          }`}>
+                            <p className={`text-sm font-medium ${
+                              trade.twitterSignal.signal === 'bullish' ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              🐦 Twitter Sentiment: {trade.twitterSignal.signal.toUpperCase()} ({trade.twitterSignal.strength})
+                            </p>
+                            <div className="mt-1 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Score:</span>
+                                <span className={trade.twitterSignal.score > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                  {trade.twitterSignal.score > 0 ? '+' : ''}{trade.twitterSignal.score.toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Source:</span>
+                                <span className="text-gray-300">{trade.twitterSignal.source}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Confidence:</span>
+                                <span className="text-gray-300">{Math.round(trade.twitterSignal.confidence * 100)}%</span>
+                              </div>
+                              {trade.twitterSignal.matchedKeywords && trade.twitterSignal.matchedKeywords.length > 0 && (
+                                <div className="mt-1">
+                                  <span className="text-gray-500">Keywords: </span>
+                                  <span className="text-gray-300">{trade.twitterSignal.matchedKeywords.join(', ')}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Edge Decay Analysis */}
+                        {trade.decayAnalysis && (
+                          <div className={`mt-2 rounded p-2 border ${
+                            trade.decayAnalysis.trend.includes('improving') ? 'bg-emerald-500/10 border-emerald-500/30' :
+                            trade.decayAnalysis.trend.includes('decaying') ? 'bg-rose-500/10 border-rose-500/30' :
+                            'bg-gray-500/10 border-gray-500/30'
+                          }`}>
+                            <p className={`text-sm font-medium ${
+                              trade.decayAnalysis.trend.includes('improving') ? 'text-emerald-400' :
+                              trade.decayAnalysis.trend.includes('decaying') ? 'text-rose-400' :
+                              'text-gray-400'
+                            }`}>
+                              📊 Edge Trend: {trade.decayAnalysis.trend.replace('_', ' ').toUpperCase()}
+                            </p>
+                            <div className="mt-1 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">24h Change:</span>
+                                <span className={trade.decayAnalysis.edgeChange24h > 0 ? 'text-emerald-400' : trade.decayAnalysis.edgeChange24h < 0 ? 'text-rose-400' : 'text-gray-300'}>
+                                  {trade.decayAnalysis.edgeChange24h > 0 ? '+' : ''}{trade.decayAnalysis.edgeChange24h.toFixed(1)}%
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Rate:</span>
+                                <span className={trade.decayAnalysis.decayRate > 0 ? 'text-emerald-400' : trade.decayAnalysis.decayRate < 0 ? 'text-rose-400' : 'text-gray-300'}>
+                                  {trade.decayAnalysis.decayRate > 0 ? '+' : ''}{trade.decayAnalysis.decayRate.toFixed(1)}%
+                                </span>
+                              </div>
+                              {trade.stabilityScore !== undefined && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">Stability:</span>
+                                  <span className={trade.stabilityScore > 0 ? 'text-emerald-400' : trade.stabilityScore < 0 ? 'text-rose-400' : 'text-gray-300'}>
+                                    {trade.stabilityScore > 0 ? '+' : ''}{trade.stabilityScore.toFixed(1)}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}

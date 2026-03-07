@@ -1264,6 +1264,319 @@ class TwitterSentimentAnalyzer {
   }
 }
 
+// Backtesting Framework (v3.0 #9)
+// Historical simulation engine to test trading strategies
+class BacktestingFramework {
+  constructor() {
+    this.resultsPath = path.join(__dirname, '..', 'kalshi_data', 'backtest_results.json');
+    this.tradesPath = path.join(__dirname, '..', 'kalshi_data', 'win_rate_history.json');
+  }
+
+  // Load historical trade data
+  loadHistoricalData() {
+    try {
+      if (fs.existsSync(this.tradesPath)) {
+        const data = JSON.parse(fs.readFileSync(this.tradesPath, 'utf8'));
+        return data.trades || [];
+      }
+    } catch (e) {
+      console.error('❌ Failed to load historical data:', e.message);
+    }
+    return [];
+  }
+
+  // Strategy definitions
+  getStrategies() {
+    return {
+      // Strategy 1: Buy everything with R-Score > 2.0
+      highRScore: {
+        name: 'High R-Score Strategy',
+        description: 'Buy all trades with R-Score > 2.0',
+        filter: (trade) => parseFloat(trade.rScore) > 2.0,
+        positionSizing: 'kelly_half'
+      },
+
+      // Strategy 2: Only high edge (>15%) with good liquidity
+      highEdge: {
+        name: 'High Edge + Liquidity',
+        description: 'Buy trades with edge > 15% and volume > 10k',
+        filter: (trade) => parseFloat(trade.edge) > 15 && (trade.volume || 0) > 10000,
+        positionSizing: 'fixed_100'
+      },
+
+      // Strategy 3: Multi-factor score > 7.0
+      multiFactor: {
+        name: 'Multi-Factor Elite',
+        description: 'Buy trades with multi-factor score > 7.0',
+        filter: (trade) => trade.multiFactorScore && trade.multiFactorScore.total > 7.0,
+        positionSizing: 'kelly_full'
+      },
+
+      // Strategy 4: Whale follow (high volume spike)
+      whaleFollow: {
+        name: 'Follow the Whales',
+        description: 'Buy when whale activity detected (>3x volume)',
+        filter: (trade) => trade.whale === true && parseFloat(trade.whaleSpikeRatio) > 3,
+        positionSizing: 'fixed_50'
+      },
+
+      // Strategy 5: Combined - High edge + stable decay + whale
+      combined: {
+        name: 'Combined Quality',
+        description: 'Edge > 10%, not deteriorating, whale or high volume',
+        filter: (trade) => {
+          const edge = parseFloat(trade.edge) || 0;
+          const deteriorating = trade.isEdgeDeteriorating;
+          const whale = trade.whale;
+          const volume = trade.volume || 0;
+          return edge > 10 && !deteriorating && (whale || volume > 20000);
+        },
+        positionSizing: 'kelly_half'
+      }
+    };
+  }
+
+  // Run backtest on historical data
+  runBacktest(strategyName, historicalTrades = null) {
+    const strategies = this.getStrategies();
+    const strategy = strategies[strategyName];
+
+    if (!strategy) {
+      return { error: `Unknown strategy: ${strategyName}` };
+    }
+
+    const trades = historicalTrades || this.loadHistoricalData();
+
+    if (trades.length === 0) {
+      return {
+        strategy: strategy.name,
+        description: strategy.description,
+        error: 'No historical data available for backtesting',
+        tradesAnalyzed: 0
+      };
+    }
+
+    // Filter trades that match strategy
+    const matchedTrades = trades.filter(strategy.filter);
+
+    if (matchedTrades.length === 0) {
+      return {
+        strategy: strategy.name,
+        description: strategy.description,
+        tradesAnalyzed: trades.length,
+        matchedTrades: 0,
+        message: 'No trades matched strategy criteria'
+      };
+    }
+
+    // Simulate trades (using actual results if available, otherwise estimate)
+    const simulatedTrades = matchedTrades.map(t => this.simulateTrade(t, strategy.positionSizing));
+
+    // Calculate performance metrics
+    const wins = simulatedTrades.filter(t => t.result === 'win');
+    const losses = simulatedTrades.filter(t => t.result === 'loss');
+    const pending = simulatedTrades.filter(t => t.result === 'pending');
+
+    const totalPnl = simulatedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const winRate = wins.length / (wins.length + losses.length) * 100;
+
+    // Calculate drawdown
+    const drawdown = this.calculateDrawdown(simulatedTrades);
+
+    // Calculate Sharpe ratio (simplified)
+    const returns = simulatedTrades.filter(t => t.pnl !== undefined).map(t => t.pnl);
+    const sharpe = this.calculateSharpeRatio(returns);
+
+    // Calculate by category
+    const byCategory = {};
+    simulatedTrades.forEach(t => {
+      const cat = t.category || 'unknown';
+      if (!byCategory[cat]) byCategory[cat] = { wins: 0, losses: 0, pnl: 0 };
+      if (t.result === 'win') byCategory[cat].wins++;
+      if (t.result === 'loss') byCategory[cat].losses++;
+      byCategory[cat].pnl += t.pnl || 0;
+    });
+
+    return {
+      strategy: strategy.name,
+      description: strategy.description,
+      tradesAnalyzed: trades.length,
+      matchedTrades: matchedTrades.length,
+      simulatedTrades: simulatedTrades.length,
+      results: {
+        wins: wins.length,
+        losses: losses.length,
+        pending: pending.length,
+        winRate: Math.round(winRate * 100) / 100,
+        totalPnl: Math.round(totalPnl * 100) / 100,
+        avgPnl: Math.round((totalPnl / simulatedTrades.length) * 100) / 100,
+        maxDrawdown: Math.round(drawdown.max * 100) / 100,
+        sharpeRatio: Math.round(sharpe * 100) / 100,
+        profitFactor: this.calculateProfitFactor(simulatedTrades)
+      },
+      byCategory,
+      positionSizing: strategy.positionSizing,
+      sampleTrades: simulatedTrades.slice(0, 5).map(t => ({
+        ticker: t.ticker,
+        result: t.result,
+        pnl: Math.round(t.pnl * 100) / 100,
+        edge: t.edge,
+        rScore: t.rScore
+      }))
+    };
+  }
+
+  // Simulate a single trade outcome
+  simulateTrade(trade, positionSizing) {
+    // If we have actual results, use them
+    if (trade.result) {
+      return {
+        ...trade,
+        simulated: false,
+        pnl: trade.actualReturn || 0
+      };
+    }
+
+    // Otherwise, estimate based on edge and R-score
+    const edge = parseFloat(trade.edge) || 0;
+    const rScore = parseFloat(trade.rScore) || 0;
+
+    // Simulate win probability based on edge
+    const winProbability = 0.5 + (edge / 200); // Edge 10% = 55% win prob
+
+    // Determine position size
+    let position = 100; // Default $100
+    if (positionSizing === 'kelly_half') {
+      position = this.calculateKellyPosition(edge, 0.5);
+    } else if (positionSizing === 'kelly_full') {
+      position = this.calculateKellyPosition(edge, 1.0);
+    } else if (positionSizing === 'fixed_50') {
+      position = 50;
+    } else if (positionSizing === 'fixed_100') {
+      position = 100;
+    }
+
+    // Simulate outcome (random based on probability)
+    const won = Math.random() < winProbability;
+    const payout = won ? position * (edge / 100) : -position;
+
+    return {
+      ...trade,
+      simulated: true,
+      result: won ? 'win' : 'loss',
+      pnl: payout,
+      position,
+      winProbability: Math.round(winProbability * 100) / 100
+    };
+  }
+
+  // Calculate Kelly criterion position size
+  calculateKellyPosition(edge, fraction = 0.5) {
+    const winProb = 0.5 + (edge / 200);
+    const lossProb = 1 - winProb;
+    const winAmount = edge / 100;
+    const lossAmount = 1;
+
+    // Kelly = (winProb * winAmount - lossProb * lossAmount) / winAmount
+    const kelly = (winProb * winAmount - lossProb * lossAmount) / winAmount;
+    const halfKelly = Math.max(0, kelly * fraction);
+
+    // Convert to dollar amount (capped at $500)
+    return Math.min(500, Math.max(10, halfKelly * 1000));
+  }
+
+  // Calculate maximum drawdown
+  calculateDrawdown(trades) {
+    let peak = 0;
+    let maxDrawdown = 0;
+    let runningPnl = 0;
+
+    trades.forEach(t => {
+      runningPnl += t.pnl || 0;
+      if (runningPnl > peak) peak = runningPnl;
+      const drawdown = peak - runningPnl;
+      if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+    });
+
+    return {
+      max: maxDrawdown,
+      finalPnl: runningPnl
+    };
+  }
+
+  // Calculate Sharpe ratio
+  calculateSharpeRatio(returns) {
+    if (returns.length < 2) return 0;
+
+    const avg = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance = returns.reduce((sum, r) => sum + Math.pow(r - avg, 2), 0) / returns.length;
+    const stdDev = Math.sqrt(variance);
+
+    return stdDev === 0 ? 0 : avg / stdDev;
+  }
+
+  // Calculate profit factor
+  calculateProfitFactor(trades) {
+    const grossProfit = trades
+      .filter(t => t.pnl > 0)
+      .reduce((sum, t) => sum + t.pnl, 0);
+    const grossLoss = Math.abs(trades
+      .filter(t => t.pnl < 0)
+      .reduce((sum, t) => sum + t.pnl, 0));
+
+    return grossLoss === 0 ? grossProfit : Math.round((grossProfit / grossLoss) * 100) / 100;
+  }
+
+  // Run all strategies and compare
+  runAllStrategies() {
+    const strategies = this.getStrategies();
+    const results = {};
+
+    console.log('\n📊 RUNNING BACKTEST SIMULATIONS...');
+    console.log('  (Note: Results use historical data + simulated outcomes for pending trades)');
+
+    for (const [key, strategy] of Object.entries(strategies)) {
+      console.log(`\n  Testing: ${strategy.name}...`);
+      results[key] = this.runBacktest(key);
+    }
+
+    return results;
+  }
+
+  // Print comparison report
+  printComparisonReport(results) {
+    console.log('\n📊 BACKTEST RESULTS COMPARISON:');
+    console.log('  Strategy                 | Win Rate | P&L    | Trades | Sharpe | Max DD');
+    console.log('  ' + '-'.repeat(75));
+
+    const sorted = Object.entries(results)
+      .filter(([_, r]) => !r.error)
+      .sort((a, b) => (b[1].results?.totalPnl || 0) - (a[1].results?.totalPnl || 0));
+
+    sorted.forEach(([key, result]) => {
+      if (result.error) return;
+
+      const r = result.results;
+      const name = result.strategy.padEnd(24);
+      const winRate = `${r.winRate.toFixed(1)}%`.padEnd(8);
+      const pnl = (r.totalPnl >= 0 ? '+' : '') + `$${r.totalPnl.toFixed(0)}`.padEnd(6);
+      const trades = `${r.wins + r.losses}`.padEnd(6);
+      const sharpe = r.sharpeRatio.toFixed(2).padEnd(6);
+      const drawdown = `$${r.maxDrawdown.toFixed(0)}`.padEnd(6);
+
+      console.log(`  ${name} | ${winRate} | ${pnl} | ${trades} | ${sharpe} | ${drawdown}`);
+    });
+
+    // Show best strategy
+    if (sorted.length > 0) {
+      const best = sorted[0][1];
+      console.log(`\n  🏆 BEST STRATEGY: ${best.strategy}`);
+      console.log(`     ${best.description}`);
+      console.log(`     Win Rate: ${best.results.winRate}% | Total P&L: $${best.results.totalPnl}`);
+    }
+  }
+}
+
 async function cachedFetch(key, fetchFn, ttlMs) {
   const cached = cache.get(key);
   if (cached) {
@@ -2684,6 +2997,11 @@ async function main() {
 
   // Get recommendations based on historical performance
   const winRateRecommendations = winRateAnalytics.getRecommendations();
+
+  // Run backtesting simulations
+  const backtestFramework = new BacktestingFramework();
+  const backtestResults = backtestFramework.runAllStrategies();
+  backtestFramework.printComparisonReport(backtestResults);
   
   const arbitrage = detectArbitrage(allTrades);
   
@@ -2750,6 +3068,7 @@ async function main() {
     winRateStats: winRateAnalytics.calculateStats(),
     winRateRecommendations,
     twitterSentiment: categorySentiment,
+    backtestResults,
     news: relevantNews.slice(0, 10), // Top 10 relevant news articles
     weatherLags,
     triggeredAlerts: triggeredAlerts.slice(0, 20), // Top 20 threshold alerts
