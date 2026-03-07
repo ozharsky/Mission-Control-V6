@@ -23,7 +23,7 @@ const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'printers', label: 'Printers', icon: Printer },
   { id: 'revenue', label: 'Revenue', icon: CircleDollarSign },
-  { id: 'trades', label: 'Trades', icon: TrendingUp },
+  { id: 'trades', label: 'Kalshi Trading', icon: TrendingUp },
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
   { id: 'agents', label: 'Agent Tasks', icon: Bot },

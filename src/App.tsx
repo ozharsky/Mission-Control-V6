@@ -18,7 +18,7 @@ import { ThemeToggleSimple } from './components/ThemeToggle';
 import { JobsView } from './components/JobsView';
 import { InventoryView } from './components/InventoryView';
 import { ReportsView } from './components/ReportsView';
-import { TradesView } from './components/TradesView';
+import { KalshiTradingView } from './components/KalshiTradingView';
 import { AgentTaskList } from './components/agents/AgentTaskList';
 import { AgentDocuments } from './components/agents/AgentDocuments';
 import { AgentActivityView } from './components/agents/AgentActivityView';
@@ -169,7 +169,7 @@ function App() {
         return <PrinterStatus printers={printers} />;
 
       case 'trades':
-        return <TradesView />;
+        return <KalshiTradingView />;
 
       case 'revenue':
         return (
