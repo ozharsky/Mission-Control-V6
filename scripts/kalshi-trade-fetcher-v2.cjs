@@ -673,19 +673,25 @@ async function fetchRSSFeeds() {
     // Crypto
     { name: 'CryptoNews', url: 'https://cryptonews.com/news/feed/', category: 'crypto' },
     { name: 'BitcoinMagazine', url: 'https://bitcoinmagazine.com/feed', category: 'crypto' },
+    { name: 'CryptoPotato', url: 'https://cryptopotato.com/feed/', category: 'crypto' },
+    { name: 'NewsBTC', url: 'https://www.newsbtc.com/feed/', category: 'crypto' },
     // Politics
     { name: 'RealClearPolitics', url: 'https://www.realclearpolitics.com/index.xml', category: 'politics' },
-    { name: 'Axios', url: 'https://api.axios.com/feed/politics', category: 'politics' },
     { name: 'WashingtonExaminer', url: 'https://www.washingtonexaminer.com/feed/', category: 'politics' },
+    { name: 'DailyCaller', url: 'https://dailycaller.com/feed/', category: 'politics' },
+    { name: 'NationalReview', url: 'https://www.nationalreview.com/feed/', category: 'politics' },
     // Markets/Finance
     { name: 'MarketWatch', url: 'https://www.marketwatch.com/rss/topstories', category: 'markets' },
-    { name: 'Investopedia', url: 'https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline', category: 'markets' },
-    { name: 'FinancialTimes', url: 'https://www.ft.com/?format=rss', category: 'markets' },
+    { name: 'Kiplinger', url: 'https://www.kiplinger.com/feed', category: 'markets' },
+    { name: 'Investing', url: 'https://www.investing.com/rss/news.rss', category: 'markets' },
+    { name: 'FXStreet', url: 'https://www.fxstreet.com/rss/news', category: 'markets' },
     // General News
-    { name: 'APNews', url: 'https://feeds.apnews.com/APNews', category: 'general' },
     { name: 'NPR', url: 'https://feeds.npr.org/1001/rss.xml', category: 'general' },
+    { name: 'PBS', url: 'https://www.pbs.org/newshour/feeds/rss/politics', category: 'general' },
+    { name: 'CSMonitor', url: 'https://www.csmonitor.com/rss/top.rss', category: 'general' },
     // Weather
-    { name: 'NOAA', url: 'https://www.weather.gov/rss_page.php?site_name=nws', category: 'weather' }
+    { name: 'NOAA', url: 'https://www.weather.gov/rss_page.php?site_name=nws', category: 'weather' },
+    { name: 'AccuWeather', url: 'https://www.accuweather.com/en-us/weather/news/news-rss.aspx', category: 'weather' }
   ];
   
   const articles = [];
