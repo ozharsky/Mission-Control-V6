@@ -63,9 +63,15 @@ const CONFIG = {
   kellyFraction: 0.5,
   maxSpread: 10,
   minLiquidityScore: 20,
-  whaleVolumeThreshold: 50000,  // Volume spike threshold for whale detection
-  whaleVolumeMultiplier: 3,      // 3x average volume = whale
-  historyRetentionDays: 7       // Keep 7 days of price history
+  whaleVolumeThreshold: 50000,
+  whaleVolumeMultiplier: 3,
+  historyRetentionDays: 7,
+  // Cache TTLs (in milliseconds)
+  cache: {
+    rssTtl: 15 * 60 * 1000,        // 15 minutes
+    nwsTtl: 60 * 60 * 1000,        // 1 hour
+    polymarketTtl: 5 * 60 * 1000,  // 5 minutes
+  }
 };
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -94,6 +100,64 @@ async function loadHistory() {
 // Sanitize ticker for Firebase key (replace invalid chars)
 function sanitizeTicker(ticker) {
   return ticker.replace(/[.#$\[\]/]/g, '_');
+}
+
+// Simple memory cache with TTL
+class MemoryCache {
+  constructor() {
+    this.cache = new Map();
+  }
+  
+  get(key) {
+    const item = this.cache.get(key);
+    if (!item) return null;
+    
+    if (Date.now() > item.expiresAt) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return item.value;
+  }
+  
+  set(key, value, ttlMs) {
+    this.cache.set(key, {
+      value,
+      expiresAt: Date.now() + ttlMs
+    });
+  }
+  
+  getStats() {
+    let valid = 0;
+    let expired = 0;
+    
+    for (const [key, item] of this.cache) {
+      if (Date.now() > item.expiresAt) {
+        expired++;
+      } else {
+        valid++;
+      }
+    }
+    
+    return { valid, expired, total: this.cache.size };
+  }
+}
+
+// Initialize cache
+const cache = new MemoryCache();
+
+// Cached fetch wrapper
+async function cachedFetch(key, fetchFn, ttlMs) {
+  const cached = cache.get(key);
+  if (cached) {
+    console.log(`  💾 Cache hit: ${key}`);
+    return cached;
+  }
+  
+  console.log(`  🌐 Fetching: ${key}`);
+  const result = await fetchFn();
+  cache.set(key, result, ttlMs);
+  return result;
 }
 
 // Save historical data
@@ -450,23 +514,23 @@ function fetchOnce(url, options) {
 }
 
 // Fetch raw text (for RSS feeds)
-function fetchText(url, options = {}) {
+function fetchText(url, options = {}, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : require('http');
     
-    protocol.get(url, {
+    const req = protocol.get(url, {
       headers: { 
         'User-Agent': 'Mozilla/5.0 (compatible; KalshiScanner/2.6)',
         'Accept': 'application/rss+xml, application/xml, text/xml, */*',
         ...options.headers
       },
-      timeout: 15000,
+      timeout: timeoutMs,
       ...options
     }, (res) => {
       // Handle redirects manually
       if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
         const redirectUrl = new URL(res.headers.location, url).toString();
-        fetchText(redirectUrl, options).then(resolve).catch(reject);
+        fetchText(redirectUrl, options, timeoutMs).then(resolve).catch(reject);
         return;
       }
       
@@ -478,7 +542,13 @@ function fetchText(url, options = {}) {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => resolve(data));
-    }).on('error', reject);
+    });
+    
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
   });
 }
 
@@ -696,25 +766,41 @@ async function fetchRSSFeeds() {
   
   const articles = [];
   
-  for (const feed of feeds) {
+  // Fetch all feeds in parallel with timeout
+  const feedPromises = feeds.map(async (feed) => {
     try {
-      const data = await fetchText(feed.url);
+      const data = await fetchText(feed.url, {}, 8000); // 8 second timeout per feed
       
       // Check if we got valid XML
       if (!data || data.length < 100 || !data.includes('<')) {
-        console.log(`  ⚠️ ${feed.name}: Empty or invalid response`);
-        continue;
+        return { feed, items: [], error: 'Empty or invalid response' };
       }
       
       const items = parseRSS(data, feed.name, feed.category);
-      if (items.length > 0) {
+      return { feed, items, error: null };
+    } catch (e) {
+      return { feed, items: [], error: e.message };
+    }
+  });
+  
+  // Wait for all feeds to complete (or timeout)
+  const results = await Promise.allSettled(feedPromises);
+  
+  // Process results
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      const { feed, items, error } = result.value;
+      
+      if (error) {
+        console.log(`  ⚠️ ${feed.name}: ${error.slice(0, 50)}`);
+      } else if (items.length > 0) {
         console.log(`  ✅ ${feed.name}: ${items.length} articles`);
         articles.push(...items);
       } else {
         console.log(`  ⚠️ ${feed.name}: No articles parsed`);
       }
-    } catch (e) {
-      console.log(`  ⚠️ ${feed.name}: ${e.message.slice(0, 50)}`);
+    } else {
+      console.log(`  ⚠️ Feed failed: ${result.reason?.message?.slice(0, 50) || 'Unknown error'}`);
     }
   }
   
