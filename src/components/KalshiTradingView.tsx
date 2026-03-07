@@ -254,15 +254,30 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
       edge,
       rScore: Math.round(rScore * 10) / 10,
       kellyPct,
-      recommendation,
+      recommendation: opp.recommendation || recommendation,
       floor,
       cap,
-      trueProbability: opp.signals?.baseSignal?.trueProbability,
-      multiplier: opp.yesPrice > 0 ? Math.round(100 / opp.yesPrice * 10) / 10 : undefined,
+      trueProbability: opp.trueProbability,
+      multiplier: opp.multiplier,
+      // v2.2 fields
+      whale: opp.whale,
+      whaleSpikeRatio: opp.whaleSpikeRatio,
+      momentum: opp.momentum,
+      momentumChange24h: opp.momentumChange24h,
+      edgeChange: opp.edgeChange,
+      avgHistoricalEdge: opp.avgHistoricalEdge,
+      isEdgeDeteriorating: opp.isEdgeDeteriorating,
+      // v2.3 fields
+      compositeScore: opp.compositeScore,
+      health: opp.health,
+      spread: opp.spread,
+      liquidityScore: opp.liquidityScore,
+      timeAdjustment: opp.timeAdjustment,
+      volumeBoost: opp.volumeBoost,
       research: {
-        catalyst: opp.signals?.baseSignal?.catalyst || subtitle || 'Scanner-identified opportunity',
-        confidence: opp.confidence?.level?.toLowerCase() || 'medium',
-        sources: opp.signals ? Object.keys(opp.signals).filter(k => k !== 'baseSignal') : []
+        catalyst: opp.catalyst || subtitle || 'Scanner-identified opportunity',
+        confidence: opp.confidence || 'medium',
+        sources: opp.sources || ['Kalshi API']
       }
     };
   }); // Removed edge > 0 filter since scanner already filters
