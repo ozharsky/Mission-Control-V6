@@ -470,6 +470,186 @@ class EdgeDecayTracker {
     }
   }
 }
+
+// Cross-Market Correlation Matrix (v3.0 #6)
+// Tracks relationships between markets to identify correlated moves and divergences
+class CrossMarketCorrelation {
+  constructor() {
+    this.correlationPairs = [
+      // Weather correlations
+      { pair: ['KXHIGHNY', 'KXHIGHCHI'], type: 'weather', name: 'NYC-Chicago Temps' },
+      { pair: ['KXHIGHMIA', 'KXHIGHTPHX'], type: 'weather', name: 'Miami-Phoenix Heat' },
+      { pair: ['KXHIGHTSEA', 'KXHIGHCHI'], type: 'weather', name: 'Seattle-Chicago' },
+      // Crypto correlations
+      { pair: ['KXBTC', 'KXETH'], type: 'crypto', name: 'BTC-ETH' },
+      { pair: ['KXBTC', 'KXSOL'], type: 'crypto', name: 'BTC-SOL' },
+      { pair: ['KXETH', 'KXSOL'], type: 'crypto', name: 'ETH-SOL' },
+      { pair: ['KXADA', 'KXDOT'], type: 'crypto', name: 'ADA-DOT (Alts)' },
+      // Politics correlations
+      { pair: ['KXTRUMP', 'KX538APPROVE'], type: 'politics', name: 'Trump-Approval' },
+      { pair: ['KXTRUMP', 'KXTRUTHSOCIAL'], type: 'politics', name: 'Trump-TruthSocial' },
+      // Economics correlations
+      { pair: ['KXFED', 'KXCPI'], type: 'economics', name: 'Fed-CPI' },
+      { pair: ['KXFED', 'KXJOBS'], type: 'economics', name: 'Fed-Jobs' },
+      { pair: ['KXCPI', 'KXJOBS'], type: 'economics', name: 'CPI-Jobs' }
+    ];
+    this.correlationHistory = new Map(); // Stores price movements for correlation calc
+    this.minHistoryPoints = 5; // Minimum data points for correlation
+  }
+
+  // Record price movement for a ticker
+  recordPrice(ticker, price) {
+    if (!this.correlationHistory.has(ticker)) {
+      this.correlationHistory.set(ticker, []);
+    }
+    const history = this.correlationHistory.get(ticker);
+    history.push({ price, timestamp: Date.now() });
+    // Keep last 100 points
+    if (history.length > 100) history.shift();
+  }
+
+  // Calculate correlation coefficient between two price series (-1 to 1)
+  calculateCorrelation(tickerA, tickerB) {
+    const historyA = this.correlationHistory.get(tickerA) || [];
+    const historyB = this.correlationHistory.get(tickerB) || [];
+
+    if (historyA.length < this.minHistoryPoints || historyB.length < this.minHistoryPoints) {
+      return null;
+    }
+
+    // Get common time window
+    const minLen = Math.min(historyA.length, historyB.length);
+    const pricesA = historyA.slice(-minLen).map(h => h.price);
+    const pricesB = historyB.slice(-minLen).map(h => h.price);
+
+    // Calculate returns (percentage changes)
+    const returnsA = [];
+    const returnsB = [];
+    for (let i = 1; i < minLen; i++) {
+      returnsA.push((pricesA[i] - pricesA[i-1]) / pricesA[i-1]);
+      returnsB.push((pricesB[i] - pricesB[i-1]) / pricesB[i-1]);
+    }
+
+    // Calculate correlation coefficient
+    const n = returnsA.length;
+    const sumA = returnsA.reduce((a, b) => a + b, 0);
+    const sumB = returnsB.reduce((a, b) => a + b, 0);
+    const sumAB = returnsA.reduce((sum, a, i) => sum + a * returnsB[i], 0);
+    const sumA2 = returnsA.reduce((sum, a) => sum + a * a, 0);
+    const sumB2 = returnsB.reduce((sum, b) => sum + b * b, 0);
+
+    const numerator = n * sumAB - sumA * sumB;
+    const denominator = Math.sqrt((n * sumA2 - sumA * sumA) * (n * sumB2 - sumB * sumB));
+
+    if (denominator === 0) return 0;
+    return numerator / denominator;
+  }
+
+  // Analyze all correlation pairs
+  analyzeCorrelations(trades) {
+    // First, record current prices
+    trades.forEach(t => this.recordPrice(t.ticker, t.yesPrice));
+
+    const correlations = [];
+
+    for (const { pair, type, name } of this.correlationPairs) {
+      const tickerA = pair[0];
+      const tickerB = pair[1];
+
+      const tradeA = trades.find(t => t.ticker.startsWith(tickerA));
+      const tradeB = trades.find(t => t.ticker.startsWith(tickerB));
+
+      if (!tradeA || !tradeB) continue;
+
+      const correlation = this.calculateCorrelation(tickerA, tickerB);
+      if (correlation === null) continue;
+
+      const strength = Math.abs(correlation);
+      let signal = null;
+
+      // Detect divergence signals
+      if (strength > 0.7) {
+        // Strong correlation - look for divergences
+        const priceChangeA = tradeA.yesPrice - (tradeA.openPrice || tradeA.yesPrice);
+        const priceChangeB = tradeB.yesPrice - (tradeB.openPrice || tradeB.yesPrice);
+
+        if (priceChangeA > 5 && priceChangeB < -2) {
+          signal = {
+            type: 'divergence',
+            direction: 'B_CONVERGES_UP',
+            message: `${tradeB.ticker} may catch up to ${tradeA.ticker} rally`,
+            confidence: strength
+          };
+        } else if (priceChangeA < -5 && priceChangeB > 2) {
+          signal = {
+            type: 'divergence',
+            direction: 'B_CONVERGES_DOWN',
+            message: `${tradeB.ticker} may drop to match ${tradeA.ticker}`,
+            confidence: strength
+          };
+        }
+      }
+
+      correlations.push({
+        pair: name,
+        type,
+        tickerA: tradeA.ticker,
+        tickerB: tradeB.ticker,
+        correlation: Math.round(correlation * 100) / 100,
+        strength: strength > 0.7 ? 'strong' : strength > 0.4 ? 'moderate' : 'weak',
+        direction: correlation > 0 ? 'positive' : 'negative',
+        priceA: tradeA.yesPrice,
+        priceB: tradeB.yesPrice,
+        signal
+      });
+    }
+
+    return correlations;
+  }
+
+  // Get trading signals from correlations
+  getCorrelationSignals(correlations) {
+    return correlations
+      .filter(c => c.signal)
+      .sort((a, b) => b.signal.confidence - a.signal.confidence);
+  }
+
+  printCorrelationReport(correlations) {
+    if (correlations.length === 0) {
+      console.log('\n📊 No correlation data available yet (need more price history)');
+      return;
+    }
+
+    console.log('\n📊 CROSS-MARKET CORRELATION MATRIX:');
+
+    // Group by type
+    const byType = {};
+    correlations.forEach(c => {
+      if (!byType[c.type]) byType[c.type] = [];
+      byType[c.type].push(c);
+    });
+
+    for (const [type, pairs] of Object.entries(byType)) {
+      console.log(`\n  ${type.toUpperCase()}:`);
+      pairs.forEach(c => {
+        const emoji = c.strength === 'strong' ? '🔗' : c.strength === 'moderate' ? '~' : '•';
+        const dirEmoji = c.direction === 'positive' ? '↗️' : '↘️';
+        console.log(`    ${emoji} ${c.pair}: ${(c.correlation * 100).toFixed(0)}% ${dirEmoji} (${c.strength})`);
+      });
+    }
+
+    // Print signals
+    const signals = this.getCorrelationSignals(correlations);
+    if (signals.length > 0) {
+      console.log('\n  🎯 CORRELATION SIGNALS:');
+      signals.forEach(s => {
+        console.log(`    ${s.signal.type.toUpperCase()}: ${s.signal.message}`);
+        console.log(`       Confidence: ${(s.signal.confidence * 100).toFixed(0)}% | ${s.tickerA}:${s.priceA}¢ vs ${s.tickerB}:${s.priceB}¢`);
+      });
+    }
+  }
+}
+
 async function cachedFetch(key, fetchFn, ttlMs) {
   const cached = cache.get(key);
   if (cached) {
@@ -1780,8 +1960,9 @@ async function main() {
     console.log(`  🎯 Found ${polymarketArbs.length} Polymarket arbitrage opportunities!`);
   }
   
-  // Detect correlations
-  const correlations = detectCorrelations(allTrades);
+  // Detect correlations using the CrossMarketCorrelation class
+  const correlationMatrix = new CrossMarketCorrelation();
+  const correlations = correlationMatrix.analyzeCorrelations(allTrades);
   
   // ==================== ALTERNATIVE DATA INTEGRATION ====================
   
@@ -1865,6 +2046,9 @@ async function main() {
   // Print edge decay report
   edgeDecayTracker.printDecayReport(allTrades);
   edgeDecayTracker.saveToFile();
+
+  // Print correlation matrix report
+  correlationMatrix.printCorrelationReport(correlations);
   
   const arbitrage = detectArbitrage(allTrades);
   
@@ -1990,10 +2174,13 @@ async function main() {
     });
   }
   
-  if (correlations.length > 0) {
-    console.log('\n🔗 CORRELATIONS:');
-    correlations.slice(0, 5).forEach(c => {
-      console.log(`  ${c.category}: ${c.market1} ↔ ${c.market2} (${c.correlation})`);
+  // Show correlation signals
+  const corrSignals = correlationMatrix.getCorrelationSignals(correlations);
+  if (corrSignals.length > 0) {
+    console.log('\n🔗 CORRELATION SIGNALS:');
+    corrSignals.slice(0, 5).forEach(s => {
+      const signalEmoji = s.signal.direction.includes('UP') ? '📈' : '📉';
+      console.log(`  ${signalEmoji} ${s.pair}: ${s.signal.message}`);
     });
   }
   
