@@ -6,6 +6,7 @@ import {
   Plus, Minus, Trash2, AlertCircle
 } from 'lucide-react';
 import { getData, setData } from '../lib/firebase';
+import { RESEARCHED_TRADES } from './trades-data';
 
 // Types
 interface KalshiTrade {
@@ -58,40 +59,6 @@ interface PortfolioStats {
   openPositions: number;
 }
 
-// Mock data - will be replaced with Firebase integration
-const MOCK_TRADES: KalshiTrade[] = [
-  {
-    id: '1',
-    ticker: 'KXHIGHNY-43-44',
-    title: 'NYC High Temp 43-44°F',
-    category: 'weather',
-    yesPrice: 1,
-    noPrice: 99,
-    volume: 134000,
-    expiration: '2026-03-08',
-    edge: 15,
-    rScore: 2.1,
-    kellyPct: 5,
-    recommendation: 'strong_buy',
-    research: { catalyst: 'Weather models cooling', confidence: 'high', sources: ['NWS'] }
-  },
-  {
-    id: '2', 
-    ticker: 'KXBTC-85000-90000',
-    title: 'Bitcoin $85k-$90k',
-    category: 'crypto',
-    yesPrice: 45,
-    noPrice: 55,
-    volume: 89000,
-    expiration: '2026-03-09',
-    edge: 8,
-    rScore: 1.4,
-    kellyPct: 2,
-    recommendation: 'buy',
-    research: { catalyst: 'Technical support at $85k', confidence: 'medium', sources: ['TradingView'] }
-  }
-];
-
 const CATEGORY_COLORS: Record<string, string> = {
   weather: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   crypto: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
@@ -108,9 +75,83 @@ const RECOMMENDATION_COLORS: Record<string, string> = {
   avoid: 'bg-danger/20 text-danger border-danger'
 };
 
+// Transform RESEARCHED_TRADES to KalshiTrade format
+function transformResearchedTrades(): KalshiTrade[] {
+  return RESEARCHED_TRADES.map((trade: any) => {
+    // Calculate R-Score from edge
+    const edge = trade.research?.edge || 0;
+    const rScore = edge > 0 ? Math.max(1, edge / 10 + 1) : 0;
+    
+    // Determine recommendation based on R-Score
+    let recommendation: 'strong_buy' | 'buy' | 'hold' | 'avoid' = 'avoid';
+    if (rScore >= 2.0) recommendation = 'strong_buy';
+    else if (rScore >= 1.5) recommendation = 'buy';
+    else if (rScore >= 1.0) recommendation = 'hold';
+    
+    // Calculate Kelly percentage (half-Kelly for safety)
+    const kellyPct = edge > 0 ? Math.min(10, edge / 2) : 0;
+    
+    // Parse title for range info
+    let floor: number | undefined;
+    let cap: number | undefined;
+    
+    // Check for temperature ranges in title (e.g., "<48°F", ">54°F", "43-44°F")
+    const tempRangeMatch = trade.title.match(/(\d+)[°\s]*-\s*(\d+)[°\s]*F/);
+    const tempLessMatch = trade.title.match(/<(\d+)[°\s]*F/);
+    const tempGreaterMatch = trade.title.match(/>(\d+)[°\s]*F/);
+    
+    if (tempRangeMatch) {
+      floor = parseInt(tempRangeMatch[1], 10);
+      cap = parseInt(tempRangeMatch[2], 10);
+    } else if (tempLessMatch) {
+      floor = -100; // Effectively no lower bound
+      cap = parseInt(tempLessMatch[1], 10);
+    } else if (tempGreaterMatch) {
+      floor = parseInt(tempGreaterMatch[1], 10);
+      cap = 150; // Effectively no upper bound
+    }
+    
+    // Check for price ranges (e.g., "$85k-$90k", ">$50k")
+    const priceRangeMatch = trade.title.match(/\$?(\d+)[kK]?[\s-]+\$?(\d+)[kK]?/);
+    if (priceRangeMatch && !floor) {
+      floor = parseInt(priceRangeMatch[1], 10) * (trade.title.includes('k') || trade.title.includes('K') ? 1000 : 1);
+      cap = parseInt(priceRangeMatch[2], 10) * (trade.title.includes('k') || trade.title.includes('K') ? 1000 : 1);
+    }
+    
+    // Check for post count ranges
+    const postsMatch = trade.title.match(/(\d+)[\s-]+(\d+)\s*posts/i);
+    if (postsMatch && !floor) {
+      floor = parseInt(postsMatch[1], 10);
+      cap = parseInt(postsMatch[2], 10);
+    }
+    
+    return {
+      id: trade.id,
+      ticker: trade.ticker,
+      title: trade.title,
+      category: trade.category,
+      yesPrice: trade.yesPrice,
+      noPrice: trade.noPrice,
+      volume: trade.volume,
+      expiration: trade.expiration,
+      edge: edge,
+      rScore: Math.round(rScore * 10) / 10,
+      kellyPct: kellyPct,
+      recommendation: recommendation,
+      floor,
+      cap,
+      research: {
+        catalyst: trade.research?.catalyst || '',
+        confidence: trade.research?.confidence || 'medium',
+        sources: trade.research?.sources || []
+      }
+    };
+  }).filter(t => t.edge > 0); // Only show +EV trades
+}
+
 export function KalshiTradingView() {
   const [activeTab, setActiveTab] = useState<'opportunities' | 'portfolio' | 'history'>('opportunities');
-  const [trades, setTrades] = useState<KalshiTrade[]>(MOCK_TRADES);
+  const [trades, setTrades] = useState<KalshiTrade[]>(transformResearchedTrades());
   const [positions, setPositions] = useState<PaperPosition[]>([]);
   const [stats, setStats] = useState<PortfolioStats>({
     bankroll: 10000,
