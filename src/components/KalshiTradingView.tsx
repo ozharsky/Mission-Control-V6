@@ -305,7 +305,7 @@ export function KalshiTradingView() {
     loadFromFirebase();
   }, []);
 
-  // Load scanner data - ONLY DATA SOURCE
+  // Load scanner data - MAIN SOURCE
   useEffect(() => {
     if (hasLoadedScanner.current) return;
     hasLoadedScanner.current = true;
@@ -315,15 +315,21 @@ export function KalshiTradingView() {
       try {
         console.log('=== LOADING KALSHI DATA ===');
         
-        // Load from Firebase (scanner writes here)
+        // 1. Load base data from Firebase (scanner writes here)
         const scannerOutput = await getData('v6/kalshi/latest_scan');
         
         if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities) && scannerOutput.opportunities.length > 0) {
-          console.log(`Using SCANNER data: ${scannerOutput.opportunities.length} opportunities`);
-          const transformed = transformScannerOutput(scannerOutput);
-          setTrades(transformed);
-          setLastUpdated(new Date(scannerOutput.scan_time || Date.now()));
+          console.log(`Base data: ${scannerOutput.opportunities.length} opportunities from scanner`);
+          let transformed = transformScannerOutput(scannerOutput);
+          
+          // 2. Fetch live prices to update
+          console.log('Fetching live price updates...');
+          const updatedTrades = await updateWithLivePrices(transformed);
+          
+          setTrades(updatedTrades);
+          setLastUpdated(new Date());
           setScanSummary(scannerOutput.summary);
+          console.log(`✅ Displaying ${updatedTrades.length} trades with live prices`);
         } else {
           console.log('No scanner data - using fallback');
           setTrades(transformResearchedTrades());
@@ -338,6 +344,52 @@ export function KalshiTradingView() {
     
     loadScannerData();
   }, []);
+  
+  // Update trades with live prices from Kalshi API
+  const updateWithLivePrices = async (trades: KalshiTrade[]): Promise<KalshiTrade[]> => {
+    const KALSHI_PROXY_URL = 'https://mission-control-v6-kappa.vercel.app/api/kalshi';
+    const updated = [...trades];
+    
+    // Get unique series from trades
+    const seriesSet = new Set(trades.map(t => t.ticker.split('-')[0]));
+    const livePrices = new Map<string, { yes: number; no: number; volume: number }>();
+    
+    // Fetch live data for each series
+    for (const series of seriesSet) {
+      try {
+        const res = await fetch(`${KALSHI_PROXY_URL}?action=series&series=${series}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.markets) {
+            for (const m of data.markets) {
+              livePrices.set(m.ticker, {
+                yes: m.yes_ask || m.yes_price || 50,
+                no: m.no_ask || (100 - (m.yes_ask || m.yes_price || 50)),
+                volume: m.volume || 0
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`Failed to fetch ${series}:`, e);
+      }
+    }
+    
+    // Update trades with live prices
+    for (let i = 0; i < updated.length; i++) {
+      const live = livePrices.get(updated[i].ticker);
+      if (live) {
+        updated[i] = {
+          ...updated[i],
+          yesPrice: live.yes,
+          noPrice: live.no,
+          volume: live.volume
+        };
+      }
+    }
+    
+    return updated;
+  };
 
   // Save positions to Firebase when they change
   useEffect(() => {
@@ -603,7 +655,13 @@ export function KalshiTradingView() {
             History
           </button>
           <button
-            onClick={() => window.location.reload()}
+            onClick={async () => {
+              setIsLoading(true);
+              const updated = await updateWithLivePrices(trades);
+              setTrades(updated);
+              setLastUpdated(new Date());
+              setIsLoading(false);
+            }}
             disabled={isLoading}
             className="flex items-center gap-2 rounded-lg bg-surface px-3 py-2 text-sm text-gray-300 hover:bg-surface-hover disabled:opacity-50"
           >
