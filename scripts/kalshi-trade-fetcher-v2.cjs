@@ -300,7 +300,174 @@ class AlertManager {
   }
 }
 
-// Cached fetch wrapper
+// Edge Decay Tracker - track how edge changes over time
+class EdgeDecayTracker {
+  constructor() {
+    this.edgeHistory = new Map(); // ticker -> [{timestamp, edge, rScore}]
+    this.loadFromFile();
+  }
+  
+  loadFromFile() {
+    try {
+      const filePath = path.join(__dirname, '..', 'kalshi_data', 'edge_history.json');
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        this.edgeHistory = new Map(Object.entries(data));
+        // Convert arrays back from plain objects
+        for (const [key, value] of this.edgeHistory) {
+          if (Array.isArray(value)) {
+            this.edgeHistory.set(key, value);
+          }
+        }
+      }
+    } catch (e) {
+      console.log('⚠️ Could not load edge history:', e.message);
+    }
+  }
+  
+  saveToFile() {
+    try {
+      const filePath = path.join(__dirname, '..', 'kalshi_data', 'edge_history.json');
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      const obj = Object.fromEntries(this.edgeHistory);
+      fs.writeFileSync(filePath, JSON.stringify(obj, null, 2));
+    } catch (e) {
+      console.error('❌ Failed to save edge history:', e.message);
+    }
+  }
+  
+  recordEdge(ticker, edge, rScore, yesPrice) {
+    if (!this.edgeHistory.has(ticker)) {
+      this.edgeHistory.set(ticker, []);
+    }
+    
+    const history = this.edgeHistory.get(ticker);
+    history.push({
+      timestamp: Date.now(),
+      edge: parseFloat(edge),
+      rScore: parseFloat(rScore),
+      yesPrice
+    });
+    
+    // Keep only last 30 days
+    const cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const filtered = history.filter(h => h.timestamp > cutoff);
+    this.edgeHistory.set(ticker, filtered);
+  }
+  
+  // Calculate edge decay rate (% per day)
+  calculateDecayRate(ticker, currentEdge) {
+    const history = this.edgeHistory.get(ticker);
+    if (!history || history.length < 2) return { decayRate: 0, trend: 'stable' };
+    
+    const now = Date.now();
+    const oneDayAgo = now - (24 * 60 * 60 * 1000);
+    const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
+    
+    // Get edges from 24h ago and 7 days ago
+    const dayAgoEntry = history.find(h => h.timestamp > oneDayAgo);
+    const weekAgoEntry = history.find(h => h.timestamp <= oneWeekAgo);
+    
+    if (!dayAgoEntry) return { decayRate: 0, trend: 'stable' };
+    
+    const edge24h = dayAgoEntry.edge;
+    const edgeChange24h = currentEdge - edge24h;
+    const decayRate24h = (edgeChange24h / edge24h) * 100;
+    
+    let trend = 'stable';
+    if (decayRate24h < -10) trend = 'decaying_fast';
+    else if (decayRate24h < -5) trend = 'decaying';
+    else if (decayRate24h > 10) trend = 'improving_fast';
+    else if (decayRate24h > 5) trend = 'improving';
+    
+    let weekTrend = null;
+    let decayRateWeek = null;
+    
+    if (weekAgoEntry) {
+      const edgeChangeWeek = currentEdge - weekAgoEntry.edge;
+      decayRateWeek = (edgeChangeWeek / weekAgoEntry.edge) * 100;
+      
+      if (decayRateWeek < -20) weekTrend = 'strong_decay';
+      else if (decayRateWeek > 20) weekTrend = 'strong_improvement';
+    }
+    
+    return {
+      decayRate: decayRate24h,
+      trend,
+      edge24hAgo: edge24h,
+      edgeChange24h,
+      decayRateWeek,
+      weekTrend,
+      entriesCount: history.length
+    };
+  }
+  
+  // Identify best opportunities based on decay trends
+  rankByDecayStability(trades) {
+    return trades.map(trade => {
+      const decay = this.calculateDecayRate(trade.ticker, parseFloat(trade.edge));
+      
+      // Higher score = more stable/improving edge
+      let stabilityScore = 0;
+      
+      if (decay.trend === 'improving_fast') stabilityScore = 2;
+      else if (decay.trend === 'improving') stabilityScore = 1;
+      else if (decay.trend === 'stable') stabilityScore = 0.5;
+      else if (decay.trend === 'decaying') stabilityScore = -0.5;
+      else if (decay.trend === 'decaying_fast') stabilityScore = -1;
+      
+      // Boost for long-term improvement
+      if (decay.weekTrend === 'strong_improvement') stabilityScore += 1;
+      else if (decay.weekTrend === 'strong_decay') stabilityScore -= 1;
+      
+      return {
+        ...trade,
+        decayAnalysis: decay,
+        stabilityScore
+      };
+    }).sort((a, b) => b.stabilityScore - a.stabilityScore);
+  }
+  
+  getDecayReport(trades) {
+    const withDecay = this.rankByDecayStability(trades);
+    
+    const improving = withDecay.filter(t => t.stabilityScore > 0);
+    const decaying = withDecay.filter(t => t.stabilityScore < 0);
+    const stable = withDecay.filter(t => t.stabilityScore === 0);
+    
+    return {
+      improving: improving.slice(0, 5),
+      decaying: decaying.slice(0, 5),
+      stable: stable.slice(0, 5),
+      summary: {
+        improving: improving.length,
+        decaying: decaying.length,
+        stable: stable.length
+      }
+    };
+  }
+  
+  printDecayReport(trades) {
+    const report = this.getDecayReport(trades);
+    
+    console.log('\n📊 EDGE DECAY ANALYSIS:');
+    console.log(`  📈 Improving: ${report.summary.improving} | 📉 Decaying: ${report.summary.decaying} | ➡️ Stable: ${report.summary.stable}`);
+    
+    if (report.improving.length > 0) {
+      console.log('\n  📈 TOP IMPROVING:');
+      report.improving.slice(0, 3).forEach(t => {
+        console.log(`    ${t.ticker}: Edge ${t.edge}% (+${t.decayAnalysis.edgeChange24h.toFixed(1)}% in 24h)`);
+      });
+    }
+    
+    if (report.decaying.length > 0) {
+      console.log('\n  ⚠️ FAST DECAYING (AVOID):');
+      report.decaying.slice(0, 3).forEach(t => {
+        console.log(`    ${t.ticker}: Edge ${t.edge}% (${t.decayAnalysis.edgeChange24h.toFixed(1)}% in 24h)`);
+      });
+    }
+  }
+}
 async function cachedFetch(key, fetchFn, ttlMs) {
   const cached = cache.get(key);
   if (cached) {
@@ -1450,6 +1617,9 @@ async function main() {
             sources: ['Kalshi API', 'Volume Analysis', 'Time Decay', 'Momentum', 'CLV', 'Risk Model']
           });
           
+          // Record edge for decay tracking
+          edgeDecayTracker.recordEdge(m.ticker, edgeCalc.edge.toFixed(1), edgeCalc.rScore.toFixed(2), yesPrice);
+          
           // Update history
           if (!history[m.ticker]) history[m.ticker] = [];
           history[m.ticker].push({
@@ -1463,17 +1633,14 @@ async function main() {
     }
   }
   
-  // Check threshold-based alerts
-  console.log('\n🔔 Checking alert thresholds...');
-  const alertManager = new AlertManager();
-  const triggeredAlerts = alertManager.checkThresholds(allTrades, polymarketArbs, weatherLags);
-  alertManager.printSummary();
-  
   const fetchTime = ((Date.now() - scanStartTime) / 1000).toFixed(1);
   console.log(`\n⚡ Fetched ${SERIES.length} series in ${fetchTime}s (parallel mode)\n`);
   
   // Save updated history
   await saveHistory(history);
+  
+  // Initialize edge decay tracker
+  const edgeDecayTracker = new EdgeDecayTracker();
   
   // Fetch Polymarket data with caching
   console.log('\n🔗 Checking Polymarket for arbitrage...');
@@ -1567,6 +1734,16 @@ async function main() {
   
   // Re-sort by composite score
   allTrades.sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
+  
+  // Check threshold-based alerts (AFTER all data is collected)
+  console.log('\n🔔 Checking alert thresholds...');
+  const alertManager = new AlertManager();
+  const triggeredAlerts = alertManager.checkThresholds(allTrades, polymarketArbs, weatherLags);
+  alertManager.printSummary();
+  
+  // Print edge decay report
+  edgeDecayTracker.printDecayReport(allTrades);
+  edgeDecayTracker.saveToFile();
   
   const arbitrage = detectArbitrage(allTrades);
   
