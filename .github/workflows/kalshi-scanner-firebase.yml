@@ -1,11 +1,10 @@
-name: Kalshi Scanner to Firebase
+name: Kalshi Scanner v2 to Firebase
 
 on:
   schedule:
-    # Run every hour at :05 (offset to avoid high-load times)
+    # Run every hour at :05
     - cron: '5 * * * *'
   workflow_dispatch:
-    # Allow manual trigger
 
 jobs:
   scan:
@@ -22,20 +21,20 @@ jobs:
         
     - name: Install dependencies
       run: |
-        npm install node-fetch@2 firebase-admin
+        npm install firebase-admin
         
-    - name: Run Kalshi Scanner with Firebase output
-      run: node scripts/kalshi-scanner-firebase.mjs
+    - name: Run Kalshi Trade Fetcher v2
+      run: node scripts/kalshi-trade-fetcher-v2.js
       env:
         FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
         FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         
-    - name: Commit scan results to repo
+    - name: Commit scan results
       run: |
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
         git add kalshi_data/ || true
-        git diff --staged --quiet || git commit -m "Kalshi scan - $(date -u)"
+        git diff --staged --quiet || git commit -m "Kalshi scan v2 - $(date -u)"
         git push || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
