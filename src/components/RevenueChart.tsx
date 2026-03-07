@@ -399,7 +399,6 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
               </div>
               <div className="h-20">
                 <svg viewBox="0 0 100 100" className="h-full w-full" preserveAspectRatio="none">
-                  {/* Zero line */}
                   <line x1="0" y1="50" x2="100" y2="50" stroke="#374151" strokeWidth="0.5" strokeDasharray="2" />
                   {stats.momGrowth.slice(1).map((m, idx, arr) => {
                     const maxGrowth = Math.max(...arr.map(x => Math.abs(x.growth)), 10);
@@ -424,23 +423,6 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
               </div>
             </div>
           )}
-        </div>
-      )}
-          
-          <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <Award className="h-4 w-4 text-warning" />
-              <span className="text-sm font-medium">Best Month</span>
-            </div>
-            {stats.bestMonth && stats.bestMonth.value > 0 ? (
-              <div>
-                <div className="text-2xl font-bold">{formatCurrency(stats.bestMonth.value)}</div>
-                <div className="text-sm text-gray-400">{stats.bestMonth.month}</div>
-              </div>
-            ) : (
-              <div className="text-sm text-gray-500">No data yet</div>
-            )}
-          </div>
         </div>
       )}
 
