@@ -3,7 +3,7 @@ import {
   TrendingUp, TrendingDown, Wallet, Target, Activity, BarChart3, 
   Calendar, Clock, Filter, ArrowUpRight, ArrowDownRight, RefreshCw,
   DollarSign, Percent, Award, History, Zap, ChevronDown, ChevronUp,
-  Plus, Minus, Trash2, AlertCircle
+  Plus, Minus, Trash2, AlertCircle, CloudRain, Zap as ZapIcon, Scale, Landmark, Trophy
 } from 'lucide-react';
 import { getData, setData } from '../lib/firebase';
 import { RESEARCHED_TRADES } from './trades-data';
@@ -225,6 +225,24 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
   }).filter((t: KalshiTrade) => t.edge > 0);
 }
 
+const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  weather: CloudRain,
+  crypto: ZapIcon,
+  politics: Scale,
+  economics: Landmark,
+  sports: Trophy,
+  all: Filter
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  weather: 'Weather',
+  crypto: 'Crypto',
+  politics: 'Politics',
+  economics: 'Economics',
+  sports: 'Sports',
+  all: 'All'
+};
+
 export function KalshiTradingView() {
   const [activeTab, setActiveTab] = useState<'opportunities' | 'portfolio' | 'history'>('opportunities');
   const [trades, setTrades] = useState<KalshiTrade[]>(transformResearchedTrades());
@@ -247,6 +265,7 @@ export function KalshiTradingView() {
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [scanSummary, setScanSummary] = useState<any>(null);
 
   // Load positions and stats from Firebase on mount
   useEffect(() => {
@@ -300,6 +319,7 @@ export function KalshiTradingView() {
             const existingTrades = transformResearchedTrades().filter(t => !scannerTickers.has(t.ticker));
             setTrades([...transformed, ...existingTrades]);
             setLastUpdated(new Date(scannerOutput.scan_time || Date.now()));
+            setScanSummary(scannerOutput.summary);
           }
         } else {
           console.log('No scanner data found, using RESEARCHED_TRADES');
@@ -631,29 +651,75 @@ export function KalshiTradingView() {
       {/* Opportunities Tab */}
       {activeTab === 'opportunities' && (
         <>
-          {/* Filters */}
+          {/* Scan Summary */}
+          {scanSummary && (
+            <div className="rounded-xl border border-surface-hover bg-surface p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <span className="text-sm text-gray-400">Markets Analyzed:</span>
+                  <span className="font-bold text-white">{scanSummary.analyzed || scanSummary.totalMarkets}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-success" />
+                  <span className="text-sm text-gray-400">Opportunities:</span>
+                  <span className="font-bold text-success">{scanSummary.opportunities}</span>
+                </div>
+                {scanSummary.byCategory && Object.entries(scanSummary.byCategory).map(([cat, count]) => (
+                  count > 0 && (
+                    <div key={cat} className="flex items-center gap-1 text-xs">
+                      <span className="capitalize text-gray-500">{cat}:</span>
+                      <span className="text-white">{count as number}</span>
+                    </div>
+                  )
+                ))}
+              </div>            </div>
+          )}
+
+          {/* Category Buttons */}
           <div className="flex flex-wrap gap-2">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm text-white"
-            >
-              <option value="all">All Categories</option>
-              <option value="weather">Weather</option>
-              <option value="crypto">Crypto</option>
-              <option value="politics">Politics</option>
-              <option value="economics">Economics</option>
-              <option value="sports">Sports</option>
-            </select>
+            {(['all', 'weather', 'crypto', 'politics', 'economics'] as const).map((cat) => {
+              const Icon = CATEGORY_ICONS[cat];
+              const count = cat === 'all' 
+                ? filteredTrades.length 
+                : filteredTrades.filter(t => t.category === cat).length;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                    selectedCategory === cat 
+                      ? 'bg-primary text-white' 
+                      : 'bg-surface text-gray-300 hover:bg-surface-hover'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{CATEGORY_LABELS[cat]}</span>
+                  <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${
+                    selectedCategory === cat ? 'bg-white/20' : 'bg-surface-hover'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Sort by:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
               className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm text-white"
             >
-              <option value="rScore">Sort by R-Score</option>
-              <option value="edge">Sort by Edge</option>
-              <option value="volume">Sort by Volume</option>
+              <option value="rScore">R-Score</option>
+              <option value="edge">Edge</option>
+              <option value="volume">Volume</option>
             </select>
+            <span className="ml-auto text-sm text-gray-500">
+              Showing <span className="font-medium text-white">{filteredTrades.length}</span> trades
+            </span>
           </div>
 
           {/* Trade Cards */}
