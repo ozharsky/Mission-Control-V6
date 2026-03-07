@@ -89,75 +89,142 @@ function LineChart({ data, color = 'primary' }: { data: number[]; color?: string
   );
 }
 
-// Mini sparkline chart for stat cards
-function MiniChart({ data, color, labels }: { data: number[]; color: string; labels?: string[] }) {
+// Interactive mini chart with tooltips
+function InteractiveMiniChart({ 
+  data, 
+  color, 
+  labels, 
+  formatValue 
+}: { 
+  data: number[]; 
+  color: string; 
+  labels?: string[];
+  formatValue?: (val: number) => string;
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  
   if (data.length === 0) return null;
 
   const max = Math.max(...data, 1);
   const min = Math.min(...data, 0);
   const range = max - min || 1;
 
-  // Create SVG path
+  // Create points for polyline
   const points = data.map((val, idx) => {
     const x = (idx / (data.length - 1 || 1)) * 100;
-    const y = 100 - ((val - min) / range) * 80 - 10;
-    return `${x},${y}`;
-  }).join(' ');
+    const y = 100 - ((val - min) / range) * 70 - 15; // Padding top/bottom
+    return [x, y];
+  });
 
-  // Create area path (closed at bottom)
-  const areaPoints = `0,100 ${points} 100,100`;
+  const linePoints = points.map(p => `${p[0]},${p[1]}`).join(' ');
+  const areaPoints = `0,100 ${linePoints} 100,100`;
+  const gradientId = `grad-${color.replace('#', '').replace(/[^a-zA-Z0-9]/g, '')}`;
 
-  const gradientId = `gradient-${color.replace('#', '').replace(/[^a-zA-Z0-9]/g, '')}`;
+  const getPointPos = (idx: number) => {
+    const x = (idx / (data.length - 1 || 1)) * 100;
+    const y = 100 - ((data[idx] - min) / range) * 70 - 15;
+    return { x, y };
+  };
 
   return (
-    <div className="relative h-24 w-full">
+    <div className="relative h-full w-full">
       <svg viewBox="0 0 100 100" className="h-full w-full" preserveAspectRatio="none">
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
+            <stop offset="0%" stopColor={color} stopOpacity="0.4" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.05" />
           </linearGradient>
         </defs>
 
+        {/* Area fill */}
         <polygon points={areaPoints} fill={`url(#${gradientId})`} />
 
+        {/* Grid lines */}
+        {[25, 50, 75].map(y => (
+          <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="#374151" strokeWidth="0.3" opacity="0.5" />
+        ))}
+
+        {/* Main line */}
         <polyline
-          points={points}
+          points={linePoints}
           fill="none"
           stroke={color}
-          strokeWidth="2"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
-        {data.map((val, idx) => {
-          const x = (idx / (data.length - 1 || 1)) * 100;
-          const y = 100 - ((val - min) / range) * 80 - 10;
+        {/* Data points */}
+        {data.map((_, idx) => {
+          const pos = getPointPos(idx);
+          const isHovered = hoveredIndex === idx;
           const isLast = idx === data.length - 1;
           return (
             <circle
               key={idx}
-              cx={x}
-              cy={y}
-              r={isLast ? "3" : "2"}
-              fill={isLast ? color : "transparent"}
+              cx={pos.x}
+              cy={pos.y}
+              r={isHovered ? "4" : isLast ? "3" : "2"}
+              fill={isHovered || isLast ? color : "transparent"}
               stroke={color}
               strokeWidth="2"
+              className="transition-all duration-150"
+            />
+          );
+        })}
+
+        {/* Invisible hover areas */}
+        {data.map((_, idx) => {
+          const pos = getPointPos(idx);
+          return (
+            <rect
+              key={`hit-${idx}`}
+              x={pos.x - 5}
+              y="0"
+              width="10"
+              height="100"
+              fill="transparent"
+              onMouseEnter={() => setHoveredIndex(idx)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              style={{ cursor: 'pointer' }}
             />
           );
         })}
       </svg>
 
+      {/* Tooltip */}
+      {hoveredIndex !== null && (
+        <div 
+          className="absolute z-10 bg-surface-hover border border-surface-hover rounded-lg px-2 py-1 text-xs shadow-lg pointer-events-none"
+          style={{
+            left: `${getPointPos(hoveredIndex).x}%`,
+            top: `${getPointPos(hoveredIndex).y - 10}%`,
+            transform: 'translateX(-50%) translateY(-100%)',
+          }}
+        >
+          <div className="font-semibold" style={{ color }}>
+            {formatValue ? formatValue(data[hoveredIndex]) : data[hoveredIndex]}
+          </div>
+          {labels?.[hoveredIndex] && (
+            <div className="text-gray-400">{labels[hoveredIndex]}</div>
+          )}
+        </div>
+      )}
+
+      {/* X-axis labels */}
       {labels && labels.length > 0 && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[10px] text-gray-500 px-1">
-          {labels.filter((_, i) => i === 0 || i === Math.floor(labels.length / 2) || i === labels.length - 1).map((label, i) => (
-            <span key={i}>{label}</span>
-          ))}
+          {labels
+            .filter((_, i) => i === 0 || i === Math.floor(labels.length / 2) || i === labels.length - 1)
+            .map((label, i) => (
+              <span key={i}>{label}</span>
+            ))}
         </div>
       )}
     </div>
   );
 }
+
 export function RevenueChart({ data, goal }: RevenueChartProps) {
   const [viewMode, setViewMode] = useState<'chart' | 'table' | 'insights'>('chart');
   const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m' | 'all'>('all');
@@ -445,11 +512,14 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                 {stats.trend >= 0 ? '↑' : '↓'} {Math.abs(stats.trend)}%
               </span>
             </div>
-            <MiniChart 
-              data={filteredData.map(d => d.value)} 
-              color="#6366f1" 
-              labels={filteredData.map(d => d.month.slice(5))}
-            />
+            <div className="h-36">
+              <InteractiveMiniChart 
+                data={filteredData.map(d => d.value)} 
+                color="#6366f1" 
+                labels={filteredData.map(d => d.month.slice(5))}
+                formatValue={formatCurrency}
+              />
+            </div>
           </div>
           
           {/* Orders Trend Chart */}
@@ -463,11 +533,14 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                 {stats.orders} total
               </span>
             </div>
-            <MiniChart 
-              data={filteredData.map(d => d.orders)} 
-              color="#22c55e" 
-              labels={filteredData.map(d => d.month.slice(5))}
-            />
+            <div className="h-36">
+              <InteractiveMiniChart 
+                data={filteredData.map(d => d.orders)} 
+                color="#22c55e" 
+                labels={filteredData.map(d => d.month.slice(5))}
+                formatValue={(v) => v.toString()}
+              />
+            </div>
           </div>
         </div>
       )}
