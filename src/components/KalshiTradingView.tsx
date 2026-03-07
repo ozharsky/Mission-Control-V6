@@ -43,6 +43,8 @@ interface KalshiTrade {
   edgeChange?: string;
   avgHistoricalEdge?: string;
   isEdgeDeteriorating?: boolean;
+  // v2.3 fields
+  compositeScore?: string;
   research?: {
     catalyst: string;
     confidence: 'high' | 'medium' | 'low';
@@ -302,7 +304,7 @@ export function KalshiTradingView() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortBy, setSortBy] = useState<'edge' | 'rScore' | 'volume'>('rScore');
+  const [sortBy, setSortBy] = useState<'composite' | 'edge' | 'rScore' | 'volume'>('composite');
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -555,6 +557,11 @@ export function KalshiTradingView() {
       result = result.filter(t => t.category === selectedCategory);
     }
     result.sort((a, b) => {
+      if (sortBy === 'composite') {
+        const aScore = parseFloat(a.compositeScore || '0');
+        const bScore = parseFloat(b.compositeScore || '0');
+        return bScore - aScore;
+      }
       if (sortBy === 'edge') return b.edge - a.edge;
       if (sortBy === 'rScore') return b.rScore - a.rScore;
       if (sortBy === 'volume') return b.volume - a.volume;
@@ -845,6 +852,13 @@ export function KalshiTradingView() {
                     <span className="font-bold text-purple-400">{scanSummary.whaleAlerts}</span>
                   </div>
                 )}
+                {scanSummary.correlations > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🔗</span>
+                    <span className="text-sm text-gray-400">Correlations:</span>
+                    <span className="font-bold text-blue-400">{scanSummary.correlations}</span>
+                  </div>
+                )}
                 {scanSummary.byCategory && Object.entries(scanSummary.byCategory).map(([cat, count]) => (
                   count > 0 && (
                     <div key={cat} className="flex items-center gap-1 text-xs">
@@ -904,6 +918,7 @@ export function KalshiTradingView() {
                   onChange={(e) => setSortBy(e.target.value as any)}
                   className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm text-white"
                 >
+                  <option value="composite">Composite Score</option>
                   <option value="rScore">R-Score</option>
                   <option value="edge">Edge</option>
                   <option value="volume">Volume</option>
@@ -991,6 +1006,12 @@ export function KalshiTradingView() {
 
                   {/* Center: Metrics */}
                   <div className="flex gap-4 sm:gap-6">
+                    {trade.compositeScore && (
+                      <div className="text-center">
+                        <p className="text-xs text-gray-500">Composite</p>
+                        <p className="text-lg font-bold text-primary">{trade.compositeScore}</p>
+                      </div>
+                    )}
                     <div className="text-center">
                       <p className="text-xs text-gray-500">R-Score</p>
                       <p className={`text-lg font-bold ${trade.rScore >= 1.5 ? 'text-success' : trade.rScore >= 1.0 ? 'text-primary' : 'text-gray-400'}`}>
