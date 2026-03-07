@@ -469,13 +469,6 @@ export function KalshiTradingView() {
     setIsLoading(false);
   };
 
-  // Load on mount
-  useEffect(() => {
-    fetchLiveData();
-    const interval = setInterval(fetchLiveData, 5 * 60 * 1000); // Refresh every 5 min
-    return () => clearInterval(interval);
-  }, []);
-
   // Filter and sort trades
   const filteredTrades = useMemo(() => {
     let result = [...trades];
