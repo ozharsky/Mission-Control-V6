@@ -24,7 +24,7 @@ jobs:
         npm install firebase-admin
         
     - name: Run Kalshi Trade Fetcher v2
-      run: node scripts/kalshi-trade-fetcher-v2.js
+      run: node scripts/kalshi-trade-fetcher-v2.cjs
       env:
         FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
         FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
