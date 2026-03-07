@@ -89,119 +89,77 @@ function LineChart({ data, color = 'primary' }: { data: number[]; color?: string
   );
 }
 
-// Smooth mini sparkline with thin lines
-function SmoothMiniChart({ 
-  data, 
-  color, 
-  labels, 
-  formatValue 
-}: { 
-  data: number[]; 
-  color: string; 
-  labels?: string[];
-  formatValue?: (val: number) => string;
-}) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  
+// Mini sparkline chart for stat cards
+function MiniChart({ data, color, labels }: { data: number[]; color: string; labels?: string[] }) {
   if (data.length === 0) return null;
 
   const max = Math.max(...data, 1);
   const min = Math.min(...data, 0);
   const range = max - min || 1;
 
-  const points = data.map((val, idx) => ({
-    x: (idx / (data.length - 1 || 1)) * 100,
-    y: 90 - ((val - min) / range) * 70
-  }));
+  // Create SVG path
+  const points = data.map((val, idx) => {
+    const x = (idx / (data.length - 1 || 1)) * 100;
+    const y = 100 - ((val - min) / range) * 80 - 10;
+    return `${x},${y}`;
+  }).join(' ');
 
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const areaPath = `${linePath} L 100 100 L 0 100 Z`;
-  const gradientId = `grad-${color.replace('#', '')}`;
+  // Create area path (closed at bottom)
+  const areaPoints = `0,100 ${points} 100,100`;
+
+  const gradientId = `gradient-${color.replace('#', '').replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-24 w-full">
       <svg viewBox="0 0 100 100" className="h-full w-full" preserveAspectRatio="none">
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
             <stop offset="100%" stopColor={color} stopOpacity="0" />
           </linearGradient>
         </defs>
 
-        <path d={areaPath} fill={`url(#${gradientId})`} />
+        <polygon points={areaPoints} fill={`url(#${gradientId})`} />
 
-        <line x1="0" y1="25" x2="100" y2="25" stroke="#374151" strokeWidth="0.2" opacity="0.3" />
-        <line x1="0" y1="50" x2="100" y2="50" stroke="#374151" strokeWidth="0.2" opacity="0.3" />
-        <line x1="0" y1="75" x2="100" y2="75" stroke="#374151" strokeWidth="0.2" opacity="0.3" />
-
-        <path
-          d={linePath}
+        <polyline
+          points={points}
           fill="none"
           stroke={color}
-          strokeWidth="1.5"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
-        {points.map((p, idx) => (
-          <circle
-            key={idx}
-            cx={p.x}
-            cy={p.y}
-            r={hoveredIndex === idx ? "2.5" : "1.5"}
-            fill={color}
-            opacity={hoveredIndex === idx ? "1" : "0.7"}
-          />
-        ))}
-
-        {points.map((p, idx) => (
-          <rect
-            key={`hit-${idx}`}
-            x={p.x - 8}
-            y="0"
-            width="16"
-            height="100"
-            fill="transparent"
-            onMouseEnter={() => setHoveredIndex(idx)}
-            onMouseLeave={() => setHoveredIndex(null)}
-            style={{ cursor: 'pointer' }}
-          />
-        ))}
+        {data.map((val, idx) => {
+          const x = (idx / (data.length - 1 || 1)) * 100;
+          const y = 100 - ((val - min) / range) * 80 - 10;
+          const isLast = idx === data.length - 1;
+          return (
+            <circle
+              key={idx}
+              cx={x}
+              cy={y}
+              r={isLast ? "3" : "2"}
+              fill={isLast ? color : "transparent"}
+              stroke={color}
+              strokeWidth="2"
+            />
+          );
+        })}
       </svg>
-
-      {hoveredIndex !== null && (
-        <div 
-          className="absolute z-10 bg-surface border border-surface-hover rounded-lg px-2 py-1 text-xs shadow-lg"
-          style={{
-            left: `${points[hoveredIndex].x}%`,
-            top: `${points[hoveredIndex].y - 8}%`,
-            transform: 'translateX(-50%) translateY(-100%)',
-          }}
-        >
-          <div className="font-semibold text-white">
-            {formatValue ? formatValue(data[hoveredIndex]) : data[hoveredIndex]}
-          </div>
-          {labels?.[hoveredIndex] && (
-            <div className="text-gray-400">{labels[hoveredIndex]}</div>
-          )}
-        </div>
-      )}
 
       {labels && labels.length > 0 && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[10px] text-gray-500 px-1">
-          {labels
-            .filter((_, i) => i % Math.ceil(labels.length / 4) === 0 || i === labels.length - 1)
-            .slice(0, 5)
-            .map((label, i) => (
-              <span key={i}>{label}</span>
-            ))}
+          {labels.filter((_, i) => i === 0 || i === Math.floor(labels.length / 2) || i === labels.length - 1).map((label, i) => (
+            <span key={i}>{label}</span>
+          ))}
         </div>
       )}
     </div>
   );
 }
-
 export function RevenueChart({ data, goal }: RevenueChartProps) {
+  const [viewMode, setViewMode] = useState<'chart' | 'table' | 'insights'>('chart');
   const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m' | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -487,17 +445,11 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                 {stats.trend >= 0 ? '↑' : '↓'} {Math.abs(stats.trend)}%
               </span>
             </div>
-            <div className="h-48">
-              <SmoothMiniChart 
-                data={filteredData.map(d => d.value)} 
-                color="#6366f1" 
-                labels={filteredData.map(d => {
-                  const date = new Date(d.month + '-01');
-                  return date.toLocaleDateString('en-US', { month: 'short' });
-                })}
-                formatValue={formatCurrency}
-              />
-            </div>
+            <MiniChart 
+              data={filteredData.map(d => d.value)} 
+              color="#6366f1" 
+              labels={filteredData.map(d => d.month.slice(5))}
+            />
           </div>
           
           {/* Orders Trend Chart */}
@@ -511,17 +463,11 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
                 {stats.orders} total
               </span>
             </div>
-            <div className="h-48">
-              <SmoothMiniChart 
-                data={filteredData.map(d => d.orders)} 
-                color="#22c55e" 
-                labels={filteredData.map(d => {
-                  const date = new Date(d.month + '-01');
-                  return date.toLocaleDateString('en-US', { month: 'short' });
-                })}
-                formatValue={(v) => v.toString()}
-              />
-            </div>
+            <MiniChart 
+              data={filteredData.map(d => d.orders)} 
+              color="#22c55e" 
+              labels={filteredData.map(d => d.month.slice(5))}
+            />
           </div>
         </div>
       )}
@@ -550,8 +496,8 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         </div>
       )}
 
-      {/* Main Revenue Overview Chart - Visible on all screen sizes */}
-      <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
+      {/* Main Chart Card - Hidden on mobile */}
+      <div className="hidden lg:block rounded-xl touch-feedback border border-surface-hover bg-surface p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -596,20 +542,20 @@ export function RevenueChart({ data, goal }: RevenueChartProps) {
         {viewMode === 'chart' ? (
           filteredData.length > 0 ? (
             <>
-              {/* Chart with horizontal scroll on mobile */}
-              <div className="overflow-x-auto pb-2 -mx-4 px-4 lg:mx-0 lg:px-0">
-                <div className="flex items-end gap-1 sm:gap-2 min-w-max lg:min-w-0 lg:w-full">
+              {/* Mobile: Horizontal scroll with all bars visible */}
+              <div className="overflow-x-auto pb-2 lg:overflow-visible">
+                <div className="flex items-end gap-1 sm:gap-2 min-w-max lg:min-w-0">
                   {filteredData.map((item) => {
                     const height = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
                     const isGoalMet = item.value >= goal;
                     return (
-                      <div key={item.month} className="group flex flex-col items-center w-10 sm:w-12 lg:flex-1 lg:min-w-0">
+                      <div key={item.month} className="group flex flex-col items-center w-8 sm:w-10 lg:flex-1">
                         <div className="relative w-full">
                           <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl bg-surface-hover px-2 py-1 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                             <p className="font-semibold">{formatCurrency(item.value)}</p>
                             <p className="text-gray-500">{item.orders} orders</p>
                           </div>
-                          <div className={`w-full rounded-t transition-all ${isGoalMet ? 'bg-success' : 'bg-primary'}`} style={{ height: `${Math.max(height * 1.2, 8)}%`, minHeight: '32px' }} />
+                          <div className={`w-full rounded-t transition-all ${isGoalMet ? 'bg-success' : 'bg-primary'}`} style={{ height: `${Math.max(height, 4)}%`, minHeight: '4px' }} />
                         </div>
                         <div className="mt-1 text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">{new Date(item.month + '-01').toLocaleDateString(undefined, { month: 'short' })}</div>
                       </div>
