@@ -87,6 +87,8 @@ function LineChart({ data, color = 'primary' }: { data: number[]; color?: string
       />
     </svg>
   );
+}
+
 // Smooth mini sparkline with thin lines
 function SmoothMiniChart({ 
   data, 
