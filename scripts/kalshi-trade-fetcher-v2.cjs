@@ -456,14 +456,16 @@ class EdgeDecayTracker {
     if (report.improving.length > 0) {
       console.log('\n  📈 TOP IMPROVING:');
       report.improving.slice(0, 3).forEach(t => {
-        console.log(`    ${t.ticker}: Edge ${t.edge}% (+${t.decayAnalysis.edgeChange24h.toFixed(1)}% in 24h)`);
+        const change = t.decayAnalysis?.edgeChange24h ?? 0;
+        console.log(`    ${t.ticker}: Edge ${t.edge}% (+${change.toFixed(1)}% in 24h)`);
       });
     }
-    
+
     if (report.decaying.length > 0) {
       console.log('\n  ⚠️ FAST DECAYING (AVOID):');
       report.decaying.slice(0, 3).forEach(t => {
-        console.log(`    ${t.ticker}: Edge ${t.edge}% (${t.decayAnalysis.edgeChange24h.toFixed(1)}% in 24h)`);
+        const change = t.decayAnalysis?.edgeChange24h ?? 0;
+        console.log(`    ${t.ticker}: Edge ${t.edge}% (${change.toFixed(1)}% in 24h)`);
       });
     }
   }
