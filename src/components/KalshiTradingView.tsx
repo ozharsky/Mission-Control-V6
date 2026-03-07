@@ -305,78 +305,47 @@ export function KalshiTradingView() {
     loadFromFirebase();
   }, []);
 
-  // Load scanner data and merge with RESEARCHED_TRADES
+  // Load scanner data and merge with RESEARCHED_TRADES - RUNS ONCE ON MOUNT ONLY
   useEffect(() => {
-    // Prevent duplicate loads on React strict mode re-renders
-    if (hasLoadedScanner.current) return;
+    // Prevent any duplicate loads
+    if (hasLoadedScanner.current) {
+      console.log('Already loaded scanner data, skipping');
+      return;
+    }
     hasLoadedScanner.current = true;
     
     const loadScannerData = async () => {
       setIsLoadingTrades(true);
       try {
-        console.log('Loading scanner data...');
-        console.log('Current trades count before load:', trades.length);
+        console.log('=== LOADING KALSHI DATA ===');
         
-        // Try to load from Firebase first (if scanner writes there)
+        // Try to load from Firebase first
         const scannerOutput = await getData('v6/kalshi/latest_scan');
+        console.log('Raw scanner output:', scannerOutput ? `Found ${scannerOutput.opportunities?.length || 0} opportunities` : 'No data');
         
-        if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities)) {
-          console.log(`Loaded ${scannerOutput.opportunities.length} opportunities from scanner`);
-          console.log('Categories from scanner:', scannerOutput.summary?.byCategory);
+        if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities) && scannerOutput.opportunities.length > 0) {
+          console.log(`Using SCANNER data: ${scannerOutput.opportunities.length} opportunities`);
+          console.log('Scanner categories:', scannerOutput.summary?.byCategory);
           
           const transformed = transformScannerOutput(scannerOutput);
-          console.log(`Transformed ${transformed.length} scanner trades`);
-          console.log('Transformed categories:', transformed.reduce((acc: any, t) => {
-            acc[t.category] = (acc[t.category] || 0) + 1;
-            return acc;
-          }, {}));
+          console.log(`Transformed: ${transformed.length} trades`);
           
-          if (transformed.length > 0) {
-            // Get researched trades
-            const researchedTrades = transformResearchedTrades();
-            console.log(`Have ${researchedTrades.length} researched trades`);
-            
-            // Create a map to deduplicate by ticker - START FRESH EACH TIME
-            const tradeMap = new Map<string, KalshiTrade>();
-            
-            // Add scanner trades first (they take priority)
-            for (const trade of transformed) {
-              tradeMap.set(trade.ticker, trade);
-            }
-            
-            // Add researched trades only if ticker not already in map
-            for (const trade of researchedTrades) {
-              if (!tradeMap.has(trade.ticker)) {
-                tradeMap.set(trade.ticker, trade);
-              }
-            }
-            
-            const mergedTrades = Array.from(tradeMap.values());
-            console.log(`Final merged trades: ${mergedTrades.length}`);
-            console.log('Merged categories:', mergedTrades.reduce((acc: any, t) => {
-              acc[t.category] = (acc[t.category] || 0) + 1;
-              return acc;
-            }, {}));
-            
-            // REPLACE trades completely, don't append
-            setTrades(mergedTrades);
-            setLastUpdated(new Date(scannerOutput.scan_time || Date.now()));
-            setScanSummary(scannerOutput.summary);
-          } else {
-            // No scanner trades, use researched only
-            const researched = transformResearchedTrades();
-            console.log(`Using ${researched.length} researched trades only`);
-            setTrades(researched);
-          }
+          // ONLY use scanner data - don't add researched trades on top
+          // The scanner already found the best opportunities
+          setTrades(transformed);
+          setLastUpdated(new Date(scannerOutput.scan_time || Date.now()));
+          setScanSummary(scannerOutput.summary);
+          
+          console.log(`✅ Set ${transformed.length} scanner trades`);
         } else {
-          console.log('No scanner data found, using RESEARCHED_TRADES only');
+          // Fallback to researched trades only if NO scanner data
+          console.log('No scanner data - using RESEARCHED_TRADES fallback');
           const researched = transformResearchedTrades();
-          console.log(`Using ${researched.length} researched trades`);
+          console.log(`✅ Set ${researched.length} researched trades`);
           setTrades(researched);
         }
       } catch (e) {
         console.error('Failed to load scanner data:', e);
-        // Fallback to researched trades
         const researched = transformResearchedTrades();
         setTrades(researched);
       } finally {
@@ -386,14 +355,8 @@ export function KalshiTradingView() {
     
     loadScannerData();
     
-    // Refresh every 5 minutes to check for new scanner data
-    const interval = setInterval(() => {
-      console.log('Refreshing scanner data...');
-      hasLoadedScanner.current = false; // Reset flag for refresh
-      loadScannerData();
-    }, 5 * 60 * 1000);
-    
-    return () => clearInterval(interval);
+    // NO INTERVAL - Don't auto-refresh to prevent accumulation
+    // User can manually refresh if needed
   }, []);
 
   // Save positions to Firebase when they change
