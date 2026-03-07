@@ -17,6 +17,8 @@ interface KalshiTrade {
   category: string;
   yesPrice: number;
   noPrice: number;
+  yesBid?: number;
+  yesAsk?: number;
   volume: number;
   expiration: string;
   edge: number;
@@ -28,6 +30,11 @@ interface KalshiTrade {
   cap?: number;
   trueProbability?: number;
   multiplier?: number;
+  timeAdjustment?: string;
+  volumeBoost?: string;
+  health?: 'good' | 'fair' | 'poor';
+  spread?: string;
+  liquidityScore?: number;
   research?: {
     catalyst: string;
     confidence: 'high' | 'medium' | 'low';
@@ -48,6 +55,7 @@ interface PaperPosition {
   grossPnl?: number;
   fees?: number;
   marketTitle?: string;
+  currentPrice?: number; // Store last known price for P&L calc
 }
 
 interface PortfolioStats {
@@ -522,18 +530,28 @@ export function KalshiTradingView() {
     return result;
   }, [trades, selectedCategory, sortBy]);
 
-  // Calculate position P&L - uses live prices from trades
+  // Calculate position P&L - uses live prices from trades or stored current price
   const calculatePositionPnL = (position: PaperPosition) => {
     if (position.status !== 'open') return position.pnl || 0;
     
-    // Find current market data
+    // Find current market data in trades
     const currentTrade = trades.find(t => t.ticker === position.ticker);
-    if (!currentTrade) {
-      console.log(`No trade found for ${position.ticker}, can't calculate P&L`);
+    
+    let currentPrice: number;
+    
+    if (currentTrade) {
+      // Use live price from trades
+      currentPrice = position.side === 'yes' ? currentTrade.yesPrice : currentTrade.noPrice;
+    } else if (position.currentPrice) {
+      // Use stored current price from last update
+      currentPrice = position.currentPrice;
+      console.log(`Using stored price for ${position.ticker}: ${currentPrice}¢`);
+    } else {
+      // No price data available - P&L is 0 (price hasn't changed from entry)
+      console.log(`No price data for ${position.ticker}, assuming entry price`);
       return 0;
     }
     
-    const currentPrice = position.side === 'yes' ? currentTrade.yesPrice : currentTrade.noPrice;
     const priceDiff = (currentPrice - position.entryPrice) / 100;
     const pnl = priceDiff * position.shares;
     
@@ -635,8 +653,23 @@ export function KalshiTradingView() {
     return positions
       .filter(p => p.status === 'open')
       .map(p => {
-        const pnl = calculatePositionPnL(p);
-        return { ...p, pnl, pnlPct: (pnl / p.value) * 100 };
+        // Find current price from trades
+        const currentTrade = trades.find(t => t.ticker === p.ticker);
+        const currentPrice = currentTrade 
+          ? (p.side === 'yes' ? currentTrade.yesPrice : currentTrade.noPrice)
+          : p.currentPrice; // Fallback to stored price
+        
+        // Calculate P&L
+        const priceForCalc = currentPrice || p.entryPrice; // Use entry price if no current price
+        const priceDiff = (priceForCalc - p.entryPrice) / 100;
+        const pnl = priceDiff * p.shares;
+        
+        return { 
+          ...p, 
+          pnl, 
+          pnlPct: (pnl / p.value) * 100,
+          currentPrice: priceForCalc // Store current price for next calc
+        };
       })
       .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl)); // Sort by biggest P&L first
   }, [positions, trades]); // Recalculate when either changes
@@ -700,6 +733,18 @@ export function KalshiTradingView() {
               setIsLoading(true);
               const updated = await updateWithLivePrices(trades);
               setTrades(updated);
+              
+              // Also update positions with current prices
+              setPositions(prev => prev.map(p => {
+                if (p.status !== 'open') return p;
+                const trade = updated.find(t => t.ticker === p.ticker);
+                if (trade) {
+                  const currentPrice = p.side === 'yes' ? trade.yesPrice : trade.noPrice;
+                  return { ...p, currentPrice };
+                }
+                return p;
+              }));
+              
               setLastUpdated(new Date());
               setIsLoading(false);
             }}
