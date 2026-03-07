@@ -951,6 +951,11 @@ export function KalshiTradingView() {
                         year: 'numeric' 
                       })}
                     </p>
+                    
+                    {/* Liquidity indicator */}
+                    {(trade.liquidityScore || trade.spread) && (
+                      <LiquidityBar score={trade.liquidityScore} spread={trade.spread} />
+                    )}
                   </div>
 
                   {/* Center: Metrics */}
