@@ -93,15 +93,19 @@ async function saveHistory(history) {
   try {
     // Clean old data
     const cutoff = Date.now() - (CONFIG.historyRetentionDays * 24 * 60 * 60 * 1000);
+    const cleanedHistory = {};
+    
     for (const ticker in history) {
-      history[ticker] = history[ticker].filter(h => h.timestamp > cutoff);
+      // Sanitize ticker for Firebase (replace invalid chars)
+      const safeTicker = ticker.replace(/[.#$\[\]/]/g, '_');
+      cleanedHistory[safeTicker] = history[ticker].filter(h => h.timestamp > cutoff);
     }
     
     if (db) {
-      await db.ref('v6/kalshi/history').set(history);
+      await db.ref('v6/kalshi/history').set(cleanedHistory);
     }
     
-    // Also save locally
+    // Also save locally with original tickers
     const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
     fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
   } catch (e) {
@@ -346,28 +350,35 @@ function checkAlerts(trade, momentum, whaleData, clv) {
 function getPerformanceAttribution(trade, momentum, whaleData, clv) {
   const factors = [];
   
+  // Safely parse edge with fallback
+  const edgeValue = parseFloat(trade.edge);
   factors.push({
     factor: 'Base Edge',
-    contribution: parseFloat(trade.edge) / 10,
+    contribution: isNaN(edgeValue) ? 0 : edgeValue / 10,
     description: 'Fundamental mispricing'
   });
   
-  if (trade.timeAdjustment && parseFloat(trade.timeAdjustment) !== 0) {
+  // Time adjustment
+  const timeAdj = parseFloat(trade.timeAdjustment);
+  if (!isNaN(timeAdj) && timeAdj !== 0) {
     factors.push({
       factor: 'Time Decay',
-      contribution: parseFloat(trade.timeAdjustment) / 10,
+      contribution: timeAdj / 10,
       description: 'Proximity to event'
     });
   }
   
-  if (trade.volumeBoost && parseFloat(trade.volumeBoost) > 0) {
+  // Volume boost
+  const volBoost = parseFloat(trade.volumeBoost);
+  if (!isNaN(volBoost) && volBoost > 0) {
     factors.push({
       factor: 'Volume',
-      contribution: parseFloat(trade.volumeBoost) / 10,
+      contribution: volBoost / 10,
       description: 'Liquidity boost'
     });
   }
   
+  // Momentum
   if (momentum.trend !== 'flat') {
     const momentumContribution = momentum.trend === 'surging' ? 0.5 : 
                                   momentum.trend === 'rising' ? 0.3 : 
@@ -379,6 +390,7 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
     });
   }
   
+  // Whale activity
   if (whaleData.isWhale) {
     factors.push({
       factor: 'Whale Activity',
@@ -387,12 +399,17 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
     });
   }
   
+  // CLV deterioration
   if (clv.isEdgeDeteriorating) {
     factors.push({
       factor: 'CLV Deterioration',
       contribution: -0.5,
       description: `Edge down ${clv.edgeChange.toFixed(1)}%`
     });
+  }
+  
+  return factors.sort((a, b) => b.contribution - a.contribution);
+}
   }
   
   return factors.sort((a, b) => b.contribution - a.contribution);
