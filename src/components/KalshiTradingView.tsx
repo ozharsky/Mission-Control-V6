@@ -45,6 +45,8 @@ interface PaperPosition {
   openedAt: string;
   status: 'open' | 'closed';
   pnl?: number;
+  grossPnl?: number;
+  fees?: number;
   marketTitle?: string;
 }
 
@@ -153,6 +155,76 @@ function transformResearchedTrades(): KalshiTrade[] {
   }).filter(t => t.edge > 0); // Only show +EV trades
 }
 
+// Transform scanner output to KalshiTrade format
+function transformScannerOutput(scannerData: any): KalshiTrade[] {
+  if (!scannerData?.opportunities || !Array.isArray(scannerData.opportunities)) {
+    return [];
+  }
+  
+  return scannerData.opportunities.map((opp: any) => {
+    // Calculate R-Score from edge
+    const edgeStr = opp.edge?.replace('%', '') || '0';
+    const edge = parseFloat(edgeStr);
+    const rScore = edge > 0 ? 1 + (edge / 10) : 0;
+    
+    // Determine recommendation
+    let recommendation: 'strong_buy' | 'buy' | 'hold' | 'avoid' = 'avoid';
+    if (rScore >= 2.0) recommendation = 'strong_buy';
+    else if (rScore >= 1.5) recommendation = 'buy';
+    else if (rScore >= 1.0) recommendation = 'hold';
+    
+    // Calculate Kelly
+    const kellyPct = edge > 0 ? Math.min(10, edge / 2) : 0;
+    
+    // Parse floor/cap from title or subtitle
+    let floor: number | undefined;
+    let cap: number | undefined;
+    const title = opp.title || '';
+    const subtitle = opp.subtitle || '';
+    
+    // Try to extract range from title/subtitle
+    const tempRangeMatch = title.match(/(\d+)[°\s]*-\s*(\d+)[°\s]*F/) || subtitle.match(/(\d+)[°\s]*-\s*(\d+)[°\s]*F/);
+    const tempLessMatch = title.match(/<(\d+)[°\s]*F/) || subtitle.match(/<(\d+)[°\s]*F/);
+    const tempGreaterMatch = title.match(/>(\d+)[°\s]*F/) || subtitle.match(/>(\d+)[°\s]*F/);
+    
+    if (tempRangeMatch) {
+      floor = parseInt(tempRangeMatch[1], 10);
+      cap = parseInt(tempRangeMatch[2], 10);
+    } else if (tempLessMatch) {
+      floor = -100;
+      cap = parseInt(tempLessMatch[1], 10);
+    } else if (tempGreaterMatch) {
+      floor = parseInt(tempGreaterMatch[1], 10);
+      cap = 150;
+    }
+    
+    return {
+      id: opp.ticker || `opp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      ticker: opp.ticker,
+      title: opp.title,
+      subtitle: opp.subtitle,
+      category: opp.category || 'unknown',
+      yesPrice: opp.yesPrice || opp.price,
+      noPrice: opp.noPrice || (100 - (opp.yesPrice || opp.price || 50)),
+      volume: opp.volume || 0,
+      expiration: opp.closeTime || opp.expiration,
+      edge,
+      rScore: Math.round(rScore * 10) / 10,
+      kellyPct,
+      recommendation,
+      floor,
+      cap,
+      trueProbability: opp.signals?.baseSignal?.trueProbability,
+      multiplier: opp.yesPrice > 0 ? Math.round(100 / opp.yesPrice * 10) / 10 : undefined,
+      research: {
+        catalyst: opp.signals?.baseSignal?.catalyst || subtitle || 'Scanner-identified opportunity',
+        confidence: opp.confidence?.level?.toLowerCase() || 'medium',
+        sources: opp.signals ? Object.keys(opp.signals).filter(k => k !== 'baseSignal') : []
+      }
+    };
+  }).filter((t: KalshiTrade) => t.edge > 0);
+}
+
 export function KalshiTradingView() {
   const [activeTab, setActiveTab] = useState<'opportunities' | 'portfolio' | 'history'>('opportunities');
   const [trades, setTrades] = useState<KalshiTrade[]>(transformResearchedTrades());
@@ -210,6 +282,38 @@ export function KalshiTradingView() {
     };
     
     loadFromFirebase();
+  }, []);
+
+  // Load scanner data and merge with RESEARCHED_TRADES
+  useEffect(() => {
+    const loadScannerData = async () => {
+      try {
+        // Try to load from Firebase first (if scanner writes there)
+        const scannerOutput = await getData('v6/kalshi/latest_scan');
+        
+        if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities)) {
+          console.log(`Loaded ${scannerOutput.opportunities.length} opportunities from scanner`);
+          const transformed = transformScannerOutput(scannerOutput);
+          if (transformed.length > 0) {
+            // Merge with researched trades, prioritizing scanner data for same tickers
+            const scannerTickers = new Set(transformed.map(t => t.ticker));
+            const existingTrades = transformResearchedTrades().filter(t => !scannerTickers.has(t.ticker));
+            setTrades([...transformed, ...existingTrades]);
+            setLastUpdated(new Date(scannerOutput.scan_time || Date.now()));
+          }
+        } else {
+          console.log('No scanner data found, using RESEARCHED_TRADES');
+        }
+      } catch (e) {
+        console.error('Failed to load scanner data:', e);
+      }
+    };
+    
+    loadScannerData();
+    
+    // Refresh every 5 minutes to check for new scanner data
+    const interval = setInterval(loadScannerData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // Save positions to Firebase when they change
@@ -390,31 +494,42 @@ export function KalshiTradingView() {
     }));
   };
 
-  // Close position
+  // Close position with 7% fee on winning trades (matching kalshi_paper_trading.js)
   const closePosition = (positionId: string) => {
     const position = positions.find(p => p.id === positionId);
     if (!position) return;
 
-    const pnl = calculatePositionPnL(position);
-    const exitValue = position.value + pnl;
+    const grossPnl = calculatePositionPnL(position);
+    
+    // Apply 7% fee on winning trades (matching your kalshi_paper_trading.js config)
+    const FEE_RATE = 0.07;
+    const fees = grossPnl > 0 ? grossPnl * FEE_RATE : 0;
+    const netPnl = grossPnl - fees;
+    
+    const exitValue = position.value + netPnl;
 
     setPositions(prev => prev.map(p => 
       p.id === positionId 
-        ? { ...p, status: 'closed', pnl }
+        ? { ...p, status: 'closed', pnl: netPnl, grossPnl, fees }
         : p
     ));
 
     setStats(prev => ({
       ...prev,
       bankroll: prev.bankroll + exitValue,
-      totalPnl: prev.totalPnl + pnl,
+      totalPnl: prev.totalPnl + netPnl,
       totalTrades: prev.totalTrades + 1,
-      winningTrades: pnl > 0 ? prev.winningTrades + 1 : prev.winningTrades,
-      losingTrades: pnl <= 0 ? prev.losingTrades + 1 : prev.losingTrades,
-      winRate: ((pnl > 0 ? prev.winningTrades + 1 : prev.winningTrades) / (prev.totalTrades + 1)) * 100,
-      roi: ((prev.totalPnl + pnl) / prev.initialBankroll) * 100,
+      winningTrades: netPnl > 0 ? prev.winningTrades + 1 : prev.winningTrades,
+      losingTrades: netPnl <= 0 ? prev.losingTrades + 1 : prev.losingTrades,
+      winRate: ((netPnl > 0 ? prev.winningTrades + 1 : prev.winningTrades) / (prev.totalTrades + 1)) * 100,
+      roi: ((prev.totalPnl + netPnl) / prev.initialBankroll) * 100,
       openPositions: prev.openPositions - 1
     }));
+
+    // Show fee notification if fees were applied
+    if (fees > 0) {
+      console.log(`Position closed: ${position.ticker} | Gross P&L: +$${grossPnl.toFixed(2)} | Fees (7%): -$${fees.toFixed(2)} | Net P&L: +$${netPnl.toFixed(2)}`);
+    }
   };
 
   // Stats cards
@@ -825,7 +940,9 @@ export function KalshiTradingView() {
                     <th className="pb-2">Side</th>
                     <th className="pb-2">Entry</th>
                     <th className="pb-2">Shares</th>
-                    <th className="pb-2 text-right">P&L</th>
+                    <th className="pb-2 text-right">Gross P&L</th>
+                    <th className="pb-2 text-right">Fees (7%)</th>
+                    <th className="pb-2 text-right">Net P&L</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-hover">
@@ -840,6 +957,12 @@ export function KalshiTradingView() {
                       </td>
                       <td className="py-3 text-white">{position.entryPrice}¢</td>
                       <td className="py-3 text-white">{position.shares}</td>
+                      <td className={`py-3 text-right ${(position.grossPnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                        {(position.grossPnl || 0) >= 0 ? '+' : ''}${(position.grossPnl || 0).toFixed(2)}
+                      </td>
+                      <td className="py-3 text-right text-gray-500">
+                        {position.fees ? `-$${position.fees.toFixed(2)}` : '-'}
+                      </td>
                       <td className={`py-3 text-right font-medium ${(position.pnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
                         {(position.pnl || 0) >= 0 ? '+' : ''}${(position.pnl || 0).toFixed(2)}
                       </td>
