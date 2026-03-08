@@ -4448,6 +4448,37 @@ async function main() {
           ticker: penny.ticker
         });
       }
+    } else {
+      // Create new trade entry for penny pick not in main opportunities
+      const rawMarket = allRawMarkets.find(m => m.ticker === penny.ticker);
+      if (rawMarket) {
+        const noPrice = penny.noPrice;
+        const yesPrice = 100 - noPrice;
+        const edge = ((100 - yesPrice) - yesPrice); // Simplified edge calc
+        const rScore = edge > 0 ? 1 + (edge / 10) : 0.5;
+        
+        allTrades.push({
+          ticker: penny.ticker,
+          title: penny.title || rawMarket.title,
+          subtitle: rawMarket.subtitle || rawMarket.event_title,
+          category: 'weather', // Penny picks are weather markets
+          yesPrice,
+          noPrice,
+          volume: rawMarket.volume || 0,
+          closeTime: rawMarket.close_time || rawMarket.close_date,
+          edge: Math.round(edge * 10) / 10,
+          rScore: Math.round(rScore * 10) / 10,
+          kellyPct: Math.max(1, Math.min(10, edge / 2)),
+          recommendation: penny.type === 'fat_pitch' ? 'buy_urgent' : 'buy',
+          pennySignal: penny,
+          alerts: penny.type === 'fat_pitch' ? [{
+            type: 'fat_pitch',
+            severity: 'high',
+            message: `🪙 Fat Pitch: ${penny.noPrice}¢ NO contract, ${penny.forecastDelta?.toFixed(1)}° from forecast`,
+            ticker: penny.ticker
+          }] : []
+        });
+      }
     }
   }
   // ==================== END PENNY-PICKING ====================
@@ -4489,6 +4520,37 @@ async function main() {
         message: `🎯 ${tailRisk.type}: ${tailRisk.noPrice}¢ NO - ${tailRisk.reasoning || 'Mathematically improbable'}`,
         ticker: tailRisk.ticker
       });
+    } else {
+      // Create new trade entry for tail-risk not in main opportunities
+      const rawMarket = allRawMarkets.find(m => m.ticker === tailRisk.ticker);
+      if (rawMarket) {
+        const noPrice = tailRisk.noPrice;
+        const yesPrice = 100 - noPrice;
+        const edge = ((100 - yesPrice) - yesPrice);
+        const rScore = edge > 0 ? 1 + (edge / 10) : 0.5;
+        
+        allTrades.push({
+          ticker: tailRisk.ticker,
+          title: tailRisk.title || rawMarket.title,
+          subtitle: rawMarket.subtitle || rawMarket.event_title,
+          category: tailRisk.category || 'unknown',
+          yesPrice,
+          noPrice,
+          volume: rawMarket.volume || 0,
+          closeTime: rawMarket.close_time || rawMarket.close_date,
+          edge: Math.round(edge * 10) / 10,
+          rScore: Math.round(rScore * 10) / 10,
+          kellyPct: Math.max(1, Math.min(10, edge / 2)),
+          recommendation: 'buy_urgent',
+          tailRiskSignal: tailRisk,
+          alerts: [{
+            type: 'tail_risk',
+            severity: tailRisk.confidence === 'very_high' ? 'urgent' : 'high',
+            message: `🎯 ${tailRisk.type}: ${tailRisk.noPrice}¢ NO - ${tailRisk.reasoning || 'Mathematically improbable'}`,
+            ticker: tailRisk.ticker
+          }]
+        });
+      }
     }
   }
   // ==================== END TAIL-RISK ====================
