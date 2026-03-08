@@ -1006,19 +1006,20 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
   }
   
   return scannerData.opportunities.map((opp: any) => {
-    // Calculate R-Score from edge
-    const edgeStr = opp.edge?.replace('%', '') || '0';
-    const edge = parseFloat(edgeStr);
-    const rScore = edge > 0 ? 1 + (edge / 10) : 0;
+    // Edge is now a number from scanner (was string in v2.5)
+    const edge = typeof opp.edge === 'number' ? opp.edge : parseFloat(opp.edge?.replace('%', '') || '0');
+    const rScore = typeof opp.rScore === 'number' ? opp.rScore : parseFloat(opp.rScore || '0');
     
-    // Determine recommendation
-    let recommendation: 'strong_buy' | 'buy' | 'hold' | 'avoid' = 'avoid';
-    if (rScore >= 2.0) recommendation = 'strong_buy';
-    else if (rScore >= 1.5) recommendation = 'buy';
-    else if (rScore >= 1.0) recommendation = 'hold';
+    // Determine recommendation (fallback if not provided by scanner)
+    let recommendation: 'strong_buy' | 'buy' | 'buy_urgent' | 'hold' | 'avoid' = opp.recommendation || 'avoid';
+    if (!recommendation || recommendation === 'avoid') {
+      if (rScore >= 2.0) recommendation = 'strong_buy';
+      else if (rScore >= 1.5) recommendation = 'buy';
+      else if (rScore >= 1.0) recommendation = 'hold';
+    }
     
-    // Calculate Kelly
-    const kellyPct = edge > 0 ? Math.min(10, edge / 2) : 0;
+    // Use scanner's Kelly % if available, otherwise calculate
+    const kellyPct = opp.kellyPct || (edge > 0 ? Math.min(10, edge / 2) : 0);
     
     // Parse floor/cap from title or subtitle
     let floor: number | undefined;
