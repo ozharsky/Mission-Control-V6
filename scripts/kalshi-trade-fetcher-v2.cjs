@@ -753,7 +753,7 @@ class WinRateAnalytics {
   }
 
   // Record a trade opportunity for later outcome tracking
-  recordTradeOpportunity(trade) {
+  async recordTradeOpportunity(trade) {
     const record = {
       ticker: trade.ticker,
       category: trade.category,
