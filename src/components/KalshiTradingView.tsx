@@ -1936,6 +1936,119 @@ export function KalshiTradingView() {
             </div>
           )}
 
+          {/* Penny Picks & Tail Risk Section */}
+          {(pennyResults?.opportunities?.length > 0 || tailRiskResults?.opportunities?.length > 0) && (
+            <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-4">
+              <h3 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
+                <span className="text-lg">🪙</span>
+                Penny Picks & Tail Risk
+              </h3>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Penny Picks */}
+                {pennyResults?.opportunities?.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-medium text-purple-400/80 mb-2">🪙 Top 5 Penny Picks (Cheap NOs)</h4>
+                    {pennyResults.opportunities.slice(0, 5).map((opp, idx) => (
+                      <div 
+                        key={opp.ticker}
+                        className="bg-surface-hover/50 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-purple-500/10 transition-colors border border-transparent hover:border-purple-500/30"
+                        onClick={() => {
+                          // Try to find and scroll to the trade
+                          const trade = trades.find(t => t.ticker === opp.ticker);
+                          if (trade) {
+                            const tradeElement = tradeRefs.current.get(trade.id);
+                            if (tradeElement) {
+                              tradeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              setTimeout(() => setExpandedTrade(trade.id), 300);
+                            }
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-purple-400">#{idx + 1}</span>
+                          <div>
+                            <p className="text-sm font-medium text-white truncate max-w-[200px]">
+                              {opp.title || opp.ticker}</p>
+                            <p className="text-xs text-gray-400">{opp.ticker}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400">NO Price</p>
+                            <p className="text-lg font-bold text-purple-400">{opp.noPrice}¢</p>
+                          </div>
+                          <div className="text-right hidden sm:block">
+                            <p className="text-xs text-gray-400">ROI</p>
+                            <p className="text-sm font-medium text-emerald-400">+{opp.roi}%</p>
+                          </div>
+                          <div className="text-right hidden md:block">
+                            <p className="text-xs text-gray-400">Type</p>
+                            <p className="text-sm font-medium text-amber-400">
+                              {opp.type === 'fat_pitch' ? '🔥 Fat' : '🪙 Cheap'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Tail Risk */}
+                {tailRiskResults?.opportunities?.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-medium text-rose-400/80 mb-2">🎯 Top 5 Tail Risk (Cross-Category)</h4>
+                    {tailRiskResults.opportunities.slice(0, 5).map((opp, idx) => (
+                      <div 
+                        key={opp.ticker}
+                        className="bg-surface-hover/50 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-rose-500/10 transition-colors border border-transparent hover:border-rose-500/30"
+                        onClick={() => {
+                          const trade = trades.find(t => t.ticker === opp.ticker);
+                          if (trade) {
+                            const tradeElement = tradeRefs.current.get(trade.id);
+                            if (tradeElement) {
+                              tradeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              setTimeout(() => setExpandedTrade(trade.id), 300);
+                            }
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-rose-400">#{idx + 1}</span>
+                          <div>
+                            <p className="text-sm font-medium text-white truncate max-w-[200px]">
+                              {opp.title || opp.ticker}</p>
+                            <p className="text-xs text-gray-400">{opp.ticker} · {opp.category}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400">NO Price</p>
+                            <p className="text-lg font-bold text-rose-400">{opp.noPrice}¢</p>
+                          </div>
+                          <div className="text-right hidden sm:block">
+                            <p className="text-xs text-gray-400">ROI</p>
+                            <p className="text-sm font-medium text-emerald-400">+{opp.roi}%</p>
+                          </div>
+                          <div className="text-right hidden md:block">
+                            <p className="text-xs text-gray-400">Conf</p>
+                            <p className="text-sm font-medium">
+                              {opp.confidence === 'very_high' ? '💀 Very High' : '🔥 High'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <p className="text-xs text-purple-400/70 mt-3">
+                💡 These are asymmetric risk/reward trades. Click to view details.
+              </p>
+            </div>
+          )}
+
           {/* Key Insights Card */}
           {scanSummary && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
@@ -1996,93 +2109,6 @@ export function KalshiTradingView() {
                   💡 Tip: Polymarket arbitrage opportunities detected. Compare prices before trading.
                 </p>
               )}
-            </div>
-          )}
-
-          {/* Penny-Picking & Tail-Risk Card */}
-          {(scanSummary?.pennyOpportunities > 0 || scanSummary?.tailRiskOpportunities > 0) && (
-            <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-4">
-              <h3 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
-                <span className="text-lg">🪙</span>
-                Penny-Picking & Tail-Risk
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Penny Opportunities */}
-                {scanSummary?.pennyOpportunities > 0 && (
-                  <div className="bg-surface-hover/50 rounded-lg p-3">
-                    <p className="text-xs text-gray-400 mb-1">🪙 Cheap NOs</p>
-                    <p className="text-lg font-bold text-purple-400">{scanSummary.pennyOpportunities}</p>
-                    <p className="text-xs text-gray-500">1¢-9¢ NO contracts</p>
-                  </div>
-                )}
-                
-                {/* Fat Pitches */}
-                {scanSummary?.fatPitches > 0 && (
-                  <div className="bg-surface-hover/50 rounded-lg p-3">
-                    <p className="text-xs text-gray-400 mb-1">🔥 Fat Pitches</p>
-                    <p className="text-lg font-bold text-amber-400">{scanSummary.fatPitches}</p>
-                    <p className="text-xs text-gray-500">High confidence weather</p>
-                  </div>
-                )}
-                
-                {/* Tail-Risk */}
-                {scanSummary?.tailRiskOpportunities > 0 && (
-                  <div className="bg-surface-hover/50 rounded-lg p-3">
-                    <p className="text-xs text-gray-400 mb-1">🎯 Tail-Risk</p>
-                    <p className="text-lg font-bold text-rose-400">{scanSummary.tailRiskOpportunities}</p>
-                    <p className="text-xs text-gray-500">Crypto/Econ/Politics</p>
-                  </div>
-                )}
-                
-                {/* Penny Arbitrage */}
-                {scanSummary?.pennyArbitrage > 0 && (
-                  <div className="bg-surface-hover/50 rounded-lg p-3">
-                    <p className="text-xs text-gray-400 mb-1">🔗 NO Arbitrage</p>
-                    <p className="text-lg font-bold text-emerald-400">{scanSummary.pennyArbitrage}</p>
-                    <p className="text-xs text-gray-500">Guaranteed profit</p>
-                  </div>
-                )}
-              </div>
-              
-              {/* Show top penny opportunities */}
-              {pennyResults?.opportunities && pennyResults.opportunities.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-purple-500/20">
-                  <p className="text-xs text-purple-400/80 mb-2">Top Penny Picks:</p>
-                  <div className="space-y-1">
-                    {pennyResults.opportunities.slice(0, 3).map((opp: any, idx: number) => (
-                      <div key={idx} className="flex justify-between text-xs">
-                        <span className="text-gray-400">{opp.ticker}</span>
-                        <span className={opp.type === 'fat_pitch' ? 'text-amber-400' : 'text-purple-400'}>
-                          {opp.noPrice}¢ NO → {opp.roi}% ROI
-                          {opp.type === 'fat_pitch' && ' 🔥'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Show tail-risk opportunities */}
-              {tailRiskResults?.opportunities && tailRiskResults.opportunities.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-purple-500/20">
-                  <p className="text-xs text-purple-400/80 mb-2">Tail-Risk Opportunities:</p>
-                  <div className="space-y-1">
-                    {tailRiskResults.opportunities.slice(0, 3).map((opp: any, idx: number) => (
-                      <div key={idx} className="flex justify-between text-xs">
-                        <span className="text-gray-400">{opp.ticker}</span>
-                        <span className="text-rose-400">
-                          {opp.noPrice}¢ NO → {opp.roi}% ROI
-                          {opp.confidence === 'very_high' && ' 💀'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              <p className="text-xs text-purple-400/70 mt-3">
-                💡 These are asymmetric risk/reward trades. Cheap NO contracts that are mathematically likely to win.
-              </p>
             </div>
           )}
 
