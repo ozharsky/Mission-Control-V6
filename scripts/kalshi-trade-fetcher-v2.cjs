@@ -1335,6 +1335,55 @@ class TwitterSentimentAnalyzer {
   }
 }
 
+// ==================== HISTORICAL VALIDATION ====================
+// Real backtesting using Kalshi's historical API for resolved markets
+
+// Fetch historical resolved markets from Kalshi API
+async function fetchHistoricalResolvedMarkets(limit = 100) {
+  try {
+    const url = `https://trading-api.kalshi.com/trade-api/v2/historical/markets?limit=${limit}&status=closed`;
+    const data = await fetchWithRetry(url, {}, 2);
+    return data.markets || [];
+  } catch (e) {
+    console.log('⚠️ Failed to fetch historical markets:', e.message);
+    return [];
+  }
+}
+
+// Match historical outcomes with our predictions
+async function validatePredictionsWithHistory(predictions, historicalMarkets) {
+  const results = [];
+  
+  for (const pred of predictions) {
+    // Find matching historical market
+    const historical = historicalMarkets.find(m => m.ticker === pred.ticker);
+    
+    if (historical && historical.result) {
+      // Market resolved - check if our prediction was correct
+      const ourPrediction = pred.yesPrice < 50 ? 'no' : 'yes';
+      const actualResult = historical.result;
+      const correct = ourPrediction === actualResult;
+      
+      results.push({
+        ...pred,
+        resolved: true,
+        actualResult,
+        predicted: ourPrediction,
+        correct,
+        pnl: correct ? ((100 - pred.yesPrice) - pred.yesPrice) : -pred.yesPrice,
+        resolutionDate: historical.settlement_date
+      });
+    } else {
+      results.push({
+        ...pred,
+        resolved: false
+      });
+    }
+  }
+  
+  return results;
+}
+
 // Backtesting Framework (v3.0 #9)
 // Historical simulation engine to test trading strategies
 class BacktestingFramework {
@@ -1647,6 +1696,55 @@ class BacktestingFramework {
       console.log(`     ${best.description}`);
       console.log(`     Win Rate: ${best.results.winRate}% | Total P&L: $${best.results.totalPnl}`);
     }
+  }
+
+  // Validate predictions against historical outcomes
+  async validateWithHistoricalData(allTrades) {
+    console.log('\n📊 VALIDATING PREDICTIONS WITH HISTORICAL DATA...');
+    
+    // Fetch historical resolved markets
+    const historicalMarkets = await fetchHistoricalResolvedMarkets(100);
+    
+    if (historicalMarkets.length === 0) {
+      console.log('  ⚠️ No historical data available from API');
+      return null;
+    }
+    
+    console.log(`  Found ${historicalMarkets.length} resolved markets in history`);
+    
+    // Check if any of our tracked trades have resolved
+    const validated = await validatePredictionsWithHistory(allTrades, historicalMarkets);
+    const resolved = validated.filter(v => v.resolved);
+    
+    if (resolved.length === 0) {
+      console.log('  ⏳ No tracked markets have resolved yet. Check back later!');
+      return null;
+    }
+    
+    const wins = resolved.filter(r => r.correct);
+    const losses = resolved.filter(r => !r.correct);
+    const totalPnl = resolved.reduce((sum, r) => sum + r.pnl, 0);
+    
+    console.log(`\n  ✅ VALIDATED RESULTS (${resolved.length} markets):`);
+    console.log(`     Wins: ${wins.length} | Losses: ${losses.length}`);
+    console.log(`     Win Rate: ${((wins.length / resolved.length) * 100).toFixed(1)}%`);
+    console.log(`     Total P&L: $${totalPnl.toFixed(2)}`);
+    
+    if (wins.length > 0) {
+      console.log('\n  🎯 CORRECT PREDICTIONS:');
+      wins.slice(0, 3).forEach(w => {
+        console.log(`     ✓ ${w.ticker}: ${w.predicted.toUpperCase()} (PnL: $${w.pnl.toFixed(2)})`);
+      });
+    }
+    
+    if (losses.length > 0) {
+      console.log('\n  ❌ INCORRECT PREDICTIONS:');
+      losses.slice(0, 3).forEach(l => {
+        console.log(`     ✗ ${l.ticker}: Predicted ${l.predicted.toUpperCase()}, got ${l.actualResult.toUpperCase()}`);
+      });
+    }
+    
+    return { wins: wins.length, losses: losses.length, winRate: (wins.length / resolved.length) * 100, totalPnl };
   }
 }
 
@@ -3806,6 +3904,9 @@ async function main() {
   const backtestFramework = new BacktestingFramework();
   const backtestResults = backtestFramework.runAllStrategies();
   backtestFramework.printComparisonReport(backtestResults);
+  
+  // Validate predictions against actual historical outcomes
+  await backtestFramework.validateWithHistoricalData(allTrades);
   
   const arbitrage = detectArbitrage(allTrades);
   
