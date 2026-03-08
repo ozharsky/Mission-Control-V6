@@ -47,6 +47,23 @@ try {
   } else {
     console.log('⚠️ No Kalshi Access Key found');
   }
+  
+  // Test the private key by signing a test message
+  if (privateKey) {
+    try {
+      const testSign = crypto.createSign('RSA-SHA256');
+      testSign.update('test');
+      testSign.end();
+      const testSig = testSign.sign({
+        key: privateKey,
+        padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
+      }, 'base64');
+      console.log(`✅ Private key test sign: OK (sig length: ${testSig.length})`);
+    } catch (e) {
+      console.log(`❌ Private key test sign FAILED: ${e.message}`);
+    }
+  }
 } catch (e) {
   console.error('❌ Failed to load private key:', e.message);
 }
@@ -3549,9 +3566,9 @@ function fetchOnce(url, options = {}) {
         headers['KALSHI-ACCESS-KEY'] = KALSHI_ACCESS_KEY;
         headers['KALSHI-ACCESS-TIMESTAMP'] = timestamp;
         headers['KALSHI-ACCESS-SIGNATURE'] = signature;
-        console.log(`  🔐 Auth headers for ${urlObj.pathname}:`);
+        console.log(`  🔐 Auth for ${urlObj.href}:`);
+        console.log(`     Path signed: ${pathWithQuery.split('?')[0]}`);
         console.log(`     Key: ${KALSHI_ACCESS_KEY.substring(0, 16)}...`);
-        console.log(`     Timestamp: ${timestamp}`);
         console.log(`     Sig: ${signature.substring(0, 24)}...`);
       } else {
         console.log(`  ⚠️ Failed to sign request for ${urlObj.pathname}`);
