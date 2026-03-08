@@ -1343,7 +1343,7 @@ class TwitterSentimentAnalyzer {
 async function fetchHistoricalResolvedMarkets(seriesTicker, limit = 100) {
   try {
     // Use public elections API endpoint
-    const url = `https://api.elections.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=${limit}&status=closed`;
+    const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=${limit}&status=closed`;
     const data = await fetchWithRetry(url, {}, 2);
     return data.markets || [];
   } catch (e) {
@@ -2539,19 +2539,21 @@ class PennyPickingScanner {
       return sum + noPrice;
     }, 0);
 
-    // Theoretical sum should be (N-1) * 100
-    const theoreticalSum = (n - 1) * 100;
-    const profitMargin = theoreticalSum - sumOfNos;
+    // Theoretical sum should be (N-1) * 100 (one bracket will resolve YES, rest NO)
+    const guaranteedPayout = (n - 1) * 100;
+    const netProfit = guaranteedPayout - sumOfNos;
+    const roi = (netProfit / sumOfNos) * 100;
 
     return {
-      hasArbitrage: profitMargin > 5, // At least 5 cents profit
+      hasArbitrage: netProfit > 5, // At least 5 cents total profit
       event: markets[0].ticker.split('-').slice(0, 2).join('-'),
       numBrackets: n,
-      sumOfNos: sumOfNos.toFixed(1),
-      theoreticalSum: theoreticalSum,
-      profitMargin: profitMargin.toFixed(1),
+      totalCost: sumOfNos.toFixed(1),
+      guaranteedPayout: guaranteedPayout,
+      netProfit: netProfit.toFixed(1),
+      roi: roi.toFixed(2),
       markets: markets.map(m => m.ticker),
-      strategy: 'Buy NO on all brackets for guaranteed profit'
+      strategy: `Buy NO on all ${n} brackets. Risk $${(sumOfNos/100).toFixed(2)} to guarantee $${(guaranteedPayout/100).toFixed(2)}`
     };
   }
 
@@ -2660,7 +2662,7 @@ class TailRiskEngine {
       }
       const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
       const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / returns.length;
-      return Math.sqrt(variance) * Math.sqrt(24); // Annualized roughly
+      return Math.sqrt(variance); // Return hourly volatility
     } catch (e) {
       return 0.02; // Default 2%
     }
@@ -2696,7 +2698,7 @@ class TailRiskEngine {
       // Calculate distance in standard deviations
       const volatility = await this.fetchCryptoVolatility(coinId);
       const hoursToClose = this.hoursToClose(market.close_time);
-      const sigmaMove = Math.sqrt(hoursToClose / 24) * volatility;
+      const sigmaMove = Math.sqrt(hoursToClose) * volatility; // Scale by sqrt of hours
       const maxRealisticMove = 3 * sigmaMove; // 3-sigma
       
       const priceDelta = Math.abs(bracket.midpoint - livePrice) / livePrice;
@@ -3510,7 +3512,7 @@ function fetchText(url, options = {}, timeoutMs = 10000) {
 }
 
 function fetchMarkets(seriesTicker) {
-  const url = `https://api.elections.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=20&status=open`;
+  const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=20&status=open`;
   return fetchWithRetry(url);
 }
 
