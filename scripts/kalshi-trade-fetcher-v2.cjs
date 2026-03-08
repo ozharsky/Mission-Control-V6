@@ -20,6 +20,7 @@ try {
     // Use key from env var (GitHub Actions)
     privateKey = process.env.KALSHI_PRIVATE_KEY.replace(/\\n/g, '\n');
     console.log('✅ Loaded Kalshi private key from environment variable');
+    console.log(`   Key starts with: ${privateKey.substring(0, 40)}...`);
   } else if (fs.existsSync('./kalshi_private_key.pem')) {
     // Use key from file (local development)
     privateKey = fs.readFileSync('./kalshi_private_key.pem', 'utf8');
@@ -27,6 +28,12 @@ try {
   } else {
     console.log('⚠️ No Kalshi private key found - API calls will fail with 401');
     console.log('   Create a new API key at https://kalshi.com/account and download the private key');
+  }
+  
+  if (KALSHI_ACCESS_KEY) {
+    console.log(`✅ Kalshi Access Key loaded: ${KALSHI_ACCESS_KEY.substring(0, 8)}...`);
+  } else {
+    console.log('⚠️ No Kalshi Access Key found');
   }
 } catch (e) {
   console.error('❌ Failed to load private key:', e.message);
@@ -3474,6 +3481,7 @@ async function fetchWithRetry(url, options = {}, retries = CONFIG.maxRetries) {
 // Sign request for Kalshi API authentication using RSA-PSS
 function signKalshiRequest(method, path, timestamp) {
   if (!privateKey || !KALSHI_ACCESS_KEY) {
+    console.log('    ⚠️ signKalshiRequest: missing key or private key');
     return null;
   }
 
@@ -3483,19 +3491,25 @@ function signKalshiRequest(method, path, timestamp) {
   // Create the string to sign: "TIMESTAMP + METHOD + PATH"
   // Note: No separators, just concatenation as per Kalshi docs
   const stringToSign = `${timestamp}${method}${pathWithoutQuery}`;
+  console.log(`    📝 String to sign: ${stringToSign.substring(0, 60)}...`);
 
-  // Sign with RSA-PSS (not regular RSA)
-  const sign = crypto.createSign('RSA-SHA256');
-  sign.update(stringToSign);
-  sign.end();
+  try {
+    // Sign with RSA-PSS (not regular RSA)
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(stringToSign);
+    sign.end();
 
-  const signature = sign.sign({
-    key: privateKey,
-    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-    saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
-  }, 'base64');
+    const signature = sign.sign({
+      key: privateKey,
+      padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+      saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
+    }, 'base64');
 
-  return signature;
+    return signature;
+  } catch (e) {
+    console.log(`    ❌ Signing error: ${e.message}`);
+    return null;
+  }
 }
 
 function fetchOnce(url, options = {}) {
@@ -3515,13 +3529,19 @@ function fetchOnce(url, options = {}) {
     // Add Kalshi authentication if we have the keys
     if (isKalshiAPI && privateKey && KALSHI_ACCESS_KEY) {
       const timestamp = Date.now().toString();
-      const signature = signKalshiRequest('GET', urlObj.pathname + urlObj.search, timestamp);
+      const pathWithQuery = urlObj.pathname + urlObj.search;
+      const signature = signKalshiRequest('GET', pathWithQuery, timestamp);
 
       if (signature) {
         headers['KALSHI-ACCESS-KEY'] = KALSHI_ACCESS_KEY;
         headers['KALSHI-ACCESS-TIMESTAMP'] = timestamp;
         headers['KALSHI-ACCESS-SIGNATURE'] = signature;
+        console.log(`  🔐 Auth: ${urlObj.pathname} - Key: ${KALSHI_ACCESS_KEY.substring(0, 8)}... - Sig: ${signature.substring(0, 16)}...`);
+      } else {
+        console.log(`  ⚠️ Failed to sign request for ${urlObj.pathname}`);
       }
+    } else if (isKalshiAPI) {
+      console.log(`  ⚠️ Missing auth: hasKey=${!!KALSHI_ACCESS_KEY}, hasPrivateKey=${!!privateKey}`);
     }
 
     https.get(url, {
