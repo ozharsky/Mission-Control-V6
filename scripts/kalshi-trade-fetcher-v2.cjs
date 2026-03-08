@@ -3587,6 +3587,10 @@ function fetchOnce(url, options = {}) {
       res.on('end', () => {
         try {
           if (res.statusCode !== 200) {
+            // Log error response body for debugging
+            if (isKalshiAPI && res.statusCode === 401) {
+              console.log(`    ❌ 401 Response: ${data.substring(0, 200)}`);
+            }
             reject(new Error(`HTTP ${res.statusCode}`));
             return;
           }
