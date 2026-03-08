@@ -163,49 +163,99 @@ const CONFIG = {
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Fee calculation for Kalshi (simplified model)
-// Kalshi fees: ~0.5% to 2% depending on contract price and profit
-function calculateKalshiFees(positionSize, price, isWin) {
-  // Fee structure: Higher fees for cheaper contracts and winning positions
-  const baseFeeRate = 0.005; // 0.5% base
-  const priceAdjustment = (100 - price) / 100 * 0.015; // Higher fee for cheaper contracts
-  const profitFee = isWin ? 0.01 : 0; // Extra 1% on winning positions
-
-  const totalFeeRate = baseFeeRate + priceAdjustment + profitFee;
-  return positionSize * totalFeeRate;
+// Fee calculation for Kalshi
+// Kalshi charges a flat 1% trading fee on the notional value
+function calculateKalshiFees(positionSize, price, isWin = true) {
+  // Flat 1% fee on position size (Kalshi's standard trading fee)
+  const tradingFeeRate = 0.01; // 1%
+  return positionSize * tradingFeeRate;
 }
 
 // Calculate effective edge after fees
 function calculateNetEdge(grossEdge, price, positionSize) {
-  const fees = calculateKalshiFees(positionSize, price, true); // Assume win for optimistic
+  const fees = calculateKalshiFees(positionSize, price);
   const feePercentage = (fees / positionSize) * 100;
   return grossEdge - feePercentage;
 }
 
-// Dynamic base probability for crypto (using price momentum)
-function calculateDynamicCryptoProb(series, history) {
-  // Default to baseProb if no history
-  if (!history || !history[series.ticker] || history[series.ticker].length < 2) {
-    return series.baseProb;
+// Calculate probability for crypto markets based on live external price vs bracket
+// Uses CoinGecko API for live prices - NOT circular like Kalshi price history
+async function calculateCryptoProbabilityFromMarketPrice(marketTitle, livePrice) {
+  if (!livePrice) return 0.5; // Default if can't fetch price
+  
+  // Extract bracket threshold from market title
+  // Examples: "Will BTC be above $65,000?", "Will ETH be $3,000-$3,500?"
+  const aboveMatch = marketTitle.match(/above\s*\$?([\d,]+)/i);
+  const belowMatch = marketTitle.match(/below\s*\$?([\d,]+)/i);
+  const rangeMatch = marketTitle.match(/\$?([\d,]+)\s*-\s*\$?([\d,]+)/);
+  
+  if (rangeMatch) {
+    // Range bracket: probability based on where current price sits in range
+    const low = parseFloat(rangeMatch[1].replace(/,/g, ''));
+    const high = parseFloat(rangeMatch[2].replace(/,/g, ''));
+    const mid = (low + high) / 2;
+    const range = high - low;
+    
+    // Probability decreases as price moves away from range
+    if (livePrice >= low && livePrice <= high) {
+      // Price is inside range - high probability
+      const distFromMid = Math.abs(livePrice - mid) / (range / 2);
+      return Math.max(0.7, 0.95 - distFromMid * 0.25); // 70-95% depending on position
+    } else if (livePrice < low) {
+      // Price below range
+      const distance = (low - livePrice) / low;
+      return Math.max(0.05, 0.3 - distance); // Decreases as price drops further below
+    } else {
+      // Price above range
+      const distance = (livePrice - high) / high;
+      return Math.max(0.05, 0.3 - distance); // Decreases as price rises further above
+    }
+  } else if (aboveMatch) {
+    // Above threshold bracket
+    const threshold = parseFloat(aboveMatch[1].replace(/,/g, ''));
+    const distance = (livePrice - threshold) / threshold;
+    
+    if (livePrice > threshold) {
+      // Price is above - probability increases with distance
+      return Math.min(0.95, 0.6 + distance * 0.5);
+    } else {
+      // Price is below - probability decreases with distance
+      return Math.max(0.05, 0.4 + distance * 0.5); // distance is negative here
+    }
+  } else if (belowMatch) {
+    // Below threshold bracket
+    const threshold = parseFloat(belowMatch[1].replace(/,/g, ''));
+    const distance = (threshold - livePrice) / threshold;
+    
+    if (livePrice < threshold) {
+      // Price is below - probability increases as price drops further
+      return Math.min(0.95, 0.6 + distance * 0.5);
+    } else {
+      // Price is above - probability decreases
+      return Math.max(0.05, 0.4 - distance * 0.5);
+    }
   }
+  
+  return 0.5; // Default if can't parse bracket
+}
 
-  const hist = history[series.ticker];
-  const recent = hist.slice(-5); // Last 5 data points
-
-  if (recent.length < 2) return series.baseProb;
-
-  // Calculate price trend
-  const firstPrice = recent[0].price;
-  const lastPrice = recent[recent.length - 1].price;
-  const priceChange = (lastPrice - firstPrice) / firstPrice;
-
-  // Adjust probability based on trend (conservative adjustment)
-  // If price went up 10%, increase probability by 2% (not 10%)
-  const adjustment = priceChange * 0.2; // 20% of price change
-  let adjustedProb = series.baseProb + adjustment;
-
-  // Clamp between 0.05 and 0.95
-  return Math.max(0.05, Math.min(0.95, adjustedProb));
+// Fetch live crypto prices from CoinGecko
+async function fetchLiveCryptoPrices() {
+  try {
+    const url = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,cardano,polkadot&vs_currencies=usd';
+    const data = await fetchWithRetry(url, {}, 2);
+    
+    return {
+      'KXBTC': data.bitcoin?.usd,
+      'KXETH': data.ethereum?.usd,
+      'KXSOL': data.solana?.usd,
+      'KXADA': data.cardano?.usd,
+      'KXDOT': data.polkadot?.usd
+    };
+  } catch (e) {
+    console.log('  ⚠️ Failed to fetch live crypto prices:', e.message);
+    return {};
+  }
 }
 
 // Get effective spread cost for exit liquidity
@@ -4310,6 +4360,11 @@ async function main() {
   // Process series in parallel with concurrency limit
   console.log(`📊 Fetching ${SERIES.length} series with max 5 concurrent...\n`);
 
+  // Fetch live crypto prices once for all crypto markets
+  console.log('💰 Fetching live crypto prices from CoinGecko...');
+  const liveCryptoPrices = await fetchLiveCryptoPrices();
+  console.log('  ✅ Live prices:', Object.entries(liveCryptoPrices).map(([k, v]) => `${k}: $${v?.toLocaleString()}`).join(', '));
+
   for (let i = 0; i < SERIES.length; i += 5) {
     const batch = SERIES.slice(i, i + 5);
     const batchResults = await Promise.all(
@@ -4366,9 +4421,9 @@ async function main() {
         // Calculate momentum
         const momentum = calculateMomentum(yesPrice, history, m.ticker);
 
-        // Use dynamic probability for crypto, static for others
+        // Use live external price for crypto probability (NOT circular Kalshi prices)
         const effectiveBaseProb = series.category === 'crypto'
-          ? calculateDynamicCryptoProb(series, history)
+          ? await calculateCryptoProbabilityFromMarketPrice(m.title, liveCryptoPrices[series.ticker])
           : series.baseProb;
 
         // Calculate edge with time adjustment
