@@ -1835,6 +1835,62 @@ export function KalshiTradingView() {
             </div>
           )}
 
+          {/* Top Opportunities Card */}
+          {trades.length > 0 && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+              <h3 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
+                <Trophy className="h-4 w-4" />
+                Top Scanner Opportunities
+              </h3>
+              <div className="space-y-2">
+                {trades
+                  .sort((a, b) => (b.compositeScore || 0) - (a.compositeScore || 0))
+                  .slice(0, 3)
+                  .map((trade, idx) => (
+                    <div 
+                      key={trade.id} 
+                      className="bg-surface-hover/50 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-surface-hover transition-colors"
+                      onClick={() => setExpandedTrade(expandedTrade === trade.id ? null : trade.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg font-bold text-emerald-400">#{idx + 1}</span>
+                        <div>
+                          <p className="text-sm font-medium text-white truncate max-w-[200px]">
+                            {trade.title}
+                          </p>
+                          <p className="text-xs text-gray-400">{trade.ticker}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400">Score</p>
+                          <p className="text-lg font-bold text-emerald-400">
+                            {parseFloat(trade.compositeScore || '0').toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="text-right hidden sm:block">
+                          <p className="text-xs text-gray-400">Edge</p>
+                          <p className="text-sm font-medium text-success">+{trade.edge}%</p>
+                        </div>
+                        <div className="text-right hidden md:block">
+                          <p className="text-xs text-gray-400">R-Score</p>
+                          <p className="text-sm font-medium text-primary">{(trade.rScore || 0).toFixed(1)}</p>
+                        </div>
+                        <ChevronDown 
+                          className={`h-5 w-5 text-gray-400 transition-transform ${
+                            expandedTrade === trade.id ? 'rotate-180' : ''
+                          }`} 
+                        />
+                      </div>
+                    </div>
+                  ))}
+              </div>
+              <p className="text-xs text-emerald-400/70 mt-3">
+                💡 Click on any opportunity to see full details and buy options
+              </p>
+            </div>
+          )}
+
           {/* Key Insights Card */}
           {scanSummary && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
