@@ -146,6 +146,21 @@ interface KalshiTrade {
     riskOfRuin: 'low' | 'medium' | 'high';
     positionPctOfBankroll: string;
   };
+  // v3.0 fields - Penny Picking & Tail Risk
+  pennySignal?: {
+    noPrice: number;
+    roi: string;
+    type: 'cheap_no' | 'fat_pitch' | 'very_cheap';
+    potentialReturn: number;
+  };
+  tailRiskSignal?: {
+    noPrice: number;
+    roi: string;
+    confidence: 'high' | 'very_high';
+    category: string;
+    oracleValue: string;
+    distance: string;
+  };
 }
 
 interface PaperPosition {
@@ -1126,7 +1141,9 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
       multiFactorScore: opp.multiFactorScore,
       twitterSignal: opp.twitterSignal,
       decayAnalysis: opp.decayAnalysis,
-      stabilityScore: opp.stabilityScore
+      stabilityScore: opp.stabilityScore,
+      pennySignal: opp.pennySignal,
+      tailRiskSignal: opp.tailRiskSignal
     };
   }); // Removed edge > 0 filter since scanner already filters
 }
