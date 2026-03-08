@@ -3789,7 +3789,7 @@ function getMarketHealth(m) {
 }
 
 // Calculate edge with time and volume adjustments
-function calculateEdge(yesPrice, baseProb, volume, closeTime, category) {
+function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history = null, ticker = null) {
   const marketProb = yesPrice / 100;
   const volumeBoost = Math.min(volume / 10000, 0.05);
   const timeAdjustment = getTimeConfidence(closeTime, category);
@@ -3799,11 +3799,35 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category) {
 
   const edge = (adjustedProb - marketProb) * 100;
 
+  // Calculate proper R-Score: edge divided by historical volatility (signal-to-noise)
+  // If no history, use a default volatility of 5% to avoid division by zero
+  let rScore = 0;
+  if (edge > 0) {
+    let historicalVolatility = 5; // Default 5% volatility
+    
+    if (history && ticker && history[ticker] && history[ticker].length >= 5) {
+      // Calculate standard deviation of historical edges
+      const edges = history[ticker].map(h => h.edge).filter(e => typeof e === 'number');
+      if (edges.length >= 5) {
+        const mean = edges.reduce((a, b) => a + b, 0) / edges.length;
+        const squaredDiffs = edges.map(e => Math.pow(e - mean, 2));
+        const variance = squaredDiffs.reduce((a, b) => a + b, 0) / edges.length;
+        historicalVolatility = Math.sqrt(variance);
+        // Ensure minimum volatility to avoid extreme R-scores
+        historicalVolatility = Math.max(historicalVolatility, 2);
+      }
+    }
+    
+    // R-Score = edge / historical volatility (signal-to-noise ratio)
+    rScore = edge / historicalVolatility;
+  }
+
   return {
     edge,
     adjustedProb,
     marketProb,
-    rScore: edge > 0 ? edge / 10 : 0,
+    rScore,
+    historicalVolatility: historicalVolatility || 5,
     timeAdjustment,
     volumeBoost
   };
@@ -4426,8 +4450,8 @@ async function main() {
           ? await calculateCryptoProbabilityFromMarketPrice(m.title, liveCryptoPrices[series.ticker])
           : series.baseProb;
 
-        // Calculate edge with time adjustment
-        const edgeCalc = calculateEdge(yesPrice, effectiveBaseProb, volume, m.close_time, series.category);
+        // Calculate edge with time adjustment (now with proper R-Score)
+        const edgeCalc = calculateEdge(yesPrice, effectiveBaseProb, volume, m.close_time, series.category, history, m.ticker);
 
         // Calculate spread cost (exit liquidity risk)
         const spreadCost = calculateSpreadCost(m.yes_bid, m.yes_ask);
