@@ -1342,10 +1342,37 @@ class TwitterSentimentAnalyzer {
 // Fetch historical resolved markets from Kalshi API by series
 async function fetchHistoricalResolvedMarkets(seriesTicker, limit = 100) {
   try {
-    // Use public elections API endpoint
-    const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=${limit}&status=closed`;
+    // Use public v1/events API (no auth required)
+    const url = `https://trading-api.kalshi.com/v1/events/${seriesTicker}`;
     const data = await fetchWithRetry(url, {}, 2);
-    return data.markets || [];
+    
+    // Transform v1/events response to match v2/markets structure
+    const markets = [];
+    if (data.event && data.event.markets) {
+      for (const market of data.event.markets) {
+        // Only include closed/resolved markets
+        if (market.status === 'closed' || market.status === 'resolved') {
+          markets.push({
+            ticker: market.ticker,
+            title: market.title,
+            subtitle: market.subtitle || data.event.title,
+            yes_ask: market.yes_ask,
+            yes_bid: market.yes_bid,
+            no_ask: market.no_ask,
+            no_bid: market.no_bid,
+            volume: market.volume || 0,
+            open_interest: market.open_interest,
+            close_time: market.close_time || data.event.close_time,
+            expiration_time: market.expiration_time,
+            status: market.status,
+            result: market.result, // For resolved markets
+            event_title: data.event.title,
+            category: data.event.category || 'unknown'
+          });
+        }
+      }
+    }
+    return markets.slice(0, limit);
   } catch (e) {
     console.log(`⚠️ Failed to fetch historical markets for ${seriesTicker}:`, e.message);
     return [];
@@ -3520,8 +3547,33 @@ function fetchText(url, options = {}, timeoutMs = 10000) {
 }
 
 function fetchMarkets(seriesTicker) {
-  const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=20&status=open`;
-  return fetchWithRetry(url);
+  // Use public v1/events API (no auth required) instead of trade-api/v2
+  const url = `https://trading-api.kalshi.com/v1/events/${seriesTicker}`;
+  return fetchWithRetry(url).then(data => {
+    // Transform v1/events response to match v2/markets structure
+    const markets = [];
+    if (data.event && data.event.markets) {
+      for (const market of data.event.markets) {
+        markets.push({
+          ticker: market.ticker,
+          title: market.title,
+          subtitle: market.subtitle || data.event.title,
+          yes_ask: market.yes_ask,
+          yes_bid: market.yes_bid,
+          no_ask: market.no_ask,
+          no_bid: market.no_bid,
+          volume: market.volume || 0,
+          open_interest: market.open_interest,
+          close_time: market.close_time || data.event.close_time,
+          expiration_time: market.expiration_time,
+          status: market.status || 'open',
+          event_title: data.event.title,
+          category: data.event.category || 'unknown'
+        });
+      }
+    }
+    return { markets };
+  });
 }
 
 function cleanTitle(title) {
