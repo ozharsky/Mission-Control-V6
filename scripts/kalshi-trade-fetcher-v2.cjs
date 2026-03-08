@@ -11,19 +11,22 @@ const path = require('path');
 const crypto = require('crypto');
 
 // Kalshi API Configuration
-const KALSHI_API_KEY = process.env.KALSHI_API_KEY || ''; // Your Kalshi API Key ID
-const KALSHI_PRIVATE_KEY_PATH = process.env.KALSHI_PRIVATE_KEY_PATH || './kalshi_private_key.pem';
+const KALSHI_API_KEY = process.env.KALSHI_API_KEY || '';
 
-// Load private key for RSA signing
+// Load private key from env var or file
 let privateKey = null;
 try {
-  if (fs.existsSync(KALSHI_PRIVATE_KEY_PATH)) {
-    privateKey = fs.readFileSync(KALSHI_PRIVATE_KEY_PATH, 'utf8');
-    console.log('✅ Loaded Kalshi private key for authentication');
+  if (process.env.KALSHI_PRIVATE_KEY) {
+    // Use key from env var (GitHub Actions)
+    privateKey = process.env.KALSHI_PRIVATE_KEY.replace(/\\n/g, '\n');
+    console.log('✅ Loaded Kalshi private key from environment variable');
+  } else if (fs.existsSync('./kalshi_private_key.pem')) {
+    // Use key from file (local development)
+    privateKey = fs.readFileSync('./kalshi_private_key.pem', 'utf8');
+    console.log('✅ Loaded Kalshi private key from file');
   } else {
-    console.log('⚠️ No private key found at', KALSHI_PRIVATE_KEY_PATH, '- API calls will fail with 401');
-    console.log('   Generate keys: openssl genrsa -out kalshi_private_key.pem 2048');
-    console.log('   Then upload the public key to your Kalshi account');
+    console.log('⚠️ No Kalshi private key found - API calls will fail with 401');
+    console.log('   Add KALSHI_PRIVATE_KEY to GitHub Secrets or create kalshi_private_key.pem locally');
   }
 } catch (e) {
   console.error('❌ Failed to load private key:', e.message);
