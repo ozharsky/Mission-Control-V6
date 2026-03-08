@@ -18,9 +18,21 @@ let privateKey = null;
 try {
   if (process.env.KALSHI_PRIVATE_KEY) {
     // Use key from env var (GitHub Actions)
-    privateKey = process.env.KALSHI_PRIVATE_KEY.replace(/\\n/g, '\n');
+    // Handle various newline formats that GitHub Secrets might use
+    privateKey = process.env.KALSHI_PRIVATE_KEY
+      .replace(/\\n/g, '\n')      // Escaped newlines
+      .replace(/\r\n/g, '\n')     // Windows newlines
+      .replace(/\r/g, '\n');      // Old Mac newlines
+    
     console.log('✅ Loaded Kalshi private key from environment variable');
-    console.log(`   Key starts with: ${privateKey.substring(0, 40)}...`);
+    console.log(`   Key length: ${privateKey.length} chars`);
+    console.log(`   Key starts with: ${privateKey.substring(0, 50)}...`);
+    
+    // Validate key format
+    if (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+      console.log('   ⚠️ WARNING: Key does not contain expected header!');
+      console.log(`   First line: ${privateKey.split('\n')[0]}`);
+    }
   } else if (fs.existsSync('./kalshi_private_key.pem')) {
     // Use key from file (local development)
     privateKey = fs.readFileSync('./kalshi_private_key.pem', 'utf8');
@@ -3491,7 +3503,8 @@ function signKalshiRequest(method, path, timestamp) {
   // Create the string to sign: "TIMESTAMP + METHOD + PATH"
   // Note: No separators, just concatenation as per Kalshi docs
   const stringToSign = `${timestamp}${method}${pathWithoutQuery}`;
-  console.log(`    📝 String to sign: ${stringToSign.substring(0, 60)}...`);
+  console.log(`    📝 String to sign: ${stringToSign}`);
+    console.log(`    📏 String length: ${stringToSign.length}`);
 
   try {
     // Sign with RSA-PSS (not regular RSA)
@@ -3536,7 +3549,10 @@ function fetchOnce(url, options = {}) {
         headers['KALSHI-ACCESS-KEY'] = KALSHI_ACCESS_KEY;
         headers['KALSHI-ACCESS-TIMESTAMP'] = timestamp;
         headers['KALSHI-ACCESS-SIGNATURE'] = signature;
-        console.log(`  🔐 Auth: ${urlObj.pathname} - Key: ${KALSHI_ACCESS_KEY.substring(0, 8)}... - Sig: ${signature.substring(0, 16)}...`);
+        console.log(`  🔐 Auth headers for ${urlObj.pathname}:`);
+        console.log(`     Key: ${KALSHI_ACCESS_KEY.substring(0, 16)}...`);
+        console.log(`     Timestamp: ${timestamp}`);
+        console.log(`     Sig: ${signature.substring(0, 24)}...`);
       } else {
         console.log(`  ⚠️ Failed to sign request for ${urlObj.pathname}`);
       }
