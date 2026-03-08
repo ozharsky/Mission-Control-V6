@@ -14,7 +14,7 @@ let db = null;
 try {
   const { initializeApp, cert } = require('firebase-admin/app');
   const { getDatabase } = require('firebase-admin/database');
-  
+
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     initializeApp({
@@ -94,7 +94,7 @@ function calculateKalshiFees(positionSize, price, isWin) {
   const baseFeeRate = 0.005; // 0.5% base
   const priceAdjustment = (100 - price) / 100 * 0.015; // Higher fee for cheaper contracts
   const profitFee = isWin ? 0.01 : 0; // Extra 1% on winning positions
-  
+
   const totalFeeRate = baseFeeRate + priceAdjustment + profitFee;
   return positionSize * totalFeeRate;
 }
@@ -112,22 +112,22 @@ function calculateDynamicCryptoProb(series, history) {
   if (!history || !history[series.ticker] || history[series.ticker].length < 2) {
     return series.baseProb;
   }
-  
+
   const hist = history[series.ticker];
   const recent = hist.slice(-5); // Last 5 data points
-  
+
   if (recent.length < 2) return series.baseProb;
-  
+
   // Calculate price trend
   const firstPrice = recent[0].price;
   const lastPrice = recent[recent.length - 1].price;
   const priceChange = (lastPrice - firstPrice) / firstPrice;
-  
+
   // Adjust probability based on trend (conservative adjustment)
   // If price went up 10%, increase probability by 2% (not 10%)
   const adjustment = priceChange * 0.2; // 20% of price change
   let adjustedProb = series.baseProb + adjustment;
-  
+
   // Clamp between 0.05 and 0.95
   return Math.max(0.05, Math.min(0.95, adjustedProb));
 }
@@ -189,30 +189,30 @@ class MemoryCache {
   constructor() {
     this.cache = new Map();
   }
-  
+
   get(key) {
     const item = this.cache.get(key);
     if (!item) return null;
-    
+
     if (Date.now() > item.expiresAt) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return item.value;
   }
-  
+
   set(key, value, ttlMs) {
     this.cache.set(key, {
       value,
       expiresAt: Date.now() + ttlMs
     });
   }
-  
+
   getStats() {
     let valid = 0;
     let expired = 0;
-    
+
     for (const [key, item] of this.cache) {
       if (Date.now() > item.expiresAt) {
         expired++;
@@ -220,7 +220,7 @@ class MemoryCache {
         valid++;
       }
     }
-    
+
     return { valid, expired, total: this.cache.size };
   }
 }
@@ -234,14 +234,14 @@ class AlertManager {
     this.alerts = [];
     this.triggeredKeys = new Set(); // Track already-triggered alerts to avoid duplicates
   }
-  
+
   checkThresholds(trades, polymarketArbs, weatherLags) {
     const newAlerts = [];
-    
+
     for (const trade of trades) {
       // Edge threshold
       if (parseFloat(trade.edge) >= CONFIG.alerts.edge.urgent) {
-        newAlerts.push(this.createAlert('edge', 'urgent', 
+        newAlerts.push(this.createAlert('edge', 'urgent',
           `🔥 ${trade.ticker}: Edge ${trade.edge}% (threshold: ${CONFIG.alerts.edge.urgent}%)`,
           trade));
       } else if (parseFloat(trade.edge) >= CONFIG.alerts.edge.min) {
@@ -249,28 +249,28 @@ class AlertManager {
           `📈 ${trade.ticker}: Edge ${trade.edge}% (threshold: ${CONFIG.alerts.edge.min}%)`,
           trade));
       }
-      
+
       // R-Score threshold
       if (parseFloat(trade.rScore) >= CONFIG.alerts.rScore.min) {
         newAlerts.push(this.createAlert('rScore', 'high',
           `⭐ ${trade.ticker}: R-Score ${trade.rScore} (threshold: ${CONFIG.alerts.rScore.min})`,
           trade));
       }
-      
+
       // Whale activity threshold
       if (trade.whale && parseFloat(trade.whaleSpikeRatio) >= CONFIG.alerts.whale.minMultiplier) {
         newAlerts.push(this.createAlert('whale', 'high',
           `🐋 ${trade.ticker}: Whale activity ${trade.whaleSpikeRatio}x (threshold: ${CONFIG.alerts.whale.minMultiplier}x)`,
           trade));
       }
-      
+
       // Price momentum threshold
       if (trade.momentum === 'surging' && Math.abs(parseFloat(trade.momentumChange24h)) >= CONFIG.alerts.priceChange.min) {
         newAlerts.push(this.createAlert('momentum', 'medium',
           `🚀 ${trade.ticker}: Surging +${trade.momentumChange24h}% in 24h`,
           trade));
       }
-      
+
       // News sentiment threshold
       if (trade.sentimentSignal && Math.abs(trade.sentimentSignal.score) >= CONFIG.alerts.sentiment.min) {
         const direction = trade.sentimentSignal.score > 0 ? 'bullish' : 'bearish';
@@ -279,7 +279,7 @@ class AlertManager {
           trade));
       }
     }
-    
+
     // Arbitrage alerts
     for (const arb of polymarketArbs) {
       if (parseFloat(arb.percentDiff) >= CONFIG.alerts.arbitrage.minSpread) {
@@ -288,7 +288,7 @@ class AlertManager {
           null, arb));
       }
     }
-    
+
     // Weather lag alerts
     for (const lag of weatherLags) {
       if (Math.abs(parseFloat(lag.probabilityDiff)) >= CONFIG.alerts.weatherLag.minDiff) {
@@ -297,7 +297,7 @@ class AlertManager {
           null, null, lag));
       }
     }
-    
+
     // Filter out duplicates
     const uniqueAlerts = newAlerts.filter(alert => {
       const key = `${alert.type}-${alert.ticker || alert.arb?.ticker || alert.lag?.city}`;
@@ -305,11 +305,11 @@ class AlertManager {
       this.triggeredKeys.add(key);
       return true;
     });
-    
+
     this.alerts.push(...uniqueAlerts);
     return uniqueAlerts;
   }
-  
+
   createAlert(type, severity, message, trade = null, arb = null, lag = null) {
     return {
       id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -323,46 +323,46 @@ class AlertManager {
       lag
     };
   }
-  
+
   getUrgentAlerts() {
     return this.alerts.filter(a => a.severity === 'urgent');
   }
-  
+
   getHighAlerts() {
     return this.alerts.filter(a => a.severity === 'high');
   }
-  
+
   formatForDiscord() {
     const urgent = this.getUrgentAlerts();
     const high = this.getHighAlerts();
-    
+
     let formatted = '';
-    
+
     if (urgent.length > 0) {
       formatted += '## 🚨 URGENT ALERTS\n';
       urgent.forEach(a => formatted += `- ${a.message}\n`);
       formatted += '\n';
     }
-    
+
     if (high.length > 0) {
       formatted += '## ⚠️ HIGH PRIORITY\n';
       high.slice(0, 5).forEach(a => formatted += `- ${a.message}\n`);
     }
-    
+
     return formatted || null;
   }
-  
+
   printSummary() {
     const urgent = this.getUrgentAlerts().length;
     const high = this.getHighAlerts().length;
     const medium = this.alerts.filter(a => a.severity === 'medium').length;
-    
+
     if (this.alerts.length > 0) {
       console.log('\n🚨 ALERT SUMMARY:');
       if (urgent > 0) console.log(`  🔥 URGENT: ${urgent}`);
       if (high > 0) console.log(`  ⚠️ HIGH: ${high}`);
       if (medium > 0) console.log(`  ℹ️ MEDIUM: ${medium}`);
-      
+
       console.log('\n📢 TOP ALERTS:');
       this.alerts.slice(0, 5).forEach(a => {
         const icon = a.severity === 'urgent' ? '🔥' : a.severity === 'high' ? '⚠️' : 'ℹ️';
@@ -378,7 +378,7 @@ class EdgeDecayTracker {
     this.edgeHistory = new Map(); // ticker -> [{timestamp, edge, rScore}]
     this.loadFromFile();
   }
-  
+
   loadFromFile() {
     try {
       const filePath = path.join(__dirname, '..', 'kalshi_data', 'edge_history.json');
@@ -396,7 +396,7 @@ class EdgeDecayTracker {
       console.log('⚠️ Could not load edge history:', e.message);
     }
   }
-  
+
   async saveToFile() {
     try {
       const filePath = path.join(__dirname, '..', 'kalshi_data', 'edge_history.json');
@@ -406,12 +406,12 @@ class EdgeDecayTracker {
       console.error('❌ Failed to save edge history:', e.message);
     }
   }
-  
+
   recordEdge(ticker, edge, rScore, yesPrice) {
     if (!this.edgeHistory.has(ticker)) {
       this.edgeHistory.set(ticker, []);
     }
-    
+
     const history = this.edgeHistory.get(ticker);
     history.push({
       timestamp: Date.now(),
@@ -419,49 +419,49 @@ class EdgeDecayTracker {
       rScore: parseFloat(rScore),
       yesPrice
     });
-    
+
     // Keep only last 30 days
     const cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
     const filtered = history.filter(h => h.timestamp > cutoff);
     this.edgeHistory.set(ticker, filtered);
   }
-  
+
   // Calculate edge decay rate (% per day)
   calculateDecayRate(ticker, currentEdge) {
     const history = this.edgeHistory.get(ticker);
     if (!history || history.length < 2) return { decayRate: 0, trend: 'stable' };
-    
+
     const now = Date.now();
     const oneDayAgo = now - (24 * 60 * 60 * 1000);
     const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
-    
+
     // Get edges from 24h ago and 7 days ago
     const dayAgoEntry = history.find(h => h.timestamp > oneDayAgo);
     const weekAgoEntry = history.find(h => h.timestamp <= oneWeekAgo);
-    
+
     if (!dayAgoEntry) return { decayRate: 0, trend: 'stable' };
-    
+
     const edge24h = dayAgoEntry.edge;
     const edgeChange24h = currentEdge - edge24h;
     const decayRate24h = (edgeChange24h / edge24h) * 100;
-    
+
     let trend = 'stable';
     if (decayRate24h < -10) trend = 'decaying_fast';
     else if (decayRate24h < -5) trend = 'decaying';
     else if (decayRate24h > 10) trend = 'improving_fast';
     else if (decayRate24h > 5) trend = 'improving';
-    
+
     let weekTrend = null;
     let decayRateWeek = null;
-    
+
     if (weekAgoEntry) {
       const edgeChangeWeek = currentEdge - weekAgoEntry.edge;
       decayRateWeek = (edgeChangeWeek / weekAgoEntry.edge) * 100;
-      
+
       if (decayRateWeek < -20) weekTrend = 'strong_decay';
       else if (decayRateWeek > 20) weekTrend = 'strong_improvement';
     }
-    
+
     return {
       decayRate: decayRate24h,
       trend,
@@ -472,25 +472,25 @@ class EdgeDecayTracker {
       entriesCount: history.length
     };
   }
-  
+
   // Identify best opportunities based on decay trends
   rankByDecayStability(trades) {
     return trades.map(trade => {
       const decay = this.calculateDecayRate(trade.ticker, parseFloat(trade.edge));
-      
+
       // Higher score = more stable/improving edge
       let stabilityScore = 0;
-      
+
       if (decay.trend === 'improving_fast') stabilityScore = 2;
       else if (decay.trend === 'improving') stabilityScore = 1;
       else if (decay.trend === 'stable') stabilityScore = 0.5;
       else if (decay.trend === 'decaying') stabilityScore = -0.5;
       else if (decay.trend === 'decaying_fast') stabilityScore = -1;
-      
+
       // Boost for long-term improvement
       if (decay.weekTrend === 'strong_improvement') stabilityScore += 1;
       else if (decay.weekTrend === 'strong_decay') stabilityScore -= 1;
-      
+
       return {
         ...trade,
         decayAnalysis: decay,
@@ -498,14 +498,14 @@ class EdgeDecayTracker {
       };
     }).sort((a, b) => b.stabilityScore - a.stabilityScore);
   }
-  
+
   getDecayReport(trades) {
     const withDecay = this.rankByDecayStability(trades);
-    
+
     const improving = withDecay.filter(t => t.stabilityScore > 0);
     const decaying = withDecay.filter(t => t.stabilityScore < 0);
     const stable = withDecay.filter(t => t.stabilityScore === 0);
-    
+
     return {
       improving: improving.slice(0, 5),
       decaying: decaying.slice(0, 5),
@@ -517,13 +517,13 @@ class EdgeDecayTracker {
       }
     };
   }
-  
+
   printDecayReport(trades) {
     const report = this.getDecayReport(trades);
-    
+
     console.log('\n📊 EDGE DECAY ANALYSIS:');
     console.log(`  📈 Improving: ${report.summary.improving} | 📉 Decaying: ${report.summary.decaying} | ➡️ Stable: ${report.summary.stable}`);
-    
+
     if (report.improving.length > 0) {
       console.log('\n  📈 TOP IMPROVING:');
       report.improving.slice(0, 3).forEach(t => {
@@ -1263,8 +1263,8 @@ class TwitterSentimentAnalyzer {
     // Fall back to relevant news sentiment
     else if (relevantNews && relevantNews.length > 0) {
       const tradeNews = relevantNews.filter(n =>
-        matches.some(m => 
-          (n.title?.toLowerCase() || '').includes(m.keyword) || 
+        matches.some(m =>
+          (n.title?.toLowerCase() || '').includes(m.keyword) ||
           (n.summary?.toLowerCase() || '').includes(m.keyword)
         )
       );
@@ -1355,17 +1355,17 @@ async function fetchHistoricalResolvedMarkets(seriesTicker, limit = 100) {
 // Match historical outcomes with our predictions
 async function validatePredictionsWithHistory(predictions, historicalMarkets) {
   const results = [];
-  
+
   for (const pred of predictions) {
     // Find matching historical market
     const historical = historicalMarkets.find(m => m.ticker === pred.ticker);
-    
+
     if (historical && historical.result) {
       // Market resolved - check if our prediction was correct
       const ourPrediction = pred.yesPrice < 50 ? 'no' : 'yes';
       const actualResult = historical.result;
       const correct = ourPrediction === actualResult;
-      
+
       results.push({
         ...pred,
         resolved: true,
@@ -1382,7 +1382,7 @@ async function validatePredictionsWithHistory(predictions, historicalMarkets) {
       });
     }
   }
-  
+
   return results;
 }
 
@@ -1571,7 +1571,7 @@ class BacktestingFramework {
     let position = 100; // Default $100
     const marketProb = trade.yesPrice / 100;
     const trueProb = trade.trueProbability / 100 || (0.5 + (edge / 200));
-    
+
     if (positionSizing === 'kelly_half') {
       position = this.calculateKellyPosition(trueProb, marketProb, 0.5);
     } else if (positionSizing === 'kelly_full') {
@@ -1601,15 +1601,15 @@ class BacktestingFramework {
     // trueProb: Our estimated true probability (0-1)
     // marketProb: Market implied probability (0-1)
     if (trueProb <= marketProb) return 0;
-    
+
     const winProb = trueProb;
     const lossProb = 1 - winProb;
     const b = (1 - marketProb) / marketProb; // Decimal odds
-    
+
     // Kelly = (winProb * b - lossProb) / b
     const kelly = (winProb * b - lossProb) / b;
     const adjustedKelly = Math.max(0, kelly * fraction);
-    
+
     // Convert to dollar amount (capped at $500)
     return Math.min(500, Math.max(10, adjustedKelly * 1000));
   }
@@ -1709,56 +1709,56 @@ class BacktestingFramework {
   // Validate predictions against historical outcomes
   async validateWithHistoricalData(allTrades) {
     console.log('\n📊 VALIDATING PREDICTIONS WITH HISTORICAL DATA...');
-    
+
     // Get unique series tickers from tracked trades
     const seriesTickers = [...new Set(allTrades.map(t => t.ticker.split('-')[0]))];
-    
+
     // Fetch historical markets for each series
     let allHistoricalMarkets = [];
     for (const seriesTicker of seriesTickers) {
       const markets = await fetchHistoricalResolvedMarkets(seriesTicker, 50);
       allHistoricalMarkets = allHistoricalMarkets.concat(markets);
     }
-    
+
     if (allHistoricalMarkets.length === 0) {
       console.log('  ⚠️ No historical data available from API');
       return null;
     }
-    
+
     console.log(`  Found ${allHistoricalMarkets.length} resolved markets across ${seriesTickers.length} series`);
-    
+
     // Check if any of our tracked trades have resolved
     const validated = await validatePredictionsWithHistory(allTrades, allHistoricalMarkets);
     const resolved = validated.filter(v => v.resolved);
-    
+
     if (resolved.length === 0) {
       console.log('  ⏳ No tracked markets have resolved yet. Check back later!');
       return null;
     }
-    
+
     const wins = resolved.filter(r => r.correct);
     const losses = resolved.filter(r => !r.correct);
     const totalPnl = resolved.reduce((sum, r) => sum + r.pnl, 0);
-    
+
     console.log(`\n  ✅ VALIDATED RESULTS (${resolved.length} markets):`);
     console.log(`     Wins: ${wins.length} | Losses: ${losses.length}`);
     console.log(`     Win Rate: ${((wins.length / resolved.length) * 100).toFixed(1)}%`);
     console.log(`     Total P&L: $${totalPnl.toFixed(2)}`);
-    
+
     if (wins.length > 0) {
       console.log('\n  🎯 CORRECT PREDICTIONS:');
       wins.slice(0, 3).forEach(w => {
         console.log(`     ✓ ${w.ticker}: ${w.predicted.toUpperCase()} (PnL: $${w.pnl.toFixed(2)})`);
       });
     }
-    
+
     if (losses.length > 0) {
       console.log('\n  ❌ INCORRECT PREDICTIONS:');
       losses.slice(0, 3).forEach(l => {
         console.log(`     ✗ ${l.ticker}: Predicted ${l.predicted.toUpperCase()}, got ${l.actualResult.toUpperCase()}`);
       });
     }
-    
+
     return { wins: wins.length, losses: losses.length, winRate: (wins.length / resolved.length) * 100, totalPnl };
   }
 }
@@ -2173,7 +2173,7 @@ class DynamicKellySizing {
   // Calculate recent win rate from history
   calculateRecentWinRate(days = 30) {
     const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
-    const recentTrades = this.history.trades.filter(t => 
+    const recentTrades = this.history.trades.filter(t =>
       t.timestamp > cutoff && t.result !== null
     );
 
@@ -2184,8 +2184,8 @@ class DynamicKellySizing {
     const wins = recentTrades.filter(t => t.result === 'win').length;
     const winRate = wins / recentTrades.length;
 
-    return { 
-      winRate: Math.round(winRate * 100) / 100, 
+    return {
+      winRate: Math.round(winRate * 100) / 100,
       sampleSize: recentTrades.length,
       totalPnL: recentTrades.reduce((sum, t) => sum + (t.pnl || 0), 0)
     };
@@ -2436,21 +2436,203 @@ class DynamicKellySizing {
   }
 }
 
+// Penny-Picking Bracket Scanner (Tail-Risk Strategy)
+// Finds cheap NO contracts in mutually exclusive bracket markets
+class PennyPickingScanner {
+  constructor() {
+    this.minNoPrice = 1;   // Minimum NO price to consider (cents)
+    this.maxNoPrice = 9;   // Maximum NO price to consider (cents)
+    this.fatPitchThreshold = 5; // Degrees/points away from forecast for "fat pitch"
+  }
+
+  // Find penny-picking opportunities in bracket markets
+  async scanPennyOpportunities(allMarkets, weatherForecasts = {}) {
+    const opportunities = [];
+    const arbitrageGroups = [];
+
+    // Group markets by event (e.g., "KXHIGHNY-26MAR08" contains multiple brackets)
+    const byEvent = this.groupByEvent(allMarkets);
+
+    for (const [eventKey, markets] of Object.entries(byEvent)) {
+      // Skip if less than 2 brackets (not a bracket market)
+      if (markets.length < 2) continue;
+
+      // Check for "Sum of NOs" arbitrage
+      const noArbitrage = this.checkNoArbitrage(markets);
+      if (noArbitrage.hasArbitrage) {
+        arbitrageGroups.push(noArbitrage);
+      }
+
+      // Find individual penny opportunities
+      for (const market of markets) {
+        const noPrice = market.no_ask || (100 - market.yes_ask);
+
+        // Filter for cheap NO contracts
+        if (noPrice >= this.minNoPrice && noPrice <= this.maxNoPrice) {
+          const opportunity = {
+            ticker: market.ticker,
+            title: market.title,
+            event: eventKey,
+            noPrice: noPrice,
+            potentialReturn: 100 - noPrice, // $1 - price paid
+            roi: ((100 - noPrice) / noPrice * 100).toFixed(0),
+            bracket: this.extractBracket(market.title),
+            volume: market.volume || 0,
+            closeTime: market.close_time,
+            type: 'penny_pick'
+          };
+
+          // Cross-reference with weather forecast if available
+          if (weatherForecasts[eventKey]) {
+            const forecast = weatherForecasts[eventKey];
+            const delta = this.calculateDelta(opportunity.bracket, forecast);
+            opportunity.forecastDelta = delta;
+            opportunity.isFatPitch = delta >= this.fatPitchThreshold;
+
+            if (opportunity.isFatPitch) {
+              opportunity.type = 'fat_pitch';
+              opportunity.confidence = 'high';
+            }
+          }
+
+          opportunities.push(opportunity);
+        }
+      }
+    }
+
+    return {
+      opportunities: opportunities.sort((a, b) => a.noPrice - b.noPrice),
+      arbitrageGroups: arbitrageGroups,
+      summary: {
+        totalOpportunities: opportunities.length,
+        fatPitches: opportunities.filter(o => o.type === 'fat_pitch').length,
+        arbitrageGroups: arbitrageGroups.length,
+        avgRoi: opportunities.length > 0
+          ? (opportunities.reduce((sum, o) => sum + parseFloat(o.roi), 0) / opportunities.length).toFixed(0)
+          : 0
+      }
+    };
+  }
+
+  // Group markets by event (extract base event key from ticker)
+  groupByEvent(markets) {
+    const groups = {};
+    for (const market of markets) {
+      // Extract event key: KXHIGHNY-26MAR08 from KXHIGHNY-26MAR08-T75
+      const match = market.ticker.match(/([A-Z]+-\d{2}[A-Z]{3}\d{2})/);
+      if (!match) continue;
+
+      const eventKey = match[1];
+      if (!groups[eventKey]) groups[eventKey] = [];
+      groups[eventKey].push(market);
+    }
+    return groups;
+  }
+
+  // Check for "Sum of NOs" arbitrage
+  checkNoArbitrage(markets) {
+    const n = markets.length;
+    if (n < 2) return { hasArbitrage: false };
+
+    const sumOfNos = markets.reduce((sum, m) => {
+      const noPrice = m.no_ask || (100 - m.yes_ask);
+      return sum + noPrice;
+    }, 0);
+
+    // Theoretical sum should be (N-1) * 100
+    const theoreticalSum = (n - 1) * 100;
+    const profitMargin = theoreticalSum - sumOfNos;
+
+    return {
+      hasArbitrage: profitMargin > 5, // At least 5 cents profit
+      event: markets[0].ticker.split('-').slice(0, 2).join('-'),
+      numBrackets: n,
+      sumOfNos: sumOfNos.toFixed(1),
+      theoreticalSum: theoreticalSum,
+      profitMargin: profitMargin.toFixed(1),
+      markets: markets.map(m => m.ticker),
+      strategy: 'Buy NO on all brackets for guaranteed profit'
+    };
+  }
+
+  // Extract bracket range from title (e.g., "75-76" from "Will the High in NYC be 75-76°F")
+  extractBracket(title) {
+    if (!title) return null;
+
+    // Match patterns like "75-76°F" or ">75°F" or "<75°F"
+    const rangeMatch = title.match(/(\d+(?:\.\d+)?)[°\s]*-\s*(\d+(?:\.\d+)?)[°\s]*F/i);
+    const aboveMatch = title.match(/>\s*(\d+(?:\.\d+)?)[°\s]*F/i);
+    const belowMatch = title.match(/<\s*(\d+(?:\.\d+)?)[°\s]*F/i);
+
+    if (rangeMatch) {
+      return { type: 'range', low: parseFloat(rangeMatch[1]), high: parseFloat(rangeMatch[2]) };
+    } else if (aboveMatch) {
+      return { type: 'above', threshold: parseFloat(aboveMatch[1]) };
+    } else if (belowMatch) {
+      return { type: 'below', threshold: parseFloat(belowMatch[1]) };
+    }
+
+    return null;
+  }
+
+  // Calculate delta between bracket and forecast
+  calculateDelta(bracket, forecast) {
+    if (!bracket || !forecast) return 0;
+
+    if (bracket.type === 'range') {
+      // Use midpoint of bracket
+      const bracketMid = (bracket.low + bracket.high) / 2;
+      return Math.abs(bracketMid - forecast);
+    } else if (bracket.type === 'above') {
+      return Math.abs(bracket.threshold - forecast);
+    } else if (bracket.type === 'below') {
+      return Math.abs(bracket.threshold - forecast);
+    }
+
+    return 0;
+  }
+
+  // Print scan results
+  printResults(results) {
+    console.log('\n🪙 PENNY-PICKING BRACKET SCAN:');
+    console.log(`  Found ${results.summary.totalOpportunities} cheap NO contracts`);
+    console.log(`  Fat Pitches: ${results.summary.fatPitches} (high confidence)`);
+    console.log(`  NO Arbitrage Groups: ${results.summary.arbitrageGroups}`);
+    console.log(`  Average ROI: ${results.summary.avgRoi}%`);
+
+    if (results.opportunities.length > 0) {
+      console.log('\n  🎯 TOP OPPORTUNITIES:');
+      results.opportunities.slice(0, 5).forEach((opp, i) => {
+        const emoji = opp.type === 'fat_pitch' ? '🔥' : '💰';
+        const forecastInfo = opp.forecastDelta ? ` (${opp.forecastDelta.toFixed(1)}° from forecast)` : '';
+        console.log(`    ${emoji} ${opp.ticker}: ${opp.noPrice}¢ → $1.00 (${opp.roi}% ROI)${forecastInfo}`);
+      });
+    }
+
+    if (results.arbitrageGroups.length > 0) {
+      console.log('\n  🔗 NO ARBITRAGE OPPORTUNITIES:');
+      results.arbitrageGroups.forEach(arb => {
+        console.log(`    ${arb.event}: ${arb.numBrackets} brackets, ${arb.profitMargin}¢ guaranteed profit`);
+      });
+    }
+  }
+}
+
 async function cachedFetch(key, fetchFn, ttlMs) {
   const cached = cache.get(key);
   if (cached) {
     console.log(`  💾 Cache hit: ${key}`);
     return cached;
   }
-  
+
   console.log(`  🌐 Fetching: ${key}`);
   const result = await fetchFn();
-  
+
   // Only cache successful results (not null/undefined)
   if (result !== null && result !== undefined) {
     cache.set(key, result, ttlMs);
   }
-  
+
   return result;
 }
 
@@ -2460,16 +2642,16 @@ async function saveHistory(history) {
     // Clean old data and sanitize keys
     const cutoff = Date.now() - (CONFIG.historyRetentionDays * 24 * 60 * 60 * 1000);
     const sanitizedHistory = {};
-    
+
     for (const ticker in history) {
       const safeTicker = sanitizeTicker(ticker);
       sanitizedHistory[safeTicker] = history[ticker].filter(h => h.timestamp > cutoff);
     }
-    
+
     if (db) {
       await db.ref('v6/kalshi/history').set(sanitizedHistory);
     }
-    
+
     // Also save locally using async operations
     const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
     await writeJsonFile(historyPath, history);
@@ -2481,18 +2663,18 @@ async function saveHistory(history) {
 // Detect whale activity
 function detectWhale(currentVolume, history, ticker) {
   if (!history || history.length < 3) return { isWhale: false, avgVolume: 0, spikeRatio: 1 };
-  
+
   const tickerHistory = history[ticker] || [];
   if (tickerHistory.length < 3) return { isWhale: false, avgVolume: 0, spikeRatio: 1 };
-  
+
   // Calculate average volume from last 5 data points
   const recentVolumes = tickerHistory.slice(-5).map(h => h.volume);
   const avgVolume = recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length;
-  
+
   // Detect spike
   const spikeRatio = currentVolume / avgVolume;
   const isWhale = spikeRatio >= CONFIG.whaleVolumeMultiplier && currentVolume >= CONFIG.whaleVolumeThreshold;
-  
+
   return { isWhale, avgVolume, spikeRatio };
 }
 
@@ -2501,31 +2683,31 @@ function calculateMomentum(currentPrice, history, ticker) {
   if (!history || !history[ticker] || history[ticker].length < 2) {
     return { momentum: 0, trend: 'flat', change24h: 0 };
   }
-  
+
   const tickerHistory = history[ticker];
   const now = Date.now();
   const oneDayAgo = now - (24 * 60 * 60 * 1000);
-  
+
   // Find price 24h ago
   const dayAgoEntry = tickerHistory.find(h => h.timestamp > oneDayAgo);
   const price24hAgo = dayAgoEntry ? dayAgoEntry.price : tickerHistory[0].price;
-  
+
   // Calculate momentum (price velocity)
   const recent = tickerHistory.slice(-3);
-  const momentum = recent.length >= 2 
+  const momentum = recent.length >= 2
     ? (recent[recent.length - 1].price - recent[0].price) / recent.length
     : 0;
-  
+
   // Calculate 24h change
   const change24h = ((currentPrice - price24hAgo) / price24hAgo) * 100;
-  
+
   // Determine trend
   let trend = 'flat';
   if (change24h > 5) trend = 'surging';
   else if (change24h > 2) trend = 'rising';
   else if (change24h < -5) trend = 'crashing';
   else if (change24h < -2) trend = 'falling';
-  
+
   return { momentum, trend, change24h };
 }
 
@@ -2534,48 +2716,48 @@ function calculateHistoricalEdge(currentEdge, history, ticker) {
   if (!history || !history[ticker] || history[ticker].length < 3) {
     return { edgeChange: 0, avgHistoricalEdge: currentEdge, isEdgeDeteriorating: false };
   }
-  
+
   const tickerHistory = history[ticker];
   const historicalEdges = tickerHistory.map(h => h.edge).filter(e => e !== undefined);
-  
+
   if (historicalEdges.length === 0) {
     return { edgeChange: 0, avgHistoricalEdge: currentEdge, isEdgeDeteriorating: false };
   }
-  
+
   const avgHistoricalEdge = historicalEdges.reduce((a, b) => a + b, 0) / historicalEdges.length;
   const edgeChange = currentEdge - avgHistoricalEdge;
   const isEdgeDeteriorating = edgeChange < -2; // Edge dropped by more than 2%
-  
+
   return { edgeChange, avgHistoricalEdge, isEdgeDeteriorating };
 }
 
 // Detect correlated markets within a category
 function detectCorrelations(trades) {
   const correlations = [];
-  
+
   // Group by category
   const byCategory = {};
   for (const t of trades) {
     if (!byCategory[t.category]) byCategory[t.category] = [];
     byCategory[t.category].push(t);
   }
-  
+
   // Check for correlations within each category
   for (const [category, categoryTrades] of Object.entries(byCategory)) {
     if (categoryTrades.length < 2) continue;
-    
+
     for (let i = 0; i < categoryTrades.length; i++) {
       for (let j = i + 1; j < categoryTrades.length; j++) {
         const t1 = categoryTrades[i];
         const t2 = categoryTrades[j];
-        
+
         const t1Base = t1.ticker.split('-').slice(0, 2).join('-');
         const t2Base = t2.ticker.split('-').slice(0, 2).join('-');
-        
+
         if (t1Base === t2Base && t1.ticker !== t2.ticker) {
           const priceDiff = Math.abs(t1.yesPrice - t2.yesPrice);
           const volumeRatio = Math.max(t1.volume, t2.volume) / Math.min(t1.volume, t2.volume);
-          
+
           if (priceDiff < 20 && volumeRatio < 3) {
             correlations.push({
               type: 'same_event',
@@ -2590,7 +2772,7 @@ function detectCorrelations(trades) {
       }
     }
   }
-  
+
   return correlations;
 }
 
@@ -2739,27 +2921,27 @@ function calculateRiskMetrics(trade, bankroll = 10000) {
   const position = trade.position || 0;
   const edge = parseFloat(trade.edge) || 0;
   const price = trade.yesPrice || 50;
-  
+
   // Expected value
   const winProb = edge / 100 + 0.5;
   const winPayout = position * ((100 - price) / price);
   const expectedValue = (winProb * winPayout) - ((1 - winProb) * position);
-  
+
   // Variance and standard deviation
-  const variance = winProb * Math.pow(winPayout - expectedValue, 2) + 
+  const variance = winProb * Math.pow(winPayout - expectedValue, 2) +
                    (1 - winProb) * Math.pow(-position - expectedValue, 2);
   const stdDev = Math.sqrt(variance);
-  
+
   // Sharpe ratio (expected return / risk)
   const sharpeRatio = stdDev > 0 ? expectedValue / stdDev : 0;
-  
+
   // Max drawdown estimate (position size)
   const maxDrawdown = position;
-  
+
   // Risk of ruin (simplified Kelly-based)
-  const riskOfRuin = position > bankroll * 0.5 ? 'high' : 
+  const riskOfRuin = position > bankroll * 0.5 ? 'high' :
                      position > bankroll * 0.25 ? 'medium' : 'low';
-  
+
   return {
     expectedValue: expectedValue.toFixed(2),
     stdDev: stdDev.toFixed(2),
@@ -2773,7 +2955,7 @@ function calculateRiskMetrics(trade, bankroll = 10000) {
 // Check alert thresholds
 function checkAlerts(trade, momentum, whaleData, clv) {
   const alerts = [];
-  
+
   // Whale alert
   if (whaleData.isWhale) {
     alerts.push({
@@ -2783,7 +2965,7 @@ function checkAlerts(trade, momentum, whaleData, clv) {
       ticker: trade.ticker
     });
   }
-  
+
   // Edge deterioration alert
   if (clv.isEdgeDeteriorating && parseFloat(trade.edge) > 10) {
     alerts.push({
@@ -2793,7 +2975,7 @@ function checkAlerts(trade, momentum, whaleData, clv) {
       ticker: trade.ticker
     });
   }
-  
+
   // Momentum surge alert
   if (momentum.trend === 'surging' && parseFloat(trade.edge) > 5) {
     alerts.push({
@@ -2803,7 +2985,7 @@ function checkAlerts(trade, momentum, whaleData, clv) {
       ticker: trade.ticker
     });
   }
-  
+
   // High R-Score alert
   if (parseFloat(trade.rScore) >= 2.5) {
     alerts.push({
@@ -2813,7 +2995,7 @@ function checkAlerts(trade, momentum, whaleData, clv) {
       ticker: trade.ticker
     });
   }
-  
+
   // Closing soon alert
   if (trade.closeTime) {
     const hoursUntil = (new Date(trade.closeTime) - new Date()) / (1000 * 60 * 60);
@@ -2826,21 +3008,21 @@ function checkAlerts(trade, momentum, whaleData, clv) {
       });
     }
   }
-  
+
   return alerts;
 }
 
 // Performance attribution - what drove the trade's score
 function getPerformanceAttribution(trade, momentum, whaleData, clv) {
   const factors = [];
-  
+
   const edgeValue = parseFloat(trade.edge) || 0;
   factors.push({
     factor: 'Base Edge',
     contribution: edgeValue / 10,
     description: 'Fundamental mispricing'
   });
-  
+
   const timeAdjustmentValue = parseFloat(trade.timeAdjustment) || 0;
   if (timeAdjustmentValue !== 0) {
     factors.push({
@@ -2849,7 +3031,7 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
       description: 'Proximity to event'
     });
   }
-  
+
   const volumeBoostValue = parseFloat(trade.volumeBoost) || 0;
   if (volumeBoostValue > 0) {
     factors.push({
@@ -2858,10 +3040,10 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
       description: 'Liquidity boost'
     });
   }
-  
+
   if (momentum.trend !== 'flat') {
-    const momentumContribution = momentum.trend === 'surging' ? 0.5 : 
-                                  momentum.trend === 'rising' ? 0.3 : 
+    const momentumContribution = momentum.trend === 'surging' ? 0.5 :
+                                  momentum.trend === 'rising' ? 0.3 :
                                   momentum.trend === 'crashing' ? -0.5 : -0.3;
     factors.push({
       factor: 'Momentum',
@@ -2869,7 +3051,7 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
       description: `${momentum.trend} (${(momentum.change24h || 0).toFixed(1)}% 24h)`
     });
   }
-  
+
   if (whaleData.isWhale) {
     factors.push({
       factor: 'Whale Activity',
@@ -2877,7 +3059,7 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
       description: `${(whaleData.spikeRatio || 1).toFixed(1)}x volume`
     });
   }
-  
+
   if (clv.isEdgeDeteriorating) {
     factors.push({
       factor: 'CLV Deterioration',
@@ -2885,7 +3067,7 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
       description: `Edge down ${(clv.edgeChange || 0).toFixed(1)}%`
     });
   }
-  
+
   return factors.sort((a, b) => b.contribution - a.contribution);
 }
 
@@ -2929,9 +3111,9 @@ function fetchOnce(url, options) {
 function fetchText(url, options = {}, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
-    
+
     const req = protocol.get(url, {
-      headers: { 
+      headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; KalshiScanner/2.6)',
         'Accept': 'application/rss+xml, application/xml, text/xml, */*',
         ...options.headers
@@ -2945,17 +3127,17 @@ function fetchText(url, options = {}, timeoutMs = 10000) {
         fetchText(redirectUrl, options, timeoutMs).then(resolve).catch(reject);
         return;
       }
-      
+
       if (res.statusCode !== 200) {
         reject(new Error(`HTTP ${res.statusCode}`));
         return;
       }
-      
+
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => resolve(data));
     });
-    
+
     req.on('error', reject);
     req.on('timeout', () => {
       req.destroy();
@@ -2985,7 +3167,7 @@ function getTimeConfidence(closeTime, category) {
   const now = new Date();
   const hoursUntil = (close - now) / (1000 * 60 * 60);
   const daysUntil = hoursUntil / 24;
-  
+
   if (category === 'weather') {
     if (hoursUntil <= 24) return 0.05;
     if (daysUntil <= 3) return 0.02;
@@ -3011,18 +3193,18 @@ function getMarketHealth(m) {
   const yesAsk = m.yes_ask || m.yes_price || 0;
   const noBid = m.no_bid || 0;
   const noAsk = m.no_ask || (100 - yesAsk);
-  
+
   const yesSpread = yesAsk - yesBid;
   const noSpread = noAsk - noBid;
   const avgSpread = (yesSpread + noSpread) / 2;
-  
+
   const volume = m.volume || 0;
   const liquidityScore = Math.min(100, Math.floor(volume / 100));
-  
+
   let health = 'good';
   if (avgSpread > 10 || liquidityScore < 20) health = 'poor';
   else if (avgSpread > 5 || liquidityScore < 50) health = 'fair';
-  
+
   return { yesSpread, noSpread, avgSpread, liquidityScore, health, isLiquid: avgSpread <= CONFIG.maxSpread };
 }
 
@@ -3031,12 +3213,12 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category) {
   const marketProb = yesPrice / 100;
   const volumeBoost = Math.min(volume / 10000, 0.05);
   const timeAdjustment = getTimeConfidence(closeTime, category);
-  
+
   let adjustedProb = Math.min(baseProb + volumeBoost + timeAdjustment, 0.99);
   adjustedProb = Math.max(adjustedProb, 0.01);
-  
+
   const edge = (adjustedProb - marketProb) * 100;
-  
+
   return {
     edge,
     adjustedProb,
@@ -3052,7 +3234,7 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category) {
 function calculateKelly(trueProb, price, bankroll = 10000) {
   const marketProb = price / 100;
   if (trueProb <= marketProb) return { kellyPct: 0, position: 0 };
-  
+
   const b = (100 - price) / price; // Decimal odds minus 1
   const p = trueProb; // Use actual calculated probability (0-1)
   const q = 1 - p;
@@ -3071,20 +3253,20 @@ function isClosingSoon(closeTime) {
 function detectArbitrage(markets) {
   const arbs = [];
   const byEvent = {};
-  
+
   for (const m of markets) {
     const key = m.ticker.split('-').slice(0, 2).join('-');
     if (!byEvent[key]) byEvent[key] = [];
     byEvent[key].push(m);
   }
-  
+
   for (const [event, eventMarkets] of Object.entries(byEvent)) {
     // Skip weather and economics markets - they're strike-based, not mutually exclusive
-    const isWeatherOrEcon = event.includes('HIGH') || event.includes('CPI') || 
-                           event.includes('FED') || event.includes('JOBS') || 
+    const isWeatherOrEcon = event.includes('HIGH') || event.includes('CPI') ||
+                           event.includes('FED') || event.includes('JOBS') ||
                            event.includes('GDP') || event.includes('IR');
     if (isWeatherOrEcon) continue;
-    
+
     // Only check mutually exclusive markets (politics, etc)
     if (eventMarkets.length >= 2) {
       const total = eventMarkets.reduce((sum, m) => sum + m.yesPrice, 0);
@@ -3093,7 +3275,7 @@ function detectArbitrage(markets) {
       }
     }
   }
-  
+
   return arbs;
 }
 
@@ -3132,32 +3314,32 @@ function getPolymarketSlug(kalshiTicker) {
 function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
   const slug = getPolymarketSlug(kalshiTrade.ticker);
   if (!slug) return null;
-  
-  const pmEvent = pmEvents.find(e => 
+
+  const pmEvent = pmEvents.find(e =>
     e.title?.toLowerCase().includes(slug) ||
     e.slug?.includes(slug)
   );
-  
+
   if (!pmEvent || !pmEvent.markets || pmEvent.markets.length === 0) return null;
-  
+
   const pmMarket = pmEvent.markets[0];
-  
+
   // Find the correct YES outcome index (not always first!)
   const outcomes = JSON.parse(pmMarket.outcomes || '[]');
   const prices = pmMarket.outcomePrices ? pmMarket.outcomePrices.split(',') : [];
   const yesIndex = outcomes.findIndex(o => o.toLowerCase() === 'yes');
-  const pmYesPrice = yesIndex !== -1 && prices[yesIndex] ? 
+  const pmYesPrice = yesIndex !== -1 && prices[yesIndex] ?
     parseFloat(prices[yesIndex]) * 100 : 50;
-  
+
   const kalshiYesPrice = kalshiTrade.yesPrice;
   const priceDiff = Math.abs(kalshiYesPrice - pmYesPrice);
   const percentDiff = (priceDiff / Math.min(kalshiYesPrice, pmYesPrice)) * 100;
-  
+
   if (percentDiff < 5) return null;
-  
+
   const buyOn = kalshiYesPrice < pmYesPrice ? 'Kalshi' : 'Polymarket';
   const sellOn = kalshiYesPrice < pmYesPrice ? 'Polymarket' : 'Kalshi';
-  
+
   return {
     ticker: kalshiTrade.ticker,
     kalshiPrice: kalshiYesPrice,
@@ -3200,34 +3382,34 @@ async function fetchRSSFeeds() {
     { name: 'NOAA', url: 'https://www.weather.gov/rss_page.php?site_name=nws', category: 'weather' },
     { name: 'WeatherNation', url: 'https://weathernation.tv/feed/', category: 'weather' }
   ];
-  
+
   const articles = [];
-  
+
   // Fetch all feeds in parallel with timeout
   const feedPromises = feeds.map(async (feed) => {
     try {
       const data = await fetchText(feed.url, {}, 8000); // 8 second timeout per feed
-      
+
       // Check if we got valid XML
       if (!data || data.length < 100 || !data.includes('<')) {
         return { feed, items: [], error: 'Empty or invalid response' };
       }
-      
+
       const items = parseRSS(data, feed.name, feed.category);
       return { feed, items, error: null };
     } catch (e) {
       return { feed, items: [], error: e.message };
     }
   });
-  
+
   // Wait for all feeds to complete (or timeout)
   const results = await Promise.allSettled(feedPromises);
-  
+
   // Process results
   for (const result of results) {
     if (result.status === 'fulfilled') {
       const { feed, items, error } = result.value;
-      
+
       if (error) {
         console.log(`  ⚠️ ${feed.name}: ${error.slice(0, 50)}`);
       } else if (items.length > 0) {
@@ -3240,22 +3422,22 @@ async function fetchRSSFeeds() {
       console.log(`  ⚠️ Feed failed: ${result.reason?.message?.slice(0, 50) || 'Unknown error'}`);
     }
   }
-  
+
   // Sort by date, newest first
   articles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-  
+
   return articles.slice(0, 50); // Limit to recent 50 articles
 }
 
 function parseRSS(xmlData, source, category = 'general') {
   const items = [];
-  
+
   // Try multiple patterns for different RSS formats
   const itemPatterns = [
     /<item>[\s\S]*?<\/item>/gi,  // Standard RSS
     /<entry>[\s\S]*?<\/entry>/gi  // Atom format
   ];
-  
+
   let matches = [];
   for (const pattern of itemPatterns) {
     const found = xmlData.match(pattern);
@@ -3264,14 +3446,14 @@ function parseRSS(xmlData, source, category = 'general') {
       break;
     }
   }
-  
+
   for (const item of matches.slice(0, 10)) {
     // Try multiple patterns for title
     const title = extractField(item, ['title']) || '';
     const description = extractField(item, ['description', 'summary', 'content']) || '';
     const pubDate = extractField(item, ['pubDate', 'published', 'updated', 'date']);
     const link = extractField(item, ['link', 'id']);
-    
+
     if (title && title.length > 5) { // Filter out empty/short titles
       items.push({
         source,
@@ -3285,7 +3467,7 @@ function parseRSS(xmlData, source, category = 'general') {
       });
     }
   }
-  
+
   return items;
 }
 
@@ -3294,10 +3476,10 @@ function extractField(xml, fieldNames) {
     // Try CDATA version first
     const cdataRegex = new RegExp(`<${field}[\\s\\S]*?>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${field}>`, 'i');
     const normalRegex = new RegExp(`<${field}[\s]*[^>]*>([^<]*)<\/${field}>`, 'i');
-    
+
     const cdataMatch = xml.match(cdataRegex);
     if (cdataMatch) return cdataMatch[1].trim();
-    
+
     const normalMatch = xml.match(normalRegex);
     if (normalMatch) return normalMatch[1].trim();
   }
@@ -3340,9 +3522,9 @@ function parseDate(dateStr) {
 // NLP Sentiment Analysis - keyword-based scoring
 function analyzeSentiment(text) {
   if (!text) return { score: 0, label: 'neutral', confidence: 0 };
-  
+
   const lowerText = text.toLowerCase();
-  
+
   // Positive keywords
   const positiveWords = [
     'surge', 'surges', 'rally', 'rallies', 'gain', 'gains', 'up', 'rise', 'rises', 'rising',
@@ -3350,7 +3532,7 @@ function analyzeSentiment(text) {
     'beat', 'beats', 'exceed', 'exceeds', 'positive', 'optimistic', 'confidence', 'confident',
     'support', 'approval', 'approve', 'approves', 'pass', 'passes', 'agreement', 'deal'
   ];
-  
+
   // Negative keywords
   const negativeWords = [
     'drop', 'drops', 'fall', 'falls', 'falling', 'plunge', 'plunges', 'crash', 'crashes',
@@ -3358,22 +3540,22 @@ function analyzeSentiment(text) {
     'miss', 'misses', 'underperform', 'negative', 'pessimistic', 'concern', 'worry', 'worries',
     'oppose', 'opposes', 'veto', 'reject', 'rejects', 'block', 'blocks', 'delay', 'delays'
   ];
-  
+
   // Crypto-specific
   const cryptoPositive = ['adoption', 'institutional', 'etf', 'halving', 'upgrade', 'merge'];
   const cryptoNegative = ['ban', 'regulation', 'sec', 'lawsuit', 'hack', 'exploit', 'rug'];
-  
+
   // Politics-specific
   const politicsPositive = ['bipartisan', 'consensus', 'deal', 'agreement', 'pass', 'sign'];
   const politicsNegative = ['shutdown', 'impeachment', 'investigation', 'scandal', 'controversy'];
-  
+
   // Weather-specific
   const weatherHot = ['heat', 'hot', 'warm', 'record high', 'above average', 'drought'];
   const weatherCold = ['cold', 'freeze', 'frost', 'snow', 'blizzard', 'below average'];
-  
+
   let score = 0;
   let matches = 0;
-  
+
   // Count matches
   const countMatches = (words, weight) => {
     words.forEach(word => {
@@ -3383,14 +3565,14 @@ function analyzeSentiment(text) {
       matches += count;
     });
   };
-  
+
   countMatches(positiveWords, 1);
   countMatches(negativeWords, -1);
   countMatches(cryptoPositive, 1.5);
   countMatches(cryptoNegative, -1.5);
   countMatches(politicsPositive, 1.2);
   countMatches(politicsNegative, -1.2);
-  
+
   // Weather detection
   const weatherScore = {
     hot: 0,
@@ -3402,19 +3584,19 @@ function analyzeSentiment(text) {
   weatherCold.forEach(w => {
     if (lowerText.includes(w)) weatherScore.cold++;
   });
-  
+
   // Normalize score (-1 to 1 range)
   const normalizedScore = Math.max(-1, Math.min(1, score / Math.max(matches, 3)));
-  
+
   let label = 'neutral';
   if (normalizedScore > 0.2) label = 'positive';
   else if (normalizedScore < -0.2) label = 'negative';
-  
+
   return {
     score: normalizedScore,
     label,
     confidence: Math.min(matches / 5, 1),
-    weatherBias: weatherScore.hot > weatherScore.cold ? 'hot' : 
+    weatherBias: weatherScore.hot > weatherScore.cold ? 'hot' :
                  weatherScore.cold > weatherScore.hot ? 'cold' : 'neutral'
   };
 }
@@ -3436,18 +3618,18 @@ function matchNewsToMarkets(articles, trades) {
     'KXHIGHTSEA': ['seattle', 'washington', 'pacific northwest', 'weather'],
     'KXHIGHMIA': ['miami', 'florida', 'southeast', 'weather']
   };
-  
+
   for (const article of articles) {
     const text = `${article.title} ${article.description}`.toLowerCase();
     const sentiment = analyzeSentiment(text);
     article.sentiment = sentiment.score;
     article.sentimentLabel = sentiment.label;
     article.weatherBias = sentiment.weatherBias;
-    
+
     for (const trade of trades) {
       const series = trade.ticker.split('-')[0];
       const keywords = keywordMap[series] || [];
-      
+
       const isRelevant = keywords.some(kw => text.includes(kw));
       if (isRelevant) {
         article.relevance = Math.max(article.relevance, 0.7);
@@ -3461,7 +3643,7 @@ function matchNewsToMarkets(articles, trades) {
       }
     }
   }
-  
+
   return articles.filter(a => a.relevance > 0);
 }
 
@@ -3475,15 +3657,15 @@ async function fetchNWSForecast(city) {
     'MIA': { station: 'KMIA', grid: 'MFL/108,49', lat: 25.76, lon: -80.19 },
     'PHX': { station: 'KPHX', grid: 'PSR/158,58', lat: 33.45, lon: -112.07 }
   };
-  
+
   const station = nwsStations[city];
   if (!station) return null;
-  
+
   try {
     // NWS API requires user agent
     const url = `https://api.weather.gov/gridpoints/${station.grid.split('/')[0]}/${station.grid.split('/')[1]}/forecast`;
     const data = await fetchWithRetry(url, { headers: { 'User-Agent': 'KalshiScanner/2.6 (kalshi-scanner@example.com)' } }, 2);
-    
+
     return parseNWSForecast(data);
   } catch (e) {
     console.log(`  ⚠️ NWS ${city} fetch failed: ${e.message}`);
@@ -3494,7 +3676,7 @@ async function fetchNWSForecast(city) {
 function parseNWSForecast(data) {
   const periods = data.properties?.periods || [];
   const highs = [];
-  
+
   for (const period of periods.slice(0, 7)) { // Next 7 days
     if (period.isDaytime) {
       highs.push({
@@ -3506,32 +3688,32 @@ function parseNWSForecast(data) {
       });
     }
   }
-  
+
   return highs;
 }
 
 function detectWeatherLag(kalshiMarket, nwsForecast) {
   if (!nwsForecast || nwsForecast.length === 0) return null;
-  
+
   // Parse Kalshi market for temperature range and date
   // Example: KXHIGHNY-26MAR08-B44.5 (NYC High March 8, 2026, Below 44.5°F)
   const match = kalshiMarket.ticker.match(/KXHIGH([A-Z]+)-(\d{2})([A-Z]{3})(\d{2})-([AB])(\d+\.?\d*)/);
   if (!match) return null;
-  
+
   const [, cityCode, , monthStr, dayStr, side, tempStr] = match;
   const targetTemp = parseFloat(tempStr);
   const isAbove = side === 'A';
-  
+
   // Map city code to NWS station
   const cityMap = { 'NY': 'NYC', 'CHI': 'CHI', 'SEA': 'SEA', 'MIA': 'MIA', 'TPHX': 'PHX' };
   const city = cityMap[cityCode];
   if (!city) return null;
-  
+
   // Find matching forecast day
   const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   const monthIdx = monthNames.indexOf(monthStr);
   const day = parseInt(dayStr);
-  
+
   const forecastDay = nwsForecast.find(f => {
     // Extract YYYY-MM-DD directly from ISO string to avoid timezone issues
     // NWS returns: "2024-03-08T18:00:00-05:00"
@@ -3539,13 +3721,13 @@ function detectWeatherLag(kalshiMarket, nwsForecast) {
     const [, fMonth, fDay] = datePart.split('-');
     return parseInt(fMonth) === monthIdx + 1 && parseInt(fDay) === day;
   });
-  
+
   if (!forecastDay) return null;
-  
+
   // Calculate probability based on forecast
   const forecastHigh = forecastDay.highTemp;
   const tempDiff = forecastHigh - targetTemp;
-  
+
   // Simple model: 5°F buffer zone where probability is uncertain
   let impliedProb;
   if (isAbove) {
@@ -3559,11 +3741,11 @@ function detectWeatherLag(kalshiMarket, nwsForecast) {
     else if (tempDiff < 5) impliedProb = 0.35;
     else impliedProb = 0.15;
   }
-  
+
   // Compare with Kalshi market price
   const kalshiProb = kalshiMarket.yesPrice / 100;
   const probabilityDiff = (impliedProb - kalshiProb) * 100; // In percentage points
-  
+
   return {
     city,
     targetDate: `${monthStr}${dayStr}`,
@@ -3583,21 +3765,21 @@ function detectWeatherLag(kalshiMarket, nwsForecast) {
 async function main() {
   console.log('🔍 Starting Kalshi Trade Fetch v2.2...\n');
   const scanStartTime = Date.now();
-  
+
   // Load historical data
   const history = await loadHistory();
   console.log(`📚 Loaded history for ${Object.keys(history).length} markets\n`);
-  
+
   const allTrades = [];
   const errors = [];
   const whaleAlerts = [];
   const edgeDecayTracker = new EdgeDecayTracker();
   const winRateAnalytics = new WinRateAnalytics();
   const twitterSentiment = new TwitterSentimentAnalyzer();
-  
+
   // Process series in parallel with concurrency limit
   console.log(`📊 Fetching ${SERIES.length} series with max 5 concurrent...\n`);
-  
+
   for (let i = 0; i < SERIES.length; i += 5) {
     const batch = SERIES.slice(i, i + 5);
     const batchResults = await Promise.all(
@@ -3610,34 +3792,34 @@ async function main() {
         }
       })
     );
-    
+
     // Process batch results
     for (const result of batchResults) {
       const { series, data, error } = result;
-      
+
       if (error) {
         console.error(`  ❌ ${series.name}: ${error.message}`);
         errors.push({ series: series.ticker, error: error.message, timestamp: new Date().toISOString() });
         continue;
       }
-      
+
       const markets = data.markets || [];
       console.log(`✅ ${series.name}: ${markets.length} markets`);
-      
+
       for (const m of markets.slice(0, CONFIG.maxMarketsPerSeries)) {
         const yesPrice = m.yes_ask || m.yes_price || 0;
         const noPrice = m.no_ask || (100 - yesPrice);
         const volume = m.volume || 0;
-        
+
         if (isClosingSoon(m.close_time)) continue;
-        
+
         // Get market health
         const health = getMarketHealth(m);
         if (!health.isLiquid) {
           console.log(`  ⚠️ Skipping ${m.ticker}: poor liquidity (spread=${health.avgSpread.toFixed(1)}¢)`);
           continue;
         }
-        
+
         // Detect whale activity
         const whaleData = detectWhale(volume, history, m.ticker);
         if (whaleData.isWhale) {
@@ -3650,48 +3832,48 @@ async function main() {
             timestamp: new Date().toISOString()
           });
         }
-        
+
         // Calculate momentum
         const momentum = calculateMomentum(yesPrice, history, m.ticker);
-        
+
         // Use dynamic probability for crypto, static for others
-        const effectiveBaseProb = series.category === 'crypto' 
+        const effectiveBaseProb = series.category === 'crypto'
           ? calculateDynamicCryptoProb(series, history)
           : series.baseProb;
-        
+
         // Calculate edge with time adjustment
         const edgeCalc = calculateEdge(yesPrice, effectiveBaseProb, volume, m.close_time, series.category);
-        
+
         // Calculate spread cost (exit liquidity risk)
         const spreadCost = calculateSpreadCost(m.yes_bid, m.yes_ask);
-        
+
         // Adjust edge for spread cost and fees
         const grossEdge = edgeCalc.edge;
         const netEdge = calculateNetEdge(grossEdge - spreadCost, yesPrice, 100); // Assume $100 position for calc
-        
+
         // Calculate historical edge (CLV tracking)
         const clv = calculateHistoricalEdge(netEdge, history, m.ticker);
-        
-        if (yesPrice >= CONFIG.minPrice && yesPrice <= CONFIG.maxPrice && 
+
+        if (yesPrice >= CONFIG.minPrice && yesPrice <= CONFIG.maxPrice &&
             volume >= CONFIG.minVolume && netEdge >= CONFIG.minEdge) {
-          
+
           const kelly = calculateKelly(edgeCalc.adjustedProb, yesPrice);
           let recommendation = 'hold';
           if (edgeCalc.rScore >= 2.0) recommendation = 'strong_buy';
           else if (edgeCalc.rScore >= 1.5) recommendation = 'buy';
-          
+
           // Determine urgency based on edge deterioration
           if (clv.isEdgeDeteriorating && edgeCalc.rScore >= 1.5) {
             recommendation = 'buy_urgent';
           }
-          
+
           // Calculate risk metrics using NET edge (after fees/spread)
           const riskMetrics = calculateRiskMetrics({
             ...kelly,
             yesPrice,
             edge: netEdge
           });
-          
+
           // Check alerts using NET edge
           const alerts = checkAlerts(
             { ticker: m.ticker, rScore: edgeCalc.rScore.toFixed(2), edge: netEdge.toFixed(1), closeTime: m.close_time },
@@ -3699,7 +3881,7 @@ async function main() {
             whaleData,
             clv
           );
-          
+
           // Get performance attribution
           const attribution = getPerformanceAttribution(
             { rScore: edgeCalc.rScore.toFixed(2), timeAdjustment: (edgeCalc.timeAdjustment * 100).toFixed(1), volumeBoost: (edgeCalc.volumeBoost * 100).toFixed(1) },
@@ -3707,7 +3889,7 @@ async function main() {
             whaleData,
             clv
           );
-          
+
           allTrades.push({
             ticker: m.ticker,
             title: cleanTitle(m.title),
@@ -3753,10 +3935,10 @@ async function main() {
             attribution,
             sources: ['Kalshi API', 'Volume Analysis', 'Time Decay', 'Momentum', 'CLV', 'Risk Model']
           });
-          
+
           // Record edge for decay tracking (use NET edge)
           edgeDecayTracker.recordEdge(m.ticker, netEdge.toFixed(1), edgeCalc.rScore.toFixed(2), yesPrice);
-          
+
           // Update history
           if (!history[m.ticker]) history[m.ticker] = [];
           history[m.ticker].push({
@@ -3769,18 +3951,18 @@ async function main() {
       }
     }
   }
-  
+
   const fetchTime = ((Date.now() - scanStartTime) / 1000).toFixed(1);
   console.log(`\n⚡ Fetched ${SERIES.length} series in ${fetchTime}s (parallel mode)\n`);
-  
+
   // Save updated history
   await saveHistory(history);
-  
+
   // Fetch Polymarket data with caching
   console.log('\n🔗 Checking Polymarket for arbitrage...');
   const pmEvents = await cachedFetch('polymarket', fetchPolymarketData, CONFIG.cache.polymarketTtl);
   console.log(`  Found ${pmEvents.length} Polymarket events`);
-  
+
   // Calculate Polymarket arbitrage
   const polymarketArbs = [];
   for (const trade of allTrades) {
@@ -3790,25 +3972,25 @@ async function main() {
       trade.polymarketArb = arb;
     }
   }
-  
+
   if (polymarketArbs.length > 0) {
     console.log(`  🎯 Found ${polymarketArbs.length} Polymarket arbitrage opportunities!`);
   }
-  
+
   // Detect correlations using the CrossMarketCorrelation class
   const correlationMatrix = new CrossMarketCorrelation();
   const correlations = correlationMatrix.analyzeCorrelations(allTrades);
-  
+
   // ==================== ALTERNATIVE DATA INTEGRATION ====================
-  
+
   // Fetch and analyze RSS news feeds with caching
   console.log('\n📰 Fetching RSS news feeds...');
   const newsArticles = await cachedFetch('rss_feeds', fetchRSSFeeds, CONFIG.cache.rssTtl);
   console.log(`  Found ${newsArticles.length} news articles`);
-  
+
   const relevantNews = matchNewsToMarkets(newsArticles, allTrades);
   console.log(`  ${relevantNews.length} articles relevant to tracked markets`);
-  
+
   // Show top sentiment signals
   const positiveNews = relevantNews.filter(n => n.sentiment > 0.3);
   const negativeNews = relevantNews.filter(n => n.sentiment < -0.3);
@@ -3818,18 +4000,18 @@ async function main() {
   // Fetch Twitter/X sentiment
   const categorySentiment = await twitterSentiment.fetchCategorySentiment();
   twitterSentiment.printReport(categorySentiment);
-  
+
   // NWS Weather Lag Detection for weather markets
   console.log('\n🌤️ Checking NWS weather forecasts for lag detection...');
   const weatherLags = [];
   const weatherTrades = allTrades.filter(t => t.category === 'weather');
-  
+
   // Fetch forecasts for each unique city
   const nwsForecasts = {};
   for (const trade of weatherTrades) {
     const cityCode = trade.ticker.match(/KXHIGH([A-Z]+)/)?.[1];
     if (!cityCode || nwsForecasts[cityCode]) continue;
-    
+
     const cityMap = { 'NY': 'NYC', 'CHI': 'CHI', 'SEA': 'SEA', 'MIA': 'MIA', 'TPHX': 'PHX' };
     const city = cityMap[cityCode];
     if (city) {
@@ -3840,7 +4022,7 @@ async function main() {
       }
     }
   }
-  
+
   // Detect lag for each weather trade
   for (const trade of weatherTrades) {
     const cityCode = trade.ticker.match(/KXHIGH([A-Z]+)/)?.[1];
@@ -3854,20 +4036,68 @@ async function main() {
       }
     }
   }
-  
+
   if (weatherLags.length > 0) {
     console.log(`  🎯 Found ${weatherLags.length} weather lag opportunities!`);
   }
+
+  // ==================== PENNY-PICKING BRACKET SCANNER ====================
+  console.log('\n🪙 Running Penny-Picking Bracket Scanner...');
+  const pennyScanner = new PennyPickingScanner();
+  
+  // Build weather forecasts map for penny scanner
+  const weatherForecastsForPenny = {};
+  for (const [cityCode, forecast] of Object.entries(nwsForecasts)) {
+    if (forecast && forecast.length > 0) {
+      // Use the first (current) day's forecast high
+      weatherForecastsForPenny[cityCode] = forecast[0].highTemp;
+    }
+  }
+  
+  // Need raw market data for penny scanner - fetch it
+  const allRawMarkets = [];
+  for (const series of SERIES) {
+    try {
+      const data = await fetchMarkets(series.ticker);
+      if (data.markets) {
+        allRawMarkets.push(...data.markets);
+      }
+    } catch (e) {
+      // Skip failed series
+    }
+  }
+  
+  const pennyResults = await pennyScanner.scanPennyOpportunities(allRawMarkets, weatherForecastsForPenny);
+  pennyScanner.printResults(pennyResults);
+  
+  // Add penny opportunities to allTrades for display
+  for (const penny of pennyResults.opportunities) {
+    const existing = allTrades.find(t => t.ticker === penny.ticker);
+    if (existing) {
+      existing.pennySignal = penny;
+      if (penny.type === 'fat_pitch') {
+        existing.recommendation = 'buy_urgent';
+        existing.alerts = existing.alerts || [];
+        existing.alerts.push({
+          type: 'fat_pitch',
+          severity: 'high',
+          message: `🪙 Fat Pitch: ${penny.noPrice}¢ NO contract, ${penny.forecastDelta?.toFixed(1)}° from forecast`,
+          ticker: penny.ticker
+        });
+      }
+    }
+  }
+  // ==================== END PENNY-PICKING ====================
   
   // ==================== END ALTERNATIVE DATA ====================
-  
+
   // Calculate composite scores for top trades
   for (const trade of allTrades) {
     const tickerHistory = history[trade.ticker] || [];
     const momentum = calculateMomentum(trade.yesPrice, history, trade.ticker);
     const whaleData = detectWhale(trade.volume, history, trade.ticker);
     const clv = calculateHistoricalEdge(parseFloat(trade.edge), history, trade.ticker);
-    
+
     const multiFactorScore = calculateMultiFactorScore(trade, momentum, clv, whaleData, relevantNews);
     trade.compositeScore = parseFloat(multiFactorScore.total.toFixed(2)); // Store as number
     trade.multiFactorScore = multiFactorScore; // Store full breakdown
@@ -3896,16 +4126,16 @@ async function main() {
     // Record for win rate analytics
     await winRateAnalytics.recordTradeOpportunity(trade);
   }
-  
+
   // Re-sort by composite score
   allTrades.sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
-  
+
   // Check threshold-based alerts (AFTER all data is collected)
   console.log('\n🔔 Checking alert thresholds...');
   const alertManager = new AlertManager();
   const triggeredAlerts = alertManager.checkThresholds(allTrades, polymarketArbs, weatherLags);
   alertManager.printSummary();
-  
+
   // Print edge decay report
   edgeDecayTracker.printDecayReport(allTrades);
   await edgeDecayTracker.saveToFile();
@@ -3931,38 +4161,38 @@ async function main() {
   const backtestFramework = new BacktestingFramework();
   const backtestResults = backtestFramework.runAllStrategies();
   backtestFramework.printComparisonReport(backtestResults);
-  
+
   // Validate predictions against actual historical outcomes
   const historicalValidation = await backtestFramework.validateWithHistoricalData(allTrades);
-  
+
   const arbitrage = detectArbitrage(allTrades);
-  
+
   const byCategory = {
     weather: allTrades.filter(t => t.category === 'weather'),
     crypto: allTrades.filter(t => t.category === 'crypto'),
     politics: allTrades.filter(t => t.category === 'politics'),
     economics: allTrades.filter(t => t.category === 'economics')
   };
-  
+
   for (const cat in byCategory) {
     byCategory[cat].sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
   }
-  
+
   const topTrades = [
     ...byCategory.weather.slice(0, 10),
     ...byCategory.crypto.slice(0, 10),
     ...byCategory.politics.slice(0, 10),
     ...byCategory.economics.slice(0, 10)
   ].sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
-  
+
   // Count all alerts
   const totalAlerts = topTrades.reduce((sum, t) => sum + (t.alerts?.length || 0), 0);
-  
+
   // Get threshold alert counts by severity
   const thresholdUrgent = triggeredAlerts.filter(a => a.severity === 'urgent').length;
   const thresholdHigh = triggeredAlerts.filter(a => a.severity === 'high').length;
   const thresholdMedium = triggeredAlerts.filter(a => a.severity === 'medium').length;
-  
+
   const output = {
     scan_time: new Date().toISOString(),
     source: 'kalshi-fetcher-v2.6',
@@ -3977,6 +4207,9 @@ async function main() {
       newsArticles: newsArticles.length,
       relevantNews: relevantNews.length,
       weatherLags: weatherLags.length,
+      pennyOpportunities: pennyResults.summary.totalOpportunities,
+      fatPitches: pennyResults.summary.fatPitches,
+      pennyArbitrage: pennyResults.summary.arbitrageGroups,
       twitterSentiment: Object.keys(categorySentiment).filter(k => k !== 'fallback').length,
       totalAlerts,
       triggeredAlerts: {
@@ -4002,6 +4235,11 @@ async function main() {
     twitterSentiment: categorySentiment,
     backtestResults,
     historicalValidation,
+    pennyResults: {
+      summary: pennyResults.summary,
+      opportunities: pennyResults.opportunities.slice(0, 10),
+      arbitrageGroups: pennyResults.arbitrageGroups
+    },
     heatMap: heatMapAnalysis,
     kellyAnalysis,
     news: relevantNews.slice(0, 10), // Top 10 relevant news articles
@@ -4010,11 +4248,11 @@ async function main() {
     errors,
     opportunities: topTrades
   };
-  
+
   const dataDir = path.join(__dirname, '..', 'kalshi_data');
   await writeJsonFile(path.join(dataDir, 'latest_scan.json'), output);
   console.log(`\n✅ Saved to kalshi_data/latest_scan.json`);
-  
+
   if (db) {
     try {
       await db.ref('v6/kalshi/latest_scan').set(output);
@@ -4023,7 +4261,7 @@ async function main() {
       console.error('❌ Firebase save failed:', e.message);
     }
   }
-  
+
   console.log('\n📊 RESULTS:');
   console.log(`Opportunities: ${topTrades.length} | Arbitrage: ${arbitrage.length} | Polymarket: ${polymarketArbs.length} | Whales: ${whaleAlerts.length} | Correlations: ${correlations.length} | Weather Lags: ${weatherLags.length} | Alerts: ${totalAlerts} | Errors: ${errors.length}`);
   console.log('By category:', output.summary.byCategory);
@@ -4040,14 +4278,14 @@ async function main() {
       }
     });
   }
-  
+
   // Show alternative data summary
   if (relevantNews.length > 0) {
     const avgSentiment = relevantNews.reduce((sum, n) => sum + n.sentiment, 0) / relevantNews.length;
     const sentimentEmoji = avgSentiment > 0.2 ? '📈' : avgSentiment < -0.2 ? '📉' : '➡️';
     console.log(`\n📰 NEWS SENTIMENT: ${sentimentEmoji} ${avgSentiment > 0 ? '+' : ''}${avgSentiment.toFixed(2)} (${relevantNews.length} relevant articles)`);
   }
-  
+
   if (weatherLags.length > 0) {
     console.log('\n🌤️ WEATHER LAG OPPORTUNITIES:');
     weatherLags.slice(0, 5).forEach(w => {
@@ -4055,7 +4293,7 @@ async function main() {
       console.log(`  ${w.city} ${w.targetDate}: ${action} - NWS ${w.forecastHigh}°F vs Kalshi ${w.kalshiProbability}% (${w.probabilityDiff > 0 ? '+' : ''}${w.probabilityDiff}%)`);
     });
   }
-  
+
   // Show alerts summary
   const urgentAlerts = topTrades.flatMap(t => t.alerts?.filter(a => a.severity === 'urgent') || []);
   if (urgentAlerts.length > 0) {
@@ -4064,7 +4302,7 @@ async function main() {
       console.log(`  ${a.ticker}: ${a.message}`);
     });
   }
-  
+
   // Show Twitter sentiment signals
   const tradesWithTwitter = topTrades.filter(t => t.twitterSignal && (t.twitterSignal.strength === 'strong' || t.twitterSignal.strength === 'moderate'));
   if (tradesWithTwitter.length > 0) {
@@ -4082,14 +4320,40 @@ async function main() {
       console.log(`  ${signalEmoji} ${s.pair}: ${s.signal.message}`);
     });
   }
-  
+
   if (whaleAlerts.length > 0) {
     console.log('\n🐋 WHALE ALERTS:');
     whaleAlerts.forEach(w => {
       console.log(`  ${w.ticker}: ${w.spikeRatio}x volume spike (${w.volume.toLocaleString()} vs avg ${Math.round(w.avgVolume).toLocaleString()})`);
     });
   }
-  
+
+  // Show Penny-Picking results
+  if (pennyResults.opportunities.length > 0) {
+    console.log('\n🪙 PENNY-PICKING OPPORTUNITIES:');
+    const fatPitches = pennyResults.opportunities.filter(o => o.type === 'fat_pitch');
+    if (fatPitches.length > 0) {
+      console.log('  🔥 FAT PITCHES (High Confidence):');
+      fatPitches.slice(0, 3).forEach(o => {
+        console.log(`     ${o.ticker}: ${o.noPrice}¢ NO → $1.00 (${o.roi}% ROI) | ${o.forecastDelta?.toFixed(1)}° from forecast`);
+      });
+    }
+    const regularPennies = pennyResults.opportunities.filter(o => o.type === 'penny_pick');
+    if (regularPennies.length > 0) {
+      console.log('  💰 CHEAP NO CONTRACTS:');
+      regularPennies.slice(0, 3).forEach(o => {
+        console.log(`     ${o.ticker}: ${o.noPrice}¢ NO → $1.00 (${o.roi}% ROI)`);
+      });
+    }
+  }
+
+  if (pennyResults.arbitrageGroups.length > 0) {
+    console.log('\n🔗 PENNY ARBITRAGE (Buy all NOs):');
+    pennyResults.arbitrageGroups.slice(0, 2).forEach(arb => {
+      console.log(`  ${arb.event}: ${arb.numBrackets} brackets, ${arb.profitMargin}¢ guaranteed profit`);
+    });
+  }
+
   console.log('\n🎯 TOP 5 OPPORTUNITIES:');
   topTrades.slice(0, 5).forEach((t, i) => {
     const momentumIcon = t.momentum === 'surging' ? '🚀' : t.momentum === 'rising' ? '📈' : t.momentum === 'falling' ? '📉' : t.momentum === 'crashing' ? '💥' : '➡️';
@@ -4115,7 +4379,7 @@ async function main() {
       console.log(`   📈 Top factor: ${topFactor.factor} (+${topFactor.contribution.toFixed(2)})`);
     }
   });
-  
+
   return output;
 }
 
