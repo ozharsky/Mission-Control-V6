@@ -1189,6 +1189,7 @@ export function KalshiTradingView() {
   const [showOnlyWhales, setShowOnlyWhales] = useState(false);
   const [showOnlyWeatherLag, setShowOnlyWeatherLag] = useState(false);
   const [showOnlyArbitrage, setShowOnlyArbitrage] = useState(false);
+  const [showOnlyPennyPicks, setShowOnlyPennyPicks] = useState(false);
   const [positionHistory, setPositionHistory] = useState<PaperPosition[]>([]);
   const hasLoadedScanner = useRef(false);
   const tradeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -1509,6 +1510,11 @@ export function KalshiTradingView() {
       result = result.filter(t => !!t.polymarketArb);
     }
     
+    // Penny picks filter
+    if (showOnlyPennyPicks) {
+      result = result.filter(t => t.pennySignal || t.tailRiskSignal);
+    }
+    
     // Sorting
     result.sort((a, b) => {
       if (sortBy === 'composite') {
@@ -1523,7 +1529,7 @@ export function KalshiTradingView() {
     });
     
     return result;
-  }, [trades, selectedCategory, sortBy, minEdge, maxEdge, minRScore, hasAlert, sentimentFilter, showOnlyWhales, showOnlyWeatherLag, showOnlyArbitrage]);
+  }, [trades, selectedCategory, sortBy, minEdge, maxEdge, minRScore, hasAlert, sentimentFilter, showOnlyWhales, showOnlyWeatherLag, showOnlyArbitrage, showOnlyPennyPicks]);
 
   // Calculate position P&L - uses live prices from trades or stored current price
   const calculatePositionPnL = (position: PaperPosition) => {
@@ -2226,6 +2232,16 @@ export function KalshiTradingView() {
                     >
                       🔗 Polymarket Arb
                     </button>
+                    <button
+                      onClick={() => setShowOnlyPennyPicks(!showOnlyPennyPicks)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        showOnlyPennyPicks 
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                          : 'bg-surface-hover text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🪙 Penny Picks
+                    </button>
                   </div>
 
                   <div className="flex justify-end pt-2 border-t border-surface-hover">
@@ -2239,6 +2255,7 @@ export function KalshiTradingView() {
                         setShowOnlyWhales(false);
                         setShowOnlyWeatherLag(false);
                         setShowOnlyArbitrage(false);
+                        setShowOnlyPennyPicks(false);
                       }}
                       className="text-sm text-gray-400 hover:text-white transition-colors"
                     >
@@ -2259,7 +2276,11 @@ export function KalshiTradingView() {
                   ref={(el) => {
                     if (el) tradeRefs.current.set(trade.id, el);
                   }}
-                  className="rounded-xl border border-surface-hover bg-surface p-4 transition-all hover:border-primary/50"
+                  className={`rounded-xl border p-4 transition-all hover:border-primary/50 ${
+                    trade.pennySignal || trade.tailRiskSignal
+                      ? 'border-purple-500/50 bg-purple-500/5'
+                      : 'border-surface-hover bg-surface'
+                  }`}
                 >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   {/* Left: Trade Info */}
@@ -2271,6 +2292,16 @@ export function KalshiTradingView() {
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${RECOMMENDATION_COLORS[trade.recommendation]}`}>
                         {trade.recommendation === 'buy_urgent' ? '🔥 BUY URGENT' : trade.recommendation.replace('_', ' ').toUpperCase()}
                       </span>
+                      {trade.pennySignal && (
+                        <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                          🪙 Penny Pick {trade.pennySignal.noPrice}¢
+                        </span>
+                      )}
+                      {trade.tailRiskSignal && (
+                        <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                          🎯 Tail Risk {trade.tailRiskSignal.confidence === 'very_high' ? '💀' : ''}
+                        </span>
+                      )}
                       {trade.health && (
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${HEALTH_COLORS[trade.health] || 'bg-gray-500/20 text-gray-400'}`}>
                           {trade.health}
