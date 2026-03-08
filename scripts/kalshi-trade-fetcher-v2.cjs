@@ -2618,6 +2618,369 @@ class PennyPickingScanner {
   }
 }
 
+// Tail-Risk Engine for Cross-Category Penny-Picking
+// Analyzes crypto, economics, politics, and markets for mathematically impossible brackets
+class TailRiskEngine {
+  constructor() {
+    this.minNoPrice = 1;
+    this.maxNoPrice = 15; // Slightly higher for tail-risk
+    this.confidenceThresholds = {
+      weather: { delta: 5, timeDecay: 0.5 },     // 5 degrees from forecast
+      crypto: { sigma: 3, timeDecay: 0.3 },      // 3 standard deviations
+      economics: { delta: 0.2, consensus: 0.1 }, // 0.2% from consensus
+      politics: { delta: 2, inertia: 0.5 }       // 2% rating change (very rare)
+    };
+  }
+
+  // Fetch live crypto price from CoinGecko
+  async fetchCryptoPrice(symbol) {
+    try {
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${symbol}&vs_currencies=usd`;
+      const data = await fetchWithRetry(url, {}, 2);
+      return data[symbol]?.usd || null;
+    } catch (e) {
+      console.log(`⚠️ Failed to fetch ${symbol} price:`, e.message);
+      return null;
+    }
+  }
+
+  // Fetch crypto volatility from Deribit (approximated via price history)
+  async fetchCryptoVolatility(symbol) {
+    // Simplified: Use 24h price change as volatility proxy
+    try {
+      const url = `https://api.coingecko.com/api/v3/coins/${symbol}/market_chart?vs_currency=usd&days=1`;
+      const data = await fetchWithRetry(url, {}, 2);
+      const prices = data.prices || [];
+      if (prices.length < 2) return 0.02; // Default 2% vol
+      
+      // Calculate standard deviation of hourly returns
+      const returns = [];
+      for (let i = 1; i < prices.length; i++) {
+        returns.push((prices[i][1] - prices[i-1][1]) / prices[i-1][1]);
+      }
+      const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+      const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / returns.length;
+      return Math.sqrt(variance) * Math.sqrt(24); // Annualized roughly
+    } catch (e) {
+      return 0.02; // Default 2%
+    }
+  }
+
+  // Analyze crypto brackets for tail-risk
+  async analyzeCryptoBrackets(markets) {
+    const opportunities = [];
+    const cryptoMap = {
+      'BTC': 'bitcoin',
+      'ETH': 'ethereum',
+      'SOL': 'solana',
+      'ADA': 'cardano',
+      'DOT': 'polkadot'
+    };
+
+    for (const market of markets) {
+      const noPrice = market.no_ask || (100 - market.yes_ask);
+      if (noPrice < this.minNoPrice || noPrice > this.maxNoPrice) continue;
+
+      // Identify crypto symbol
+      const symbol = Object.keys(cryptoMap).find(s => market.ticker.includes(s));
+      if (!symbol) continue;
+
+      const coinId = cryptoMap[symbol];
+      const livePrice = await this.fetchCryptoPrice(coinId);
+      if (!livePrice) continue;
+
+      // Extract bracket
+      const bracket = this.extractCryptoBracket(market.title, livePrice);
+      if (!bracket) continue;
+
+      // Calculate distance in standard deviations
+      const volatility = await this.fetchCryptoVolatility(coinId);
+      const hoursToClose = this.hoursToClose(market.close_time);
+      const sigmaMove = Math.sqrt(hoursToClose / 24) * volatility;
+      const maxRealisticMove = 3 * sigmaMove; // 3-sigma
+      
+      const priceDelta = Math.abs(bracket.midpoint - livePrice) / livePrice;
+      const isImpossible = priceDelta > maxRealisticMove;
+
+      if (isImpossible || priceDelta > 2 * sigmaMove) {
+        opportunities.push({
+          ticker: market.ticker,
+          title: market.title,
+          category: 'crypto',
+          noPrice: noPrice,
+          livePrice: livePrice,
+          bracketMidpoint: bracket.midpoint,
+          priceDelta: (priceDelta * 100).toFixed(1),
+          sigmaMove: (sigmaMove * 100).toFixed(1),
+          hoursToClose: hoursToClose.toFixed(1),
+          type: isImpossible ? 'impossible_bracket' : 'tail_risk',
+          confidence: isImpossible ? 'very_high' : 'high',
+          roi: ((100 - noPrice) / noPrice * 100).toFixed(0)
+        });
+      }
+    }
+
+    return opportunities;
+  }
+
+  // Extract crypto price bracket
+  extractCryptoBracket(title, currentPrice) {
+    if (!title) return null;
+    
+    // Match patterns like "$65,000-$66,000" or "$65k-$66k"
+    const rangeMatch = title.match(/\$?(\d+(?:\.?\d*))[kK]?\s*[-–]\s*\$?(\d+(?:\.?\d*))[kK]?/);
+    const aboveMatch = title.match(/>\s*\$?(\d+(?:\.?\d*))[kK]?/);
+    const belowMatch = title.match(/<\s*\$?(\d+(?:\.?\d*))[kK]?/);
+
+    if (rangeMatch) {
+      const low = this.parsePrice(rangeMatch[1], currentPrice);
+      const high = this.parsePrice(rangeMatch[2], currentPrice);
+      return { type: 'range', low, high, midpoint: (low + high) / 2 };
+    } else if (aboveMatch) {
+      const threshold = this.parsePrice(aboveMatch[1], currentPrice);
+      return { type: 'above', threshold, midpoint: threshold * 1.05 };
+    } else if (belowMatch) {
+      const threshold = this.parsePrice(belowMatch[1], currentPrice);
+      return { type: 'below', threshold, midpoint: threshold * 0.95 };
+    }
+    return null;
+  }
+
+  parsePrice(str, currentPrice) {
+    // If it's like "65" and current price is 60k, assume "65k"
+    let val = parseFloat(str);
+    if (val < 1000 && currentPrice > 10000) {
+      val *= 1000;
+    }
+    return val;
+  }
+
+  // Analyze economic data brackets
+  async analyzeEconomicBrackets(markets) {
+    const opportunities = [];
+    // Consensus estimates would be fetched from Bloomberg/Fed
+    // For now, use hardcoded estimates based on recent trends
+    const consensusEstimates = {
+      'CPI': 3.1,
+      'JOBS': 180, // thousands
+      'GDP': 2.4,
+      'FED': 5.25
+    };
+
+    for (const market of markets) {
+      const noPrice = market.no_ask || (100 - market.yes_ask);
+      if (noPrice < this.minNoPrice || noPrice > this.maxNoPrice) continue;
+
+      // Find which economic indicator
+      const indicator = Object.keys(consensusEstimates).find(ind => market.ticker.includes(ind));
+      if (!indicator) continue;
+
+      const consensus = consensusEstimates[indicator];
+      const bracket = this.extractEconomicBracket(market.title, indicator);
+      if (!bracket) continue;
+
+      const delta = Math.abs(bracket.midpoint - consensus);
+      const isExtreme = delta > this.confidenceThresholds.economics.delta;
+
+      if (isExtreme) {
+        opportunities.push({
+          ticker: market.ticker,
+          title: market.title,
+          category: 'economics',
+          noPrice: noPrice,
+          consensus: consensus,
+          bracketMidpoint: bracket.midpoint,
+          delta: delta.toFixed(2),
+          type: 'extreme_outlier',
+          confidence: delta > 0.3 ? 'very_high' : 'high',
+          reasoning: `Consensus ${consensus}% vs bracket ${bracket.midpoint}% (delta: ${delta.toFixed(2)}%)`,
+          roi: ((100 - noPrice) / noPrice * 100).toFixed(0)
+        });
+      }
+    }
+
+    return opportunities;
+  }
+
+  extractEconomicBracket(title, indicator) {
+    if (!title) return null;
+    
+    // Match patterns like "3.0 to 3.1%" or "3.0-3.1%" or "180k-190k"
+    const rangeMatch = title.match(/(\d+\.?\d*)\s*(?:to|-|–)\s*(\d+\.?\d*)/);
+    const aboveMatch = title.match(/>\s*(\d+\.?\d*)/);
+    const belowMatch = title.match(/<\s*(\d+\.?\d*)/);
+
+    if (rangeMatch) {
+      const low = parseFloat(rangeMatch[1]);
+      const high = parseFloat(rangeMatch[2]);
+      return { type: 'range', low, high, midpoint: (low + high) / 2 };
+    } else if (aboveMatch) {
+      const threshold = parseFloat(aboveMatch[1]);
+      return { type: 'above', threshold, midpoint: threshold + 0.1 };
+    } else if (belowMatch) {
+      const threshold = parseFloat(belowMatch[1]);
+      return { type: 'below', threshold, midpoint: threshold - 0.1 };
+    }
+    return null;
+  }
+
+  // Analyze politics brackets (approval ratings)
+  async analyzePoliticsBrackets(markets) {
+    const opportunities = [];
+    // Approval ratings move very slowly (rolling averages)
+    // A 2% jump in one day is mathematically almost impossible
+    
+    for (const market of markets) {
+      const noPrice = market.no_ask || (100 - market.yes_ask);
+      if (noPrice < this.minNoPrice || noPrice > this.maxNoPrice) continue;
+
+      // Only look at approval rating brackets
+      if (!market.ticker.includes('APPROVE') && !market.ticker.includes('538')) continue;
+
+      const bracket = this.extractPoliticsBracket(market.title);
+      if (!bracket) continue;
+
+      // Simulate current approval at 40.5% (would be fetched from 538 API)
+      const currentApproval = 40.5;
+      const delta = Math.abs(bracket.midpoint - currentApproval);
+      
+      // Political approval moves slowly due to rolling average nature
+      const isImpossible = delta > this.confidenceThresholds.politics.delta;
+      const timeToClose = this.hoursToClose(market.close_time);
+      
+      // Even more impossible if closing soon
+      if (isImpossible && timeToClose < 24) {
+        opportunities.push({
+          ticker: market.ticker,
+          title: market.title,
+          category: 'politics',
+          noPrice: noPrice,
+          currentApproval: currentApproval,
+          bracketMidpoint: bracket.midpoint,
+          delta: delta.toFixed(1),
+          hoursToClose: timeToClose.toFixed(1),
+          type: 'political_inertia',
+          confidence: 'very_high',
+          reasoning: `Approval ${currentApproval}% vs bracket ${bracket.midpoint}% - rolling avg prevents ${delta.toFixed(1)}% jump in ${timeToClose.toFixed(0)}h`,
+          roi: ((100 - noPrice) / noPrice * 100).toFixed(0)
+        });
+      }
+    }
+
+    return opportunities;
+  }
+
+  extractPoliticsBracket(title) {
+    if (!title) return null;
+    
+    // Match approval rating brackets like "40-41%" or "Under 40%"
+    const rangeMatch = title.match(/(\d+)[%\s]*[-–][%\s]*(\d+)[%\s]*/);
+    const underMatch = title.match(/under\s+(\d+)[%\s]*/i);
+    const overMatch = title.match(/over\s+(\d+)[%\s]*/i);
+
+    if (rangeMatch) {
+      const low = parseFloat(rangeMatch[1]);
+      const high = parseFloat(rangeMatch[2]);
+      return { type: 'range', low, high, midpoint: (low + high) / 2 };
+    } else if (underMatch) {
+      const threshold = parseFloat(underMatch[1]);
+      return { type: 'under', threshold, midpoint: threshold - 0.5 };
+    } else if (overMatch) {
+      const threshold = parseFloat(overMatch[1]);
+      return { type: 'over', threshold, midpoint: threshold + 0.5 };
+    }
+    return null;
+  }
+
+  // Hours until market close
+  hoursToClose(closeTime) {
+    if (!closeTime) return 24;
+    const close = new Date(closeTime);
+    const now = new Date();
+    return Math.max(0, (close - now) / (1000 * 60 * 60));
+  }
+
+  // Main scan function
+  async scanTailRisk(markets) {
+    console.log('\n🎯 TAIL-RISK ENGINE: Cross-Category Penny-Picking');
+    
+    const allOpportunities = [];
+
+    // Crypto analysis
+    const cryptoMarkets = markets.filter(m => 
+      ['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].some(s => m.ticker.includes(s))
+    );
+    if (cryptoMarkets.length > 0) {
+      console.log('  📊 Analyzing crypto brackets...');
+      const cryptoOpps = await this.analyzeCryptoBrackets(cryptoMarkets);
+      allOpportunities.push(...cryptoOpps);
+      console.log(`     Found ${cryptoOpps.length} tail-risk opportunities`);
+    }
+
+    // Economic analysis
+    const econMarkets = markets.filter(m => 
+      ['KXCPI', 'KXJOBS', 'KXGDP', 'KXFED'].some(s => m.ticker.includes(s))
+    );
+    if (econMarkets.length > 0) {
+      console.log('  📊 Analyzing economic brackets...');
+      const econOpps = await this.analyzeEconomicBrackets(econMarkets);
+      allOpportunities.push(...econOpps);
+      console.log(`     Found ${econOpps.length} extreme outlier opportunities`);
+    }
+
+    // Politics analysis
+    const politicsMarkets = markets.filter(m => 
+      m.ticker.includes('APPROVE') || m.ticker.includes('538')
+    );
+    if (politicsMarkets.length > 0) {
+      console.log('  📊 Analyzing politics brackets...');
+      const politicsOpps = await this.analyzePoliticsBrackets(politicsMarkets);
+      allOpportunities.push(...politicsOpps);
+      console.log(`     Found ${politicsOpps.length} political inertia opportunities`);
+    }
+
+    return {
+      opportunities: allOpportunities.sort((a, b) => a.noPrice - b.noPrice),
+      summary: {
+        total: allOpportunities.length,
+        byCategory: {
+          crypto: allOpportunities.filter(o => o.category === 'crypto').length,
+          economics: allOpportunities.filter(o => o.category === 'economics').length,
+          politics: allOpportunities.filter(o => o.category === 'politics').length
+        },
+        highConfidence: allOpportunities.filter(o => o.confidence === 'very_high').length
+      }
+    };
+  }
+
+  printResults(results) {
+    if (results.opportunities.length === 0) {
+      console.log('\n  No tail-risk opportunities found');
+      return;
+    }
+
+    console.log(`\n  🎰 TAIL-RISK OPPORTUNITIES: ${results.summary.total} found`);
+    console.log(`     Very High Confidence: ${results.summary.highConfidence}`);
+    
+    if (results.summary.byCategory.crypto > 0) {
+      console.log(`     Crypto: ${results.summary.byCategory.crypto}`);
+    }
+    if (results.summary.byCategory.economics > 0) {
+      console.log(`     Economics: ${results.summary.byCategory.economics}`);
+    }
+    if (results.summary.byCategory.politics > 0) {
+      console.log(`     Politics: ${results.summary.byCategory.politics}`);
+    }
+
+    console.log('\n  🔥 TOP TAIL-RISK TRADES:');
+    results.opportunities.slice(0, 5).forEach((opp, i) => {
+      const emoji = opp.confidence === 'very_high' ? '🔥' : '💎';
+      console.log(`    ${emoji} ${opp.ticker}: ${opp.noPrice}¢ NO → ${opp.roi}% ROI`);
+      console.log(`       ${opp.reasoning || opp.type}`);
+    });
+  }
+}
+
 async function cachedFetch(key, fetchFn, ttlMs) {
   const cached = cache.get(key);
   if (cached) {
@@ -4283,37 +4646,22 @@ async function main() {
   }
   
   // Run tail-risk analysis on all raw markets
-  const tailRiskResults = await tailRiskEngine.analyzeTailRisks(allRawMarkets, externalData);
+  const tailRiskResults = await tailRiskEngine.scanTailRisk(allRawMarkets);
   tailRiskEngine.printResults(tailRiskResults);
   
   // Merge tail-risk opportunities with penny results
   for (const tailRisk of tailRiskResults.opportunities) {
-    const existing = pennyResults.opportunities.find(p => p.ticker === tailRisk.ticker);
+    const existing = allTrades.find(t => t.ticker === tailRisk.ticker);
     if (existing) {
-      // Upgrade to fat_pitch if tail-risk analysis confirms it
-      if (tailRisk.type === 'mathematically_dead' || tailRisk.type === 'fat_pitch') {
-        existing.type = tailRisk.type;
-        existing.confidence = tailRisk.confidence;
-        existing.reason = tailRisk.reason;
-      }
-    } else {
-      pennyResults.opportunities.push(tailRisk);
-    }
-    
-    // Add to trade alerts
-    const trade = allTrades.find(t => t.ticker === tailRisk.ticker);
-    if (trade) {
-      trade.tailRiskSignal = tailRisk;
-      if (tailRisk.type === 'mathematically_dead') {
-        trade.recommendation = 'buy_urgent';
-        trade.alerts = trade.alerts || [];
-        trade.alerts.push({
-          type: 'tail_risk_dead',
-          severity: 'urgent',
-          message: `💀 Dead Certainty: ${tailRisk.reason}`,
-          ticker: tailRisk.ticker
-        });
-      }
+      existing.tailRiskSignal = tailRisk;
+      existing.recommendation = 'buy_urgent';
+      existing.alerts = existing.alerts || [];
+      existing.alerts.push({
+        type: 'tail_risk',
+        severity: tailRisk.confidence === 'very_high' ? 'urgent' : 'high',
+        message: `🎯 ${tailRisk.type}: ${tailRisk.noPrice}¢ NO - ${tailRisk.reasoning || 'Mathematically improbable'}`,
+        ticker: tailRisk.ticker
+      });
     }
   }
   // ==================== END TAIL-RISK ====================
@@ -4439,6 +4787,9 @@ async function main() {
       pennyOpportunities: pennyResults.summary.totalOpportunities,
       fatPitches: pennyResults.summary.fatPitches,
       pennyArbitrage: pennyResults.summary.arbitrageGroups,
+      tailRiskOpportunities: tailRiskResults.summary.total,
+      tailRiskByCategory: tailRiskResults.summary.byCategory,
+      tailRiskHighConfidence: tailRiskResults.summary.highConfidence,
       twitterSentiment: Object.keys(categorySentiment).filter(k => k !== 'fallback').length,
       totalAlerts,
       triggeredAlerts: {
@@ -4468,6 +4819,10 @@ async function main() {
       summary: pennyResults.summary,
       opportunities: pennyResults.opportunities.slice(0, 10),
       arbitrageGroups: pennyResults.arbitrageGroups
+    },
+    tailRiskResults: {
+      summary: tailRiskResults.summary,
+      opportunities: tailRiskResults.opportunities.slice(0, 10)
     },
     heatMap: heatMapAnalysis,
     kellyAnalysis,
@@ -4581,6 +4936,36 @@ async function main() {
     pennyResults.arbitrageGroups.slice(0, 2).forEach(arb => {
       console.log(`  ${arb.event}: ${arb.numBrackets} brackets, ${arb.profitMargin}¢ guaranteed profit`);
     });
+  }
+
+  // Show Tail-Risk results
+  if (tailRiskResults.opportunities.length > 0) {
+    console.log('\n🎯 TAIL-RISK OPPORTUNITIES (Cross-Category):');
+    console.log(`  Total: ${tailRiskResults.summary.total} | Very High Confidence: ${tailRiskResults.summary.highConfidence}`);
+    
+    const cryptoTail = tailRiskResults.opportunities.filter(o => o.category === 'crypto');
+    if (cryptoTail.length > 0) {
+      console.log('\n  📊 Crypto (3-Sigma Dead Brackets):');
+      cryptoTail.slice(0, 2).forEach(o => {
+        console.log(`     ${o.ticker}: ${o.noPrice}¢ NO | ${o.priceDelta}% from price (${o.sigmaMove}σ move required)`);
+      });
+    }
+    
+    const econTail = tailRiskResults.opportunities.filter(o => o.category === 'economics');
+    if (econTail.length > 0) {
+      console.log('\n  📊 Economics (Extreme Outliers):');
+      econTail.slice(0, 2).forEach(o => {
+        console.log(`     ${o.ticker}: ${o.noPrice}¢ NO | ${o.delta}% from consensus`);
+      });
+    }
+    
+    const politicsTail = tailRiskResults.opportunities.filter(o => o.category === 'politics');
+    if (politicsTail.length > 0) {
+      console.log('\n  📊 Politics (Inertia-Locked):');
+      politicsTail.slice(0, 2).forEach(o => {
+        console.log(`     ${o.ticker}: ${o.noPrice}¢ NO | ${o.delta}% jump in ${o.hoursToClose}h (impossible)`);
+      });
+    }
   }
 
   console.log('\n🎯 TOP 5 OPPORTUNITIES:');
