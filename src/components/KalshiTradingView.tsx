@@ -1175,6 +1175,8 @@ export function KalshiTradingView() {
   const [isLoadingTrades, setIsLoadingTrades] = useState(true);
   const [heatMap, setHeatMap] = useState<HeatMapAnalysis | null>(null);
   const [kellyAnalysis, setKellyAnalysis] = useState<KellyAnalysis | null>(null);
+  const [pennyResults, setPennyResults] = useState<any>(null);
+  const [tailRiskResults, setTailRiskResults] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   
@@ -1260,6 +1262,16 @@ export function KalshiTradingView() {
           // Load Kelly analysis if available
           if (scannerOutput.kellyAnalysis) {
             setKellyAnalysis(scannerOutput.kellyAnalysis);
+          }
+
+          // Load penny-picking results if available
+          if (scannerOutput.pennyResults) {
+            setPennyResults(scannerOutput.pennyResults);
+          }
+
+          // Load tail-risk results if available
+          if (scannerOutput.tailRiskResults) {
+            setTailRiskResults(scannerOutput.tailRiskResults);
           }
           
           console.log(`✅ Displaying ${updatedTrades.length} trades with live prices`);
@@ -1955,6 +1967,93 @@ export function KalshiTradingView() {
                   💡 Tip: Polymarket arbitrage opportunities detected. Compare prices before trading.
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Penny-Picking & Tail-Risk Card */}
+          {(scanSummary.pennyOpportunities > 0 || scanSummary.tailRiskOpportunities > 0) && (
+            <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-4">
+              <h3 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
+                <span className="text-lg">🪙</span>
+                Penny-Picking & Tail-Risk
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Penny Opportunities */}
+                {scanSummary.pennyOpportunities > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🪙 Cheap NOs</p>
+                    <p className="text-lg font-bold text-purple-400">{scanSummary.pennyOpportunities}</p>
+                    <p className="text-xs text-gray-500">1¢-9¢ NO contracts</p>
+                  </div>
+                )}
+                
+                {/* Fat Pitches */}
+                {scanSummary.fatPitches > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🔥 Fat Pitches</p>
+                    <p className="text-lg font-bold text-amber-400">{scanSummary.fatPitches}</p>
+                    <p className="text-xs text-gray-500">High confidence weather</p>
+                  </div>
+                )}
+                
+                {/* Tail-Risk */}
+                {scanSummary.tailRiskOpportunities > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🎯 Tail-Risk</p>
+                    <p className="text-lg font-bold text-rose-400">{scanSummary.tailRiskOpportunities}</p>
+                    <p className="text-xs text-gray-500">Crypto/Econ/Politics</p>
+                  </div>
+                )}
+                
+                {/* Penny Arbitrage */}
+                {scanSummary.pennyArbitrage > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🔗 NO Arbitrage</p>
+                    <p className="text-lg font-bold text-emerald-400">{scanSummary.pennyArbitrage}</p>
+                    <p className="text-xs text-gray-500">Guaranteed profit</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Show top penny opportunities */}
+              {pennyResults?.opportunities && pennyResults.opportunities.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-purple-500/20">
+                  <p className="text-xs text-purple-400/80 mb-2">Top Penny Picks:</p>
+                  <div className="space-y-1">
+                    {pennyResults.opportunities.slice(0, 3).map((opp: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-xs">
+                        <span className="text-gray-400">{opp.ticker}</span>
+                        <span className={opp.type === 'fat_pitch' ? 'text-amber-400' : 'text-purple-400'}>
+                          {opp.noPrice}¢ NO → {opp.roi}% ROI
+                          {opp.type === 'fat_pitch' && ' 🔥'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Show tail-risk opportunities */}
+              {tailRiskResults?.opportunities && tailRiskResults.opportunities.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-purple-500/20">
+                  <p className="text-xs text-purple-400/80 mb-2">Tail-Risk Opportunities:</p>
+                  <div className="space-y-1">
+                    {tailRiskResults.opportunities.slice(0, 3).map((opp: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-xs">
+                        <span className="text-gray-400">{opp.ticker}</span>
+                        <span className="text-rose-400">
+                          {opp.noPrice}¢ NO → {opp.roi}% ROI
+                          {opp.confidence === 'very_high' && ' 💀'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-xs text-purple-400/70 mt-3">
+                💡 These are asymmetric risk/reward trades. Cheap NO contracts that are mathematically likely to win.
+              </p>
             </div>
           )}
 
