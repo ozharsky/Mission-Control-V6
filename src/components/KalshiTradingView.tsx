@@ -400,6 +400,38 @@ function TradeDetailPanel({
               <div className="pt-2 border-t border-surface-hover">
                 <p className="text-sm text-gray-400 mb-1">Research</p>
                 <p className="text-sm text-white">{trade.research?.catalyst || 'Scanner-identified opportunity'}</p>
+                
+                {/* Fee/Spread Breakdown */}
+                {(trade.grossEdge !== undefined || trade.spreadCost !== undefined || trade.estimatedFees !== undefined) && (
+                  <div className="mt-3 p-2 bg-surface-hover/30 rounded text-xs">
+                    <p className="text-gray-500 mb-1">Edge Breakdown:</p>
+                    <div className="space-y-0.5">
+                      {trade.grossEdge !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Gross Edge</span>
+                          <span className="text-gray-300">+{trade.grossEdge.toFixed(1)}%</span>
+                        </div>
+                      )}
+                      {trade.spreadCost && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Spread Cost</span>
+                          <span className="text-danger">-{trade.spreadCost.toFixed(1)}%</span>
+                        </div>
+                      )}
+                      {trade.estimatedFees && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Est. Fees ($100)</span>
+                          <span className="text-danger">-${trade.estimatedFees.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-1 border-t border-surface-hover">
+                        <span className="text-gray-400 font-medium">Net Edge</span>
+                        <span className="text-success font-medium">+{trade.edge}%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="mt-2 flex flex-wrap gap-1">
                   {trade.research?.sources?.map((source, i) => (
                     <span key={i} className="text-xs bg-surface-hover px-2 py-0.5 rounded text-gray-400">
