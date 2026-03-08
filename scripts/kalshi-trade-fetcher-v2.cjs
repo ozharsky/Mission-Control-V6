@@ -3790,6 +3790,10 @@ function getMarketHealth(m) {
 
 // Calculate edge with time and volume adjustments
 function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history = null, ticker = null) {
+  // Initialize all local variables at the start
+  let historicalVolatility = 5; // Default 5% volatility
+  let rScore = 0;
+  
   const marketProb = yesPrice / 100;
   const volumeBoost = Math.min(volume / 10000, 0.05);
   const timeAdjustment = getTimeConfidence(closeTime, category);
@@ -3801,8 +3805,6 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history 
 
   // Calculate proper R-Score: edge divided by historical volatility (signal-to-noise)
   // If no history, use a default volatility of 5% to avoid division by zero
-  let rScore = 0;
-  let historicalVolatility = 5; // Default 5% volatility - define outside if block
   
   if (edge > 0) {
     if (history && ticker && history[ticker] && history[ticker].length >= 5) {
