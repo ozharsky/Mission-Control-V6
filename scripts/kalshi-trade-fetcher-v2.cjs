@@ -2862,10 +2862,13 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category) {
 }
 
 // Kelly Criterion
-function calculateKelly(edge, price, bankroll = 10000) {
-  if (edge <= 0) return { kellyPct: 0, position: 0 };
-  const b = (100 - price) / price;
-  const p = edge / 100 + 0.5;
+// Kelly Criterion - uses true probability (not edge-based approximation)
+function calculateKelly(trueProb, price, bankroll = 10000) {
+  const marketProb = price / 100;
+  if (trueProb <= marketProb) return { kellyPct: 0, position: 0 };
+  
+  const b = (100 - price) / price; // Decimal odds minus 1
+  const p = trueProb; // Use actual calculated probability (0-1)
   const q = 1 - p;
   const fullKelly = (b * p - q) / b;
   const kellyFraction = fullKelly * CONFIG.kellyFraction;
@@ -2882,12 +2885,21 @@ function isClosingSoon(closeTime) {
 function detectArbitrage(markets) {
   const arbs = [];
   const byEvent = {};
+  
   for (const m of markets) {
     const key = m.ticker.split('-').slice(0, 2).join('-');
     if (!byEvent[key]) byEvent[key] = [];
     byEvent[key].push(m);
   }
+  
   for (const [event, eventMarkets] of Object.entries(byEvent)) {
+    // Skip weather and economics markets - they're strike-based, not mutually exclusive
+    const isWeatherOrEcon = event.includes('HIGH') || event.includes('CPI') || 
+                           event.includes('FED') || event.includes('JOBS') || 
+                           event.includes('GDP') || event.includes('IR');
+    if (isWeatherOrEcon) continue;
+    
+    // Only check mutually exclusive markets (politics, etc)
     if (eventMarkets.length >= 2) {
       const total = eventMarkets.reduce((sum, m) => sum + m.yesPrice, 0);
       if (total > 105) {
@@ -2895,6 +2907,7 @@ function detectArbitrage(markets) {
       }
     }
   }
+  
   return arbs;
 }
 
@@ -2935,8 +2948,13 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
   if (!pmEvent || !pmEvent.markets || pmEvent.markets.length === 0) return null;
   
   const pmMarket = pmEvent.markets[0];
-  const pmYesPrice = pmMarket.outcomePrices ? 
-    parseFloat(pmMarket.outcomePrices.split(',')[0]) * 100 : 50;
+  
+  // Find the correct YES outcome index (not always first!)
+  const outcomes = JSON.parse(pmMarket.outcomes || '[]');
+  const prices = pmMarket.outcomePrices ? pmMarket.outcomePrices.split(',') : [];
+  const yesIndex = outcomes.findIndex(o => o.toLowerCase() === 'yes');
+  const pmYesPrice = yesIndex !== -1 && prices[yesIndex] ? 
+    parseFloat(prices[yesIndex]) * 100 : 50;
   
   const kalshiYesPrice = kalshiTrade.yesPrice;
   const priceDiff = Math.abs(kalshiYesPrice - pmYesPrice);
@@ -3081,7 +3099,7 @@ function parseRSS(xmlData, source, category = 'general') {
 function extractField(xml, fieldNames) {
   for (const field of fieldNames) {
     // Try CDATA version first
-    const cdataRegex = new RegExp(`<${field}[\s\S]*?>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/${field}>`, 'i');
+    const cdataRegex = new RegExp(`<${field}[\\s\\S]*?>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${field}>`, 'i');
     const normalRegex = new RegExp(`<${field}[\s]*[^>]*>([^<]*)<\/${field}>`, 'i');
     
     const cdataMatch = xml.match(cdataRegex);
@@ -3271,7 +3289,7 @@ async function fetchNWSForecast(city) {
   try {
     // NWS API requires user agent
     const url = `https://api.weather.gov/gridpoints/${station.grid.split('/')[0]}/${station.grid.split('/')[1]}/forecast`;
-    const data = await fetchWithRetry(url, { headers: { 'User-Agent': 'KalshiScanner/2.5' } }, 2);
+    const data = await fetchWithRetry(url, { headers: { 'User-Agent': 'KalshiScanner/2.6 (kalshi-scanner@example.com)' } }, 2);
     
     return parseNWSForecast(data);
   } catch (e) {
@@ -3322,8 +3340,11 @@ function detectWeatherLag(kalshiMarket, nwsForecast) {
   const day = parseInt(dayStr);
   
   const forecastDay = nwsForecast.find(f => {
-    const fDate = new Date(f.date);
-    return fDate.getMonth() === monthIdx && fDate.getDate() === day;
+    // Extract YYYY-MM-DD directly from ISO string to avoid timezone issues
+    // NWS returns: "2024-03-08T18:00:00-05:00"
+    const datePart = f.date.split('T')[0];
+    const [, fMonth, fDay] = datePart.split('-');
+    return parseInt(fMonth) === monthIdx + 1 && parseInt(fDay) === day;
   });
   
   if (!forecastDay) return null;
@@ -3449,7 +3470,7 @@ async function main() {
         if (yesPrice >= CONFIG.minPrice && yesPrice <= CONFIG.maxPrice && 
             volume >= CONFIG.minVolume && edgeCalc.edge >= CONFIG.minEdge) {
           
-          const kelly = calculateKelly(edgeCalc.edge, yesPrice);
+          const kelly = calculateKelly(edgeCalc.adjustedProb, yesPrice);
           let recommendation = 'hold';
           if (edgeCalc.rScore >= 2.0) recommendation = 'strong_buy';
           else if (edgeCalc.rScore >= 1.5) recommendation = 'buy';
