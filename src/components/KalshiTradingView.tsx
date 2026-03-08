@@ -372,8 +372,8 @@ function TradeDetailPanel({
                 </div>
                 <div className="bg-surface-hover/50 rounded p-2">
                   <span className="text-gray-500">R-Score</span>
-                  <p className={`font-medium ${trade.rScore >= 1.5 ? 'text-success' : 'text-primary'}`}>
-                    {trade.rScore.toFixed(2)}
+                  <p className={`font-medium ${(trade.rScore || 0) >= 1.5 ? 'text-success' : 'text-primary'}`}>
+                    {(trade.rScore || 0).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -381,7 +381,7 @@ function TradeDetailPanel({
               {trade.multiplier && (
                 <div className="flex justify-between text-sm py-1">
                   <span className="text-gray-500">Multiplier</span>
-                  <span className="text-primary font-medium">{trade.multiplier.toFixed(1)}x</span>
+                  <span className="text-primary font-medium">{(trade.multiplier || 0).toFixed(1)}x</span>
                 </div>
               )}
               
@@ -458,7 +458,7 @@ function TradeDetailPanel({
                 
                 <div className="flex justify-between text-sm py-1">
                   <span className="text-gray-500">Base Kelly</span>
-                  <span className="text-white">{trade.kellyPct.toFixed(1)}%</span>
+                  <span className="text-white">{(trade.kellyPct || 0).toFixed(1)}%</span>
                 </div>
               </div>
               
@@ -487,10 +487,10 @@ function TradeDetailPanel({
         {activeTab === 'risk' && (
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Multi-Factor Score */}
-            {trade.multiFactorScore && (
+            {trade.multiFactorScore && trade.multiFactorScore.total !== undefined && (
               <div className="bg-surface-hover/30 rounded-lg p-3">
                 <h4 className="text-sm font-medium text-gray-400 mb-3">
-                  Multi-Factor Score: <span className="text-primary">{trade.multiFactorScore.total.toFixed(2)}</span>
+                  Multi-Factor Score: <span className="text-primary">{(trade.multiFactorScore.total || 0).toFixed(2)}</span>
                 </h4>
                 <div className="space-y-2">
                   {Object.entries(trade.multiFactorScore.breakdown).map(([key, value]) => {
@@ -502,7 +502,7 @@ function TradeDetailPanel({
                           <div className="flex justify-between text-xs mb-1">
                             <span className="text-gray-400">{label} ({Math.round(weight * 100)}%)</span>
                             <span className={value >= 7 ? 'text-success' : value >= 4 ? 'text-warning' : 'text-gray-400'}>
-                              {value.toFixed(1)}/10
+                              {(value || 0).toFixed(1)}/10
                             </span>
                           </div>
                           <div className="h-1.5 bg-surface rounded-full overflow-hidden">
@@ -572,14 +572,14 @@ function TradeDetailPanel({
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="bg-surface-hover/50 rounded p-2 text-center">
                     <p className="text-gray-500">24h Change</p>
-                    <p className={trade.decayAnalysis.edgeChange24h > 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                      {trade.decayAnalysis.edgeChange24h > 0 ? '+' : ''}{trade.decayAnalysis.edgeChange24h.toFixed(1)}%
+                    <p className={(trade.decayAnalysis.edgeChange24h || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {(trade.decayAnalysis.edgeChange24h || 0) > 0 ? '+' : ''}{(trade.decayAnalysis.edgeChange24h || 0).toFixed(1)}%
                     </p>
                   </div>
                   <div className="bg-surface-hover/50 rounded p-2 text-center">
                     <p className="text-gray-500">Rate</p>
-                    <p className={trade.decayAnalysis.decayRate > 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                      {trade.decayAnalysis.decayRate > 0 ? '+' : ''}{trade.decayAnalysis.decayRate.toFixed(1)}%
+                    <p className={(trade.decayAnalysis.decayRate || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {(trade.decayAnalysis.decayRate || 0) > 0 ? '+' : ''}{(trade.decayAnalysis.decayRate || 0).toFixed(1)}%
                     </p>
                   </div>
                   <div className="bg-surface-hover/50 rounded p-2 text-center">
@@ -600,8 +600,8 @@ function TradeDetailPanel({
                   {trade.attribution.slice(0, 4).map((attr, idx) => (
                     <div key={idx} className="flex justify-between text-sm">
                       <span className="text-gray-500">{attr.factor}</span>
-                      <span className={attr.contribution >= 0 ? 'text-success' : 'text-danger'}>
-                        {attr.contribution >= 0 ? '+' : ''}{attr.contribution.toFixed(2)}
+                      <span className={(attr.contribution || 0) >= 0 ? 'text-success' : 'text-danger'}>
+                        {(attr.contribution || 0) >= 0 ? '+' : ''}{(attr.contribution || 0).toFixed(2)}
                       </span>
                     </div>
                   ))}
@@ -652,8 +652,8 @@ function TradeDetailPanel({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Score</span>
-                    <span className={trade.twitterSignal.score > 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                      {trade.twitterSignal.score > 0 ? '+' : ''}{trade.twitterSignal.score.toFixed(2)}
+                    <span className={(trade.twitterSignal.score || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {(trade.twitterSignal.score || 0) > 0 ? '+' : ''}{(trade.twitterSignal.score || 0).toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -691,13 +691,13 @@ function TradeDetailPanel({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">24h Change</span>
-                    <span className={trade.decayAnalysis.edgeChange24h > 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                      {trade.decayAnalysis.edgeChange24h > 0 ? '+' : ''}{trade.decayAnalysis.edgeChange24h.toFixed(1)}%
+                    <span className={(trade.decayAnalysis.edgeChange24h || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {(trade.decayAnalysis.edgeChange24h || 0) > 0 ? '+' : ''}{(trade.decayAnalysis.edgeChange24h || 0).toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Decay Rate</span>
-                    <span className="text-white">{trade.decayAnalysis.decayRate.toFixed(2)}%/day</span>
+                    <span className="text-white">{(trade.decayAnalysis.decayRate || 0).toFixed(2)}%/day</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Stability</span>
