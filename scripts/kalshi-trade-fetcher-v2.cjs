@@ -86,21 +86,92 @@ const CONFIG = {
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Fee calculation for Kalshi (simplified model)
+// Kalshi fees: ~0.5% to 2% depending on contract price and profit
+function calculateKalshiFees(positionSize, price, isWin) {
+  // Fee structure: Higher fees for cheaper contracts and winning positions
+  const baseFeeRate = 0.005; // 0.5% base
+  const priceAdjustment = (100 - price) / 100 * 0.015; // Higher fee for cheaper contracts
+  const profitFee = isWin ? 0.01 : 0; // Extra 1% on winning positions
+  
+  const totalFeeRate = baseFeeRate + priceAdjustment + profitFee;
+  return positionSize * totalFeeRate;
+}
+
+// Calculate effective edge after fees
+function calculateNetEdge(grossEdge, price, positionSize) {
+  const fees = calculateKalshiFees(positionSize, price, true); // Assume win for optimistic
+  const feePercentage = (fees / positionSize) * 100;
+  return grossEdge - feePercentage;
+}
+
+// Dynamic base probability for crypto (using price momentum)
+function calculateDynamicCryptoProb(series, history) {
+  // Default to baseProb if no history
+  if (!history || !history[series.ticker] || history[series.ticker].length < 2) {
+    return series.baseProb;
+  }
+  
+  const hist = history[series.ticker];
+  const recent = hist.slice(-5); // Last 5 data points
+  
+  if (recent.length < 2) return series.baseProb;
+  
+  // Calculate price trend
+  const firstPrice = recent[0].price;
+  const lastPrice = recent[recent.length - 1].price;
+  const priceChange = (lastPrice - firstPrice) / firstPrice;
+  
+  // Adjust probability based on trend (conservative adjustment)
+  // If price went up 10%, increase probability by 2% (not 10%)
+  const adjustment = priceChange * 0.2; // 20% of price change
+  let adjustedProb = series.baseProb + adjustment;
+  
+  // Clamp between 0.05 and 0.95
+  return Math.max(0.05, Math.min(0.95, adjustedProb));
+}
+
+// Get effective spread cost for exit liquidity
+function calculateSpreadCost(yesBid, yesAsk) {
+  if (!yesBid || !yesAsk) return 0;
+  return (yesAsk - yesBid) / 2; // Average spread as slippage cost
+}
+
+// Async file operations wrapper
+const fsPromises = require('fs').promises;
+
+async function readJsonFile(filePath) {
+  try {
+    const data = await fsPromises.readFile(filePath, 'utf8');
+    return JSON.parse(data);
+  } catch (e) {
+    return null;
+  }
+}
+
+async function writeJsonFile(filePath, data) {
+  try {
+    await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+    await fsPromises.writeFile(filePath, JSON.stringify(data, null, 2));
+    return true;
+  } catch (e) {
+    console.error('❌ Failed to write file:', e.message);
+    return false;
+  }
+}
+
 // Load historical data for comparison
 async function loadHistory() {
   try {
     if (db) {
       const snapshot = await db.ref('v6/kalshi/history').get();
       const data = snapshot.val() || {};
-      // Convert sanitized keys back to original ticker format if needed
-      // For now, tickers with dots are rare so we just return as-is
       return data;
     }
-    // Try local file fallback (uses original ticker names)
+    // Try local file fallback using async operations
     const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
-    if (fs.existsSync(historyPath)) {
-      return JSON.parse(fs.readFileSync(historyPath, 'utf8'));
-    }
+    const data = await readJsonFile(historyPath);
+    return data || {};
   } catch (e) {
     console.log('⚠️ Could not load history:', e.message);
   }
@@ -325,12 +396,11 @@ class EdgeDecayTracker {
     }
   }
   
-  saveToFile() {
+  async saveToFile() {
     try {
       const filePath = path.join(__dirname, '..', 'kalshi_data', 'edge_history.json');
-      fs.mkdirSync(path.dirname(filePath), { recursive: true });
       const obj = Object.fromEntries(this.edgeHistory);
-      fs.writeFileSync(filePath, JSON.stringify(obj, null, 2));
+      await writeJsonFile(filePath, obj);
     } catch (e) {
       console.error('❌ Failed to save edge history:', e.message);
     }
@@ -674,10 +744,9 @@ class WinRateAnalytics {
     };
   }
 
-  saveData() {
+  async saveData() {
     try {
-      fs.mkdirSync(path.dirname(this.historyPath), { recursive: true });
-      fs.writeFileSync(this.historyPath, JSON.stringify(this.data, null, 2));
+      await writeJsonFile(this.historyPath, this.data);
     } catch (e) {
       console.error('❌ Failed to save win rate data:', e.message);
     }
@@ -715,7 +784,7 @@ class WinRateAnalytics {
         this.data.trades = this.data.trades.slice(-1000);
       }
 
-      this.saveData();
+      await this.saveData();
     }
   }
 
@@ -1016,10 +1085,9 @@ class TwitterSentimentAnalyzer {
     return {};
   }
 
-  saveCache() {
+  async saveCache() {
     try {
-      fs.mkdirSync(path.dirname(this.cachePath), { recursive: true });
-      fs.writeFileSync(this.cachePath, JSON.stringify(this.cache, null, 2));
+      await writeJsonFile(this.cachePath, this.cache);
     } catch (e) {
       console.error('❌ Failed to save Twitter cache:', e.message);
     }
@@ -1172,7 +1240,7 @@ class TwitterSentimentAnalyzer {
       timestamp: Date.now(),
       data: results
     };
-    this.saveCache();
+    await this.saveCache();
 
     return results;
   }
@@ -1403,6 +1471,7 @@ class BacktestingFramework {
     return {
       strategy: strategy.name,
       description: strategy.description,
+      warning: 'Results use Monte Carlo simulation for pending trades. Real backtesting requires historical market resolutions.',
       tradesAnalyzed: trades.length,
       matchedTrades: matchedTrades.length,
       simulatedTrades: simulatedTrades.length,
@@ -2283,10 +2352,9 @@ async function saveHistory(history) {
       await db.ref('v6/kalshi/history').set(sanitizedHistory);
     }
     
-    // Also save locally (use original keys for local file)
+    // Also save locally using async operations
     const historyPath = path.join(__dirname, '..', 'kalshi_data', 'price_history.json');
-    fs.mkdirSync(path.dirname(historyPath), { recursive: true });
-    fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
+    await writeJsonFile(historyPath, history);
   } catch (e) {
     console.error('❌ Failed to save history:', e.message);
   }
@@ -3461,14 +3529,26 @@ async function main() {
         // Calculate momentum
         const momentum = calculateMomentum(yesPrice, history, m.ticker);
         
+        // Use dynamic probability for crypto, static for others
+        const effectiveBaseProb = series.category === 'crypto' 
+          ? calculateDynamicCryptoProb(series, history)
+          : series.baseProb;
+        
         // Calculate edge with time adjustment
-        const edgeCalc = calculateEdge(yesPrice, series.baseProb, volume, m.close_time, series.category);
+        const edgeCalc = calculateEdge(yesPrice, effectiveBaseProb, volume, m.close_time, series.category);
+        
+        // Calculate spread cost (exit liquidity risk)
+        const spreadCost = calculateSpreadCost(m.yes_bid, m.yes_ask);
+        
+        // Adjust edge for spread cost and fees
+        const grossEdge = edgeCalc.edge;
+        const netEdge = calculateNetEdge(grossEdge - spreadCost, yesPrice, 100); // Assume $100 position for calc
         
         // Calculate historical edge (CLV tracking)
-        const clv = calculateHistoricalEdge(edgeCalc.edge, history, m.ticker);
+        const clv = calculateHistoricalEdge(netEdge, history, m.ticker);
         
         if (yesPrice >= CONFIG.minPrice && yesPrice <= CONFIG.maxPrice && 
-            volume >= CONFIG.minVolume && edgeCalc.edge >= CONFIG.minEdge) {
+            volume >= CONFIG.minVolume && netEdge >= CONFIG.minEdge) {
           
           const kelly = calculateKelly(edgeCalc.adjustedProb, yesPrice);
           let recommendation = 'hold';
@@ -3480,16 +3560,16 @@ async function main() {
             recommendation = 'buy_urgent';
           }
           
-          // Calculate risk metrics
+          // Calculate risk metrics using NET edge (after fees/spread)
           const riskMetrics = calculateRiskMetrics({
             ...kelly,
             yesPrice,
-            edge: edgeCalc.edge
+            edge: netEdge
           });
           
-          // Check alerts
+          // Check alerts using NET edge
           const alerts = checkAlerts(
-            { ticker: m.ticker, rScore: edgeCalc.rScore.toFixed(2), edge: edgeCalc.edge.toFixed(1), closeTime: m.close_time },
+            { ticker: m.ticker, rScore: edgeCalc.rScore.toFixed(2), edge: netEdge.toFixed(1), closeTime: m.close_time },
             momentum,
             whaleData,
             clv
@@ -3516,17 +3596,20 @@ async function main() {
             closeTime: m.close_time,
             expiration: m.expiration_date || m.close_time,
             kalshiUrl: buildUrl(m.ticker),
-            edge: parseFloat(edgeCalc.edge.toFixed(1)), // Store as number
-            rScore: parseFloat(edgeCalc.rScore.toFixed(2)), // Store as number
+            edge: parseFloat(netEdge.toFixed(1)), // NET edge after fees/spread
+            grossEdge: parseFloat(edgeCalc.edge.toFixed(1)), // Original gross edge
+            rScore: parseFloat(edgeCalc.rScore.toFixed(2)),
             trueProbability: parseFloat((edgeCalc.adjustedProb * 100).toFixed(1)),
             marketProbability: parseFloat((edgeCalc.marketProb * 100).toFixed(1)),
             timeAdjustment: parseFloat((edgeCalc.timeAdjustment * 100).toFixed(1)),
             volumeBoost: parseFloat((edgeCalc.volumeBoost * 100).toFixed(1)),
+            spreadCost: parseFloat(spreadCost.toFixed(1)), // Exit liquidity cost
+            estimatedFees: parseFloat(calculateKalshiFees(100, yesPrice, true).toFixed(2)), // Fees on $100 position
             kellyPct: parseFloat(kelly.kellyPct),
             position: kelly.position,
             recommendation,
             multiplier: Math.round((100 - yesPrice) / yesPrice * 10) / 10,
-            catalyst: `Base ${(series.baseProb * 100).toFixed(0)}% + Time ${edgeCalc.timeAdjustment >= 0 ? '+' : ''}${(edgeCalc.timeAdjustment * 100).toFixed(0)}% + Vol ${(edgeCalc.volumeBoost * 100).toFixed(0)}%`,
+            catalyst: `Base ${(effectiveBaseProb * 100).toFixed(0)}% + Time ${edgeCalc.timeAdjustment >= 0 ? '+' : ''}${(edgeCalc.timeAdjustment * 100).toFixed(0)}% + Vol ${(edgeCalc.volumeBoost * 100).toFixed(0)}%${series.category === 'crypto' ? ' + Dynamic Adj' : ''}`,
             confidence: edgeCalc.rScore >= 2 ? 'high' : edgeCalc.rScore >= 1 ? 'medium' : 'low',
             health: health.health,
             spread: parseFloat(health.avgSpread.toFixed(1)),
@@ -3546,8 +3629,8 @@ async function main() {
             sources: ['Kalshi API', 'Volume Analysis', 'Time Decay', 'Momentum', 'CLV', 'Risk Model']
           });
           
-          // Record edge for decay tracking
-          edgeDecayTracker.recordEdge(m.ticker, edgeCalc.edge.toFixed(1), edgeCalc.rScore.toFixed(2), yesPrice);
+          // Record edge for decay tracking (use NET edge)
+          edgeDecayTracker.recordEdge(m.ticker, netEdge.toFixed(1), edgeCalc.rScore.toFixed(2), yesPrice);
           
           // Update history
           if (!history[m.ticker]) history[m.ticker] = [];
@@ -3555,7 +3638,7 @@ async function main() {
             timestamp: Date.now(),
             price: yesPrice,
             volume,
-            edge: edgeCalc.edge
+            edge: netEdge
           });
         }
       }
@@ -3686,7 +3769,7 @@ async function main() {
     })();
 
     // Record for win rate analytics
-    winRateAnalytics.recordTradeOpportunity(trade);
+    await winRateAnalytics.recordTradeOpportunity(trade);
   }
   
   // Re-sort by composite score
@@ -3700,7 +3783,7 @@ async function main() {
   
   // Print edge decay report
   edgeDecayTracker.printDecayReport(allTrades);
-  edgeDecayTracker.saveToFile();
+  await edgeDecayTracker.saveToFile();
 
   // Print correlation matrix report
   correlationMatrix.printCorrelationReport(correlations);
@@ -3800,9 +3883,7 @@ async function main() {
   };
   
   const dataDir = path.join(__dirname, '..', 'kalshi_data');
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-  
-  fs.writeFileSync(path.join(dataDir, 'latest_scan.json'), JSON.stringify(output, null, 2));
+  await writeJsonFile(path.join(dataDir, 'latest_scan.json'), output);
   console.log(`\n✅ Saved to kalshi_data/latest_scan.json`);
   
   if (db) {
