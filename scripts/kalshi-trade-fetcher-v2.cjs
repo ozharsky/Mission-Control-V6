@@ -2678,6 +2678,179 @@ function detectWhale(currentVolume, history, ticker) {
   return { isWhale, avgVolume, spikeRatio };
 }
 
+// ==================== TAIL-RISK ENGINE (Cross-Category) ====================
+class TailRiskEngine {
+  constructor() {
+    this.minNoPrice = 1;
+    this.maxNoPrice = 15;
+    this.fatPitchThresholds = {
+      weather: 5, crypto: 3, economics: 0.2, politics: 1.5, spx: 1.0
+    };
+  }
+
+  async analyzeTailRisks(allMarkets, externalData = {}) {
+    const byEvent = this.groupByEvent(allMarkets);
+    const opportunities = [];
+
+    for (const [eventKey, markets] of Object.entries(byEvent)) {
+      if (markets.length < 2) continue;
+      const category = this.detectCategory(markets[0]);
+      const oracleData = externalData[category];
+      
+      for (const market of markets) {
+        const noPrice = market.no_ask || (100 - market.yes_ask);
+        if (noPrice < this.minNoPrice || noPrice > this.maxNoPrice) continue;
+
+        const analysis = await this.analyzeMarket(market, category, oracleData);
+        if (analysis.isDead || analysis.isFatPitch) {
+          opportunities.push({
+            ticker: market.ticker, title: market.title, category, noPrice,
+            potentialReturn: 100 - noPrice, roi: ((100 - noPrice) / noPrice * 100).toFixed(0),
+            type: analysis.isDead ? 'mathematically_dead' : 'fat_pitch',
+            confidence: analysis.confidence, reason: analysis.reason,
+            oracleValue: analysis.oracleValue, bracketValue: analysis.bracketValue,
+            distance: analysis.distance, timeRemaining: analysis.timeRemaining
+          });
+        }
+      }
+    }
+
+    return {
+      opportunities: opportunities.sort((a, b) => b.confidence - a.confidence),
+      summary: {
+        total: opportunities.length,
+        deadCertainties: opportunities.filter(o => o.type === 'mathematically_dead').length,
+        fatPitches: opportunities.filter(o => o.type === 'fat_pitch').length,
+        byCategory: this.groupByCategory(opportunities)
+      }
+    };
+  }
+
+  detectCategory(market) {
+    const ticker = market.ticker || ''; const title = market.title || '';
+    if (ticker.includes('HIGH') || ticker.includes('LOW')) return 'weather';
+    if (ticker.includes('BTC') || ticker.includes('ETH')) return 'crypto';
+    if (ticker.includes('CPI') || ticker.includes('JOBS')) return 'economics';
+    if (ticker.includes('TRUMP') || ticker.includes('APPROVE')) return 'politics';
+    if (title.includes('S&P') || title.includes('SPX')) return 'spx';
+    return 'unknown';
+  }
+
+  async analyzeMarket(market, category, oracleData) {
+    const bracket = this.extractBracketValue(market.title);
+    const timeRemaining = this.calculateTimeRemaining(market.close_time);
+    
+    switch (category) {
+      case 'weather': return this.analyzeWeather(bracket, oracleData, timeRemaining);
+      case 'crypto': return this.analyzeCrypto(bracket, oracleData, timeRemaining);
+      case 'economics': return this.analyzeEconomics(bracket, oracleData, timeRemaining);
+      case 'politics': return this.analyzePolitics(bracket, oracleData, timeRemaining);
+      case 'spx': return this.analyzeSPX(bracket, oracleData, timeRemaining);
+      default: return { isDead: false, isFatPitch: false, confidence: 0 };
+    }
+  }
+
+  analyzeWeather(bracket, forecast, timeRemaining) {
+    if (!bracket || !forecast || bracket.type !== 'range') return { isDead: false, isFatPitch: false, confidence: 0 };
+    const bracketMid = (bracket.low + bracket.high) / 2;
+    const distance = Math.abs(bracketMid - forecast);
+    const isFatPitch = distance >= this.fatPitchThresholds.weather;
+    const isDead = timeRemaining < 2 && distance > 3;
+    return { isDead, isFatPitch, confidence: isDead ? 0.95 : isFatPitch ? 0.85 : 0, reason: isDead ? `<2hrs left, ${distance.toFixed(1)} away` : `${distance.toFixed(1)} from forecast`, oracleValue: forecast, bracketValue: bracketMid, distance, timeRemaining };
+  }
+
+  analyzeCrypto(bracket, priceData, timeRemaining) {
+    if (!bracket || !priceData) return { isDead: false, isFatPitch: false, confidence: 0 };
+    const { currentPrice, volatility24h } = priceData;
+    const bracketMid = (bracket.low + bracket.high) / 2;
+    const distance = Math.abs(bracketMid - currentPrice);
+    const distancePercent = (distance / currentPrice) * 100;
+    const requiredAnnualizedVol = (distancePercent / 100) * Math.sqrt(365 / (timeRemaining / 24));
+    const isFatPitch = requiredAnnualizedVol > (volatility24h * 3);
+    const isDead = requiredAnnualizedVol > (volatility24h * 5) && timeRemaining < 2;
+    return { isDead, isFatPitch, confidence: isDead ? 0.9 : isFatPitch ? 0.8 : 0, reason: `${distancePercent.toFixed(1)}% move required`, oracleValue: currentPrice, bracketValue: bracketMid, distance: distancePercent, timeRemaining };
+  }
+
+  analyzeEconomics(bracket, consensusData, timeRemaining) {
+    if (!bracket || !consensusData) return { isDead: false, isFatPitch: false, confidence: 0 };
+    const { consensus, stdDev } = consensusData;
+    let bracketValue = bracket.type === 'range' ? (bracket.low + bracket.high) / 2 : bracket.threshold;
+    const distance = Math.abs(bracketValue - consensus);
+    const zScore = distance / (stdDev || 0.1);
+    return { isDead: zScore > 3, isFatPitch: zScore > 2, confidence: zScore > 3 ? 0.95 : zScore > 2 ? 0.85 : 0, reason: `${distance.toFixed(2)} from consensus (z: ${zScore.toFixed(1)})`, oracleValue: consensus, bracketValue, distance, timeRemaining };
+  }
+
+  analyzePolitics(bracket, currentRating, timeRemaining) {
+    if (!bracket || !currentRating) return { isDead: false, isFatPitch: false, confidence: 0 };
+    let bracketValue = bracket.type === 'range' ? (bracket.low + bracket.high) / 2 : bracket.threshold;
+    const distance = Math.abs(bracketValue - currentRating);
+    const maxRealisticMove = (timeRemaining / 24) * 0.2;
+    return { isDead: distance > (maxRealisticMove * 2), isFatPitch: distance > maxRealisticMove, confidence: distance > (maxRealisticMove * 2) ? 0.9 : distance > maxRealisticMove ? 0.75 : 0, reason: `${distance.toFixed(1)} away (max: ${maxRealisticMove.toFixed(1)})`, oracleValue: currentRating, bracketValue, distance, timeRemaining };
+  }
+
+  analyzeSPX(bracket, spxData, timeRemaining) {
+    if (!bracket || !spxData) return { isDead: false, isFatPitch: false, confidence: 0 };
+    const { currentPrice, vix, dailyHigh, dailyLow } = spxData;
+    const midPoint = (dailyHigh + dailyLow) / 2;
+    const currentChange = ((currentPrice - midPoint) / midPoint) * 100;
+    let bracketChange = bracket.type === 'range' ? (bracket.low + bracket.high) / 2 : bracket.type === 'above' ? bracket.threshold : -bracket.threshold;
+    const distance = Math.abs(bracketChange - currentChange);
+    const hourlyVol = vix / Math.sqrt(252 * 6.5);
+    const zScore = distance / (hourlyVol * Math.sqrt(timeRemaining));
+    return { isDead: zScore > 3 && timeRemaining < 1, isFatPitch: zScore > 2, confidence: zScore > 3 ? 0.9 : zScore > 2 ? 0.8 : 0, reason: `${distance.toFixed(2)}% needed (VIX: ${vix})`, oracleValue: currentChange.toFixed(2) + '%', bracketValue: bracketChange + '%', distance, timeRemaining };
+  }
+
+  extractBracketValue(title) {
+    if (!title) return null;
+    const rangeMatch = title.match(/(\d+(?:\.\d+)?)[°\s]*-\s*(\d+(?:\.\d+)?)/i) || title.match(/(\d+(?:\.\d+)?)\s*to\s*(\d+(?:\.\d+)?)/i);
+    const aboveMatch = title.match(/>\s*(\d+(?:\.\d+)?)/i) || title.match(/(\d+(?:\.\d+)?)\s*or\s*more/i);
+    const belowMatch = title.match(/<\s*(\d+(?:\.\d+)?)/i) || title.match(/less\s*than\s*(\d+(?:\.\d+)?)/i);
+    if (rangeMatch) return { type: 'range', low: parseFloat(rangeMatch[1]), high: parseFloat(rangeMatch[2]) };
+    if (aboveMatch) return { type: 'above', threshold: parseFloat(aboveMatch[1]) };
+    if (belowMatch) return { type: 'below', threshold: parseFloat(belowMatch[1]) };
+    return null;
+  }
+
+  groupByEvent(markets) {
+    const groups = {};
+    for (const market of markets) {
+      const match = market.ticker.match(/([A-Z]+-\d{2}[A-Z]{3}\d{2})/);
+      if (!match) continue;
+      const eventKey = match[1];
+      if (!groups[eventKey]) groups[eventKey] = [];
+      groups[eventKey].push(market);
+    }
+    return groups;
+  }
+
+  calculateTimeRemaining(closeTime) {
+    if (!closeTime) return 24;
+    return Math.max(0, (new Date(closeTime) - new Date()) / (1000 * 60 * 60));
+  }
+
+  groupByCategory(opportunities) {
+    const byCat = {};
+    for (const opp of opportunities) {
+      if (!byCat[opp.category]) byCat[opp.category] = [];
+      byCat[opp.category].push(opp);
+    }
+    return byCat;
+  }
+
+  printResults(results) {
+    console.log('\n🎯 TAIL-RISK ENGINE:');
+    console.log(`  Total: ${results.summary.total}, Dead: ${results.summary.deadCertainties}, Fat: ${results.summary.fatPitches}`);
+    for (const [category, opps] of Object.entries(results.summary.byCategory)) {
+      if (opps.length === 0) continue;
+      console.log(`\n  ${category.toUpperCase()}:`);
+      opps.slice(0, 3).forEach(o => {
+        const emoji = o.type === 'mathematically_dead' ? '💀' : '🔥';
+        console.log(`    ${emoji} ${o.ticker}: ${o.noPrice}¢ NO → $1.00 (${o.roi}% ROI)`);
+      });
+    }
+  }
+}
+
 // Calculate price momentum
 function calculateMomentum(currentPrice, history, ticker) {
   if (!history || !history[ticker] || history[ticker].length < 2) {
@@ -4088,6 +4261,62 @@ async function main() {
     }
   }
   // ==================== END PENNY-PICKING ====================
+
+  // ==================== TAIL-RISK ENGINE (Cross-Category) ====================
+  console.log('\n🎯 Running Tail-Risk Engine (all categories)...');
+  const tailRiskEngine = new TailRiskEngine();
+  
+  // Build external data sources map
+  const externalData = {
+    weather: {}, // Will be populated per-city below
+    crypto: { currentPrice: 65000, volatility24h: 0.45 }, // Placeholder - should fetch from API
+    economics: { consensus: 3.1, stdDev: 0.1 }, // Placeholder
+    politics: 40.5, // Current approval rating - placeholder
+    spx: { currentPrice: 5200, vix: 15, dailyHigh: 5220, dailyLow: 5180 } // Placeholder
+  };
+  
+  // Populate weather forecasts
+  for (const [cityCode, forecast] of Object.entries(nwsForecasts)) {
+    if (forecast && forecast.length > 0) {
+      externalData.weather[cityCode] = forecast[0].highTemp;
+    }
+  }
+  
+  // Run tail-risk analysis on all raw markets
+  const tailRiskResults = await tailRiskEngine.analyzeTailRisks(allRawMarkets, externalData);
+  tailRiskEngine.printResults(tailRiskResults);
+  
+  // Merge tail-risk opportunities with penny results
+  for (const tailRisk of tailRiskResults.opportunities) {
+    const existing = pennyResults.opportunities.find(p => p.ticker === tailRisk.ticker);
+    if (existing) {
+      // Upgrade to fat_pitch if tail-risk analysis confirms it
+      if (tailRisk.type === 'mathematically_dead' || tailRisk.type === 'fat_pitch') {
+        existing.type = tailRisk.type;
+        existing.confidence = tailRisk.confidence;
+        existing.reason = tailRisk.reason;
+      }
+    } else {
+      pennyResults.opportunities.push(tailRisk);
+    }
+    
+    // Add to trade alerts
+    const trade = allTrades.find(t => t.ticker === tailRisk.ticker);
+    if (trade) {
+      trade.tailRiskSignal = tailRisk;
+      if (tailRisk.type === 'mathematically_dead') {
+        trade.recommendation = 'buy_urgent';
+        trade.alerts = trade.alerts || [];
+        trade.alerts.push({
+          type: 'tail_risk_dead',
+          severity: 'urgent',
+          message: `💀 Dead Certainty: ${tailRisk.reason}`,
+          ticker: tailRisk.ticker
+        });
+      }
+    }
+  }
+  // ==================== END TAIL-RISK ====================
   
   // ==================== END ALTERNATIVE DATA ====================
 
