@@ -1341,7 +1341,8 @@ class TwitterSentimentAnalyzer {
 // Fetch historical resolved markets from Kalshi API
 async function fetchHistoricalResolvedMarkets(limit = 100) {
   try {
-    const url = `https://trading-api.kalshi.com/trade-api/v2/historical/markets?limit=${limit}&status=closed`;
+    // Use regular markets endpoint with closed status (no auth required for public data)
+    const url = `https://trading-api.kalshi.com/trade-api/v2/markets?limit=${limit}&status=closed`;
     const data = await fetchWithRetry(url, {}, 2);
     return data.markets || [];
   } catch (e) {
