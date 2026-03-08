@@ -1194,7 +1194,10 @@ class TwitterSentimentAnalyzer {
     // Fall back to relevant news sentiment
     else if (relevantNews && relevantNews.length > 0) {
       const tradeNews = relevantNews.filter(n =>
-        matches.some(m => n.title.toLowerCase().includes(m.keyword) || n.summary.toLowerCase().includes(m.keyword))
+        matches.some(m => 
+          (n.title?.toLowerCase() || '').includes(m.keyword) || 
+          (n.summary?.toLowerCase() || '').includes(m.keyword)
+        )
       );
 
       if (tradeNews.length > 0) {
