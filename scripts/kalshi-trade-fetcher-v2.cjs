@@ -370,6 +370,20 @@ class AlertManager {
   }
 
   createAlert(type, severity, message, trade = null, arb = null, lag = null) {
+    // Clean trade object to remove undefined values for Firebase serialization
+    const cleanTrade = trade ? {
+      ticker: trade.ticker,
+      title: trade.title,
+      subtitle: trade.subtitle || '', // Ensure subtitle is never undefined
+      category: trade.category,
+      yesPrice: trade.yesPrice,
+      noPrice: trade.noPrice,
+      edge: trade.edge,
+      rScore: trade.rScore,
+      volume: trade.volume,
+      recommendation: trade.recommendation
+    } : null;
+    
     return {
       id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       type,
@@ -377,7 +391,7 @@ class AlertManager {
       message,
       timestamp: new Date().toISOString(),
       ticker: trade?.ticker || arb?.ticker,
-      trade,
+      trade: cleanTrade,
       arb,
       lag
     };
