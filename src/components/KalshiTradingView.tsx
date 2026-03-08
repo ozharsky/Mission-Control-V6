@@ -1971,7 +1971,7 @@ export function KalshiTradingView() {
           )}
 
           {/* Penny-Picking & Tail-Risk Card */}
-          {(scanSummary.pennyOpportunities > 0 || scanSummary.tailRiskOpportunities > 0) && (
+          {(scanSummary?.pennyOpportunities > 0 || scanSummary?.tailRiskOpportunities > 0) && (
             <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-4">
               <h3 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
                 <span className="text-lg">🪙</span>
@@ -1979,7 +1979,7 @@ export function KalshiTradingView() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Penny Opportunities */}
-                {scanSummary.pennyOpportunities > 0 && (
+                {scanSummary?.pennyOpportunities > 0 && (
                   <div className="bg-surface-hover/50 rounded-lg p-3">
                     <p className="text-xs text-gray-400 mb-1">🪙 Cheap NOs</p>
                     <p className="text-lg font-bold text-purple-400">{scanSummary.pennyOpportunities}</p>
@@ -1988,7 +1988,7 @@ export function KalshiTradingView() {
                 )}
                 
                 {/* Fat Pitches */}
-                {scanSummary.fatPitches > 0 && (
+                {scanSummary?.fatPitches > 0 && (
                   <div className="bg-surface-hover/50 rounded-lg p-3">
                     <p className="text-xs text-gray-400 mb-1">🔥 Fat Pitches</p>
                     <p className="text-lg font-bold text-amber-400">{scanSummary.fatPitches}</p>
@@ -1997,7 +1997,7 @@ export function KalshiTradingView() {
                 )}
                 
                 {/* Tail-Risk */}
-                {scanSummary.tailRiskOpportunities > 0 && (
+                {scanSummary?.tailRiskOpportunities > 0 && (
                   <div className="bg-surface-hover/50 rounded-lg p-3">
                     <p className="text-xs text-gray-400 mb-1">🎯 Tail-Risk</p>
                     <p className="text-lg font-bold text-rose-400">{scanSummary.tailRiskOpportunities}</p>
@@ -2006,7 +2006,7 @@ export function KalshiTradingView() {
                 )}
                 
                 {/* Penny Arbitrage */}
-                {scanSummary.pennyArbitrage > 0 && (
+                {scanSummary?.pennyArbitrage > 0 && (
                   <div className="bg-surface-hover/50 rounded-lg p-3">
                     <p className="text-xs text-gray-400 mb-1">🔗 NO Arbitrage</p>
                     <p className="text-lg font-bold text-emerald-400">{scanSummary.pennyArbitrage}</p>
