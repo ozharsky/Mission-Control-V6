@@ -1835,6 +1835,69 @@ export function KalshiTradingView() {
             </div>
           )}
 
+          {/* Key Insights Card */}
+          {scanSummary && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <h3 className="text-sm font-semibold text-amber-400 mb-3 flex items-center gap-2">
+                <Zap className="h-4 w-4" />
+                Scanner Insights
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Weather Lag */}
+                {scanSummary.weatherLags > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🌤️ Weather Lag</p>
+                    <p className="text-lg font-bold text-amber-400">{scanSummary.weatherLags} ops</p>
+                    <p className="text-xs text-gray-500">NWS vs Kalshi mismatch</p>
+                  </div>
+                )}
+                
+                {/* Polymarket Arb */}
+                {scanSummary.polymarketArbs > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🔗 Polymarket Arb</p>
+                    <p className="text-lg font-bold text-emerald-400">{scanSummary.polymarketArbs} ops</p>
+                    <p className="text-xs text-gray-500">Cross-exchange spreads</p>
+                  </div>
+                )}
+                
+                {/* Urgent Alerts */}
+                {scanSummary.triggeredAlerts?.urgent > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🚨 Urgent Alerts</p>
+                    <p className="text-lg font-bold text-rose-400">{scanSummary.triggeredAlerts.urgent}</p>
+                    <p className="text-xs text-gray-500">Require attention</p>
+                  </div>
+                )}
+                
+                {/* Best Score */}
+                {trades.length > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🏆 Top Score</p>
+                    <p className="text-lg font-bold text-primary">
+                      {Math.max(...trades.map(t => parseFloat(t.compositeScore || '0'))).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {trades.sort((a, b) => parseFloat(b.compositeScore || '0') - parseFloat(a.compositeScore || '0'))[0]?.ticker}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Quick Tip */}
+              {scanSummary.weatherLags > 0 && scanSummary.weatherLags > scanSummary.polymarketArbs && (
+                <p className="text-xs text-amber-400/80 mt-3 pt-3 border-t border-amber-500/20">
+                  💡 Tip: Weather markets showing big edges today. Check the Signals tab for NWS lag details.
+                </p>
+              )}
+              {scanSummary.polymarketArbs > 0 && scanSummary.polymarketArbs >= scanSummary.weatherLags && (
+                <p className="text-xs text-emerald-400/80 mt-3 pt-3 border-t border-amber-500/20">
+                  💡 Tip: Polymarket arbitrage opportunities detected. Compare prices before trading.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Loading State */}
           {isLoadingTrades && (
             <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
