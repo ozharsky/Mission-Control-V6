@@ -1791,17 +1791,81 @@ export function KalshiTradingView() {
 
           {/* Advanced Filters */}
           {!isLoadingTrades && (
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                <Filter className="h-4 w-4" />
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
-                {(minEdge > 0 || maxEdge < 100 || minRScore > 0 || hasAlert !== 'any') && (
-                  <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full">Active</span>
-                )}
-              </button>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  <Filter className="h-4 w-4" />
+                  {showFilters ? 'Hide Filters' : 'Show Filters'}
+                  {(minEdge > 0 || maxEdge < 100 || minRScore > 0 || hasAlert !== 'any') && (
+                    <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </button>
+              </div>
+
+              {/* Filter Panel */}
+              {showFilters && (
+                <div className="rounded-xl border border-surface-hover bg-surface p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Min Edge %</label>
+                      <input
+                        type="number"
+                        value={minEdge}
+                        onChange={(e) => setMinEdge(Number(e.target.value))}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Max Edge %</label>
+                      <input
+                        type="number"
+                        value={maxEdge}
+                        onChange={(e) => setMaxEdge(Number(e.target.value))}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Min R-Score</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={minRScore}
+                        onChange={(e) => setMinRScore(Number(e.target.value))}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Alerts</label>
+                      <select
+                        value={hasAlert}
+                        onChange={(e) => setHasAlert(e.target.value as any)}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      >
+                        <option value="any">Any</option>
+                        <option value="urgent">🚨 Urgent</option>
+                        <option value="high">⚠️ High</option>
+                        <option value="none">None</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end pt-2 border-t border-surface-hover">
+                    <button
+                      onClick={() => {
+                        setMinEdge(0);
+                        setMaxEdge(100);
+                        setMinRScore(0);
+                        setHasAlert('any');
+                      }}
+                      className="text-sm text-gray-400 hover:text-white transition-colors"
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
