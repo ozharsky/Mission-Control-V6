@@ -3802,9 +3802,9 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history 
   // Calculate proper R-Score: edge divided by historical volatility (signal-to-noise)
   // If no history, use a default volatility of 5% to avoid division by zero
   let rScore = 0;
+  let historicalVolatility = 5; // Default 5% volatility - define outside if block
+  
   if (edge > 0) {
-    let historicalVolatility = 5; // Default 5% volatility
-    
     if (history && ticker && history[ticker] && history[ticker].length >= 5) {
       // Calculate standard deviation of historical edges
       const edges = history[ticker].map(h => h.edge).filter(e => typeof e === 'number');
