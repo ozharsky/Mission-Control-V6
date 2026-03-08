@@ -5,6 +5,7 @@
  */
 
 const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
@@ -1338,15 +1339,15 @@ class TwitterSentimentAnalyzer {
 // ==================== HISTORICAL VALIDATION ====================
 // Real backtesting using Kalshi's historical API for resolved markets
 
-// Fetch historical resolved markets from Kalshi API
-async function fetchHistoricalResolvedMarkets(limit = 100) {
+// Fetch historical resolved markets from Kalshi API by series
+async function fetchHistoricalResolvedMarkets(seriesTicker, limit = 100) {
   try {
-    // Use regular markets endpoint with closed status (no auth required for public data)
-    const url = `https://trading-api.kalshi.com/trade-api/v2/markets?limit=${limit}&status=closed`;
+    // Use regular markets endpoint with closed status for specific series
+    const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=${limit}&status=closed`;
     const data = await fetchWithRetry(url, {}, 2);
     return data.markets || [];
   } catch (e) {
-    console.log('⚠️ Failed to fetch historical markets:', e.message);
+    console.log(`⚠️ Failed to fetch historical markets for ${seriesTicker}:`, e.message);
     return [];
   }
 }
@@ -1568,10 +1569,13 @@ class BacktestingFramework {
 
     // Determine position size
     let position = 100; // Default $100
+    const marketProb = trade.yesPrice / 100;
+    const trueProb = trade.trueProbability / 100 || (0.5 + (edge / 200));
+    
     if (positionSizing === 'kelly_half') {
-      position = this.calculateKellyPosition(edge, 0.5);
+      position = this.calculateKellyPosition(trueProb, marketProb, 0.5);
     } else if (positionSizing === 'kelly_full') {
-      position = this.calculateKellyPosition(edge, 1.0);
+      position = this.calculateKellyPosition(trueProb, marketProb, 1.0);
     } else if (positionSizing === 'fixed_50') {
       position = 50;
     } else if (positionSizing === 'fixed_100') {
@@ -1592,19 +1596,22 @@ class BacktestingFramework {
     };
   }
 
-  // Calculate Kelly criterion position size
-  calculateKellyPosition(edge, fraction = 0.5) {
-    const winProb = 0.5 + (edge / 200);
+  // Calculate Kelly criterion position size using true probability
+  calculateKellyPosition(trueProb, marketProb, fraction = 0.5) {
+    // trueProb: Our estimated true probability (0-1)
+    // marketProb: Market implied probability (0-1)
+    if (trueProb <= marketProb) return 0;
+    
+    const winProb = trueProb;
     const lossProb = 1 - winProb;
-    const winAmount = edge / 100;
-    const lossAmount = 1;
-
-    // Kelly = (winProb * winAmount - lossProb * lossAmount) / winAmount
-    const kelly = (winProb * winAmount - lossProb * lossAmount) / winAmount;
-    const halfKelly = Math.max(0, kelly * fraction);
-
+    const b = (1 - marketProb) / marketProb; // Decimal odds
+    
+    // Kelly = (winProb * b - lossProb) / b
+    const kelly = (winProb * b - lossProb) / b;
+    const adjustedKelly = Math.max(0, kelly * fraction);
+    
     // Convert to dollar amount (capped at $500)
-    return Math.min(500, Math.max(10, halfKelly * 1000));
+    return Math.min(500, Math.max(10, adjustedKelly * 1000));
   }
 
   // Calculate maximum drawdown
@@ -1703,18 +1710,25 @@ class BacktestingFramework {
   async validateWithHistoricalData(allTrades) {
     console.log('\n📊 VALIDATING PREDICTIONS WITH HISTORICAL DATA...');
     
-    // Fetch historical resolved markets
-    const historicalMarkets = await fetchHistoricalResolvedMarkets(100);
+    // Get unique series tickers from tracked trades
+    const seriesTickers = [...new Set(allTrades.map(t => t.ticker.split('-')[0]))];
     
-    if (historicalMarkets.length === 0) {
+    // Fetch historical markets for each series
+    let allHistoricalMarkets = [];
+    for (const seriesTicker of seriesTickers) {
+      const markets = await fetchHistoricalResolvedMarkets(seriesTicker, 50);
+      allHistoricalMarkets = allHistoricalMarkets.concat(markets);
+    }
+    
+    if (allHistoricalMarkets.length === 0) {
       console.log('  ⚠️ No historical data available from API');
       return null;
     }
     
-    console.log(`  Found ${historicalMarkets.length} resolved markets in history`);
+    console.log(`  Found ${allHistoricalMarkets.length} resolved markets across ${seriesTickers.length} series`);
     
     // Check if any of our tracked trades have resolved
-    const validated = await validatePredictionsWithHistory(allTrades, historicalMarkets);
+    const validated = await validatePredictionsWithHistory(allTrades, allHistoricalMarkets);
     const resolved = validated.filter(v => v.resolved);
     
     if (resolved.length === 0) {
@@ -2431,7 +2445,12 @@ async function cachedFetch(key, fetchFn, ttlMs) {
   
   console.log(`  🌐 Fetching: ${key}`);
   const result = await fetchFn();
-  cache.set(key, result, ttlMs);
+  
+  // Only cache successful results (not null/undefined)
+  if (result !== null && result !== undefined) {
+    cache.set(key, result, ttlMs);
+  }
+  
   return result;
 }
 
@@ -2909,7 +2928,7 @@ function fetchOnce(url, options) {
 // Fetch raw text (for RSS feeds)
 function fetchText(url, options = {}, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
-    const protocol = url.startsWith('https') ? https : require('http');
+    const protocol = url.startsWith('https') ? https : http;
     
     const req = protocol.get(url, {
       headers: { 
@@ -2946,7 +2965,7 @@ function fetchText(url, options = {}, timeoutMs = 10000) {
 }
 
 function fetchMarkets(seriesTicker) {
-  const url = `https://api.elections.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=20&status=open`;
+  const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=100&status=open`;
   return fetchWithRetry(url);
 }
 
@@ -3078,10 +3097,17 @@ function detectArbitrage(markets) {
   return arbs;
 }
 
-// Check Polymarket for arbitrage opportunities
-async function fetchPolymarketData() {
+// Check Polymarket for arbitrage opportunities with search
+async function fetchPolymarketData(searchTerm = null) {
   try {
-    const url = 'https://gamma-api.polymarket.com/events?active=true&closed=false&archived=false&limit=100';
+    let url;
+    if (searchTerm) {
+      // Search for specific event
+      url = `https://gamma-api.polymarket.com/events?active=true&closed=false&archived=false&limit=20&search=${encodeURIComponent(searchTerm)}`;
+    } else {
+      // Get broader list but with higher limit
+      url = 'https://gamma-api.polymarket.com/events?active=true&closed=false&archived=false&limit=500';
+    }
     const data = await fetchWithRetry(url, {}, 2);
     return data || [];
   } catch (e) {
