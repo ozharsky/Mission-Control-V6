@@ -4658,6 +4658,20 @@ async function main() {
     ...byCategory.economics.slice(0, 10)
   ].sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
 
+  // Ensure penny picks and tail-risk trades are included
+  const pennyPickTrades = allTrades.filter(t => t.pennySignal);
+  const tailRiskTrades = allTrades.filter(t => t.tailRiskSignal);
+  
+  // Add penny picks and tail-risk trades that aren't already in topTrades
+  for (const trade of [...pennyPickTrades, ...tailRiskTrades]) {
+    if (!topTrades.find(t => t.ticker === trade.ticker)) {
+      topTrades.push(trade);
+    }
+  }
+  
+  // Re-sort after adding penny picks
+  topTrades.sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
+
   // Count all alerts
   const totalAlerts = topTrades.reduce((sum, t) => sum + (t.alerts?.length || 0), 0);
 
