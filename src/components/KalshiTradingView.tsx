@@ -1891,6 +1891,31 @@ export function KalshiTradingView() {
             </div>
           )}
 
+          {/* Expanded Top Opportunity Detail */}
+          {expandedTrade && trades.find(t => t.id === expandedTrade) && (
+            <div className="rounded-xl border border-emerald-500/30 bg-surface p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-emerald-400">Opportunity Details</h3>
+                <button 
+                  onClick={() => setExpandedTrade(null)}
+                  className="text-xs text-gray-400 hover:text-white"
+                >
+                  Close ✕
+                </button>
+              </div>
+              {(() => {
+                const trade = trades.find(t => t.id === expandedTrade)!;
+                return (
+                  <TradeCard 
+                    trade={trade} 
+                    onBuy={(side, amount) => executeTrade(trade, side, amount)}
+                    bankroll={stats.bankroll}
+                  />
+                );
+              })()}
+            </div>
+          )}
+
           {/* Key Insights Card */}
           {scanSummary && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
