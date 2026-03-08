@@ -148,18 +148,24 @@ interface KalshiTrade {
   };
   // v3.0 fields - Penny Picking & Tail Risk
   pennySignal?: {
+    ticker: string;
+    title: string;
     noPrice: number;
     roi: string;
-    type: 'cheap_no' | 'fat_pitch' | 'very_cheap';
+    type: 'penny_pick' | 'fat_pitch';
     potentialReturn: number;
+    forecastDelta?: number;
+    isFatPitch?: boolean;
+    confidence?: string;
   };
   tailRiskSignal?: {
+    ticker: string;
     noPrice: number;
     roi: string;
     confidence: 'high' | 'very_high';
     category: string;
-    oracleValue: string;
-    distance: string;
+    type: string;
+    reasoning?: string;
   };
 }
 
