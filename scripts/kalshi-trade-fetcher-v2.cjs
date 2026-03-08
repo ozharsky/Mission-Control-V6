@@ -11,7 +11,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 // Kalshi API Configuration
-const KALSHI_API_KEY = process.env.KALSHI_API_KEY || '';
+const KALSHI_ACCESS_KEY = process.env.KALSHI_ACCESS_KEY || process.env.KALSHI_API_KEY || '';
 
 // Load private key from env var or file
 let privateKey = null;
@@ -26,7 +26,7 @@ try {
     console.log('✅ Loaded Kalshi private key from file');
   } else {
     console.log('⚠️ No Kalshi private key found - API calls will fail with 401');
-    console.log('   Add KALSHI_PRIVATE_KEY to GitHub Secrets or create kalshi_private_key.pem locally');
+    console.log('   Create a new API key at https://kalshi.com/account and download the private key');
   }
 } catch (e) {
   console.error('❌ Failed to load private key:', e.message);
@@ -2677,7 +2677,7 @@ class TailRiskEngine {
       const data = await fetchWithRetry(url, {}, 2);
       const prices = data.prices || [];
       if (prices.length < 2) return 0.02; // Default 2% vol
-      
+
       // Calculate standard deviation of hourly returns
       const returns = [];
       for (let i = 1; i < prices.length; i++) {
@@ -2723,7 +2723,7 @@ class TailRiskEngine {
       const hoursToClose = this.hoursToClose(market.close_time);
       const sigmaMove = Math.sqrt(hoursToClose) * volatility; // Scale by sqrt of hours
       const maxRealisticMove = 3 * sigmaMove; // 3-sigma
-      
+
       const priceDelta = Math.abs(bracket.midpoint - livePrice) / livePrice;
       const isImpossible = priceDelta > maxRealisticMove;
 
@@ -2751,9 +2751,9 @@ class TailRiskEngine {
   // Extract crypto price bracket
   extractCryptoBracket(title, currentPrice) {
     if (!title) return null;
-    
+
     // Match patterns like "$65,000-$66,000" or "$65k-$66k"
-    const rangeMatch = title.match(/\$?(\d+(?:\.?\d*))[kK]?\s*[-–]\s*\$?(\d+(?:\.?\d*))[kK]?/);
+    const rangeMatch = title.match(/\$?(\d+(?:\.?\d*))[kK]?\s*[--]\s*\$?(\d+(?:\.?\d*))[kK]?/);
     const aboveMatch = title.match(/>\s*\$?(\d+(?:\.?\d*))[kK]?/);
     const belowMatch = title.match(/<\s*\$?(\d+(?:\.?\d*))[kK]?/);
 
@@ -2829,9 +2829,9 @@ class TailRiskEngine {
 
   extractEconomicBracket(title, indicator) {
     if (!title) return null;
-    
+
     // Match patterns like "3.0 to 3.1%" or "3.0-3.1%" or "180k-190k"
-    const rangeMatch = title.match(/(\d+\.?\d*)\s*(?:to|-|–)\s*(\d+\.?\d*)/);
+    const rangeMatch = title.match(/(\d+\.?\d*)\s*(?:to|-|-)\s*(\d+\.?\d*)/);
     const aboveMatch = title.match(/>\s*(\d+\.?\d*)/);
     const belowMatch = title.match(/<\s*(\d+\.?\d*)/);
 
@@ -2854,7 +2854,7 @@ class TailRiskEngine {
     const opportunities = [];
     // Approval ratings move very slowly (rolling averages)
     // A 2% jump in one day is mathematically almost impossible
-    
+
     for (const market of markets) {
       const noPrice = market.no_ask || (100 - market.yes_ask);
       if (noPrice < this.minNoPrice || noPrice > this.maxNoPrice) continue;
@@ -2868,11 +2868,11 @@ class TailRiskEngine {
       // Simulate current approval at 40.5% (would be fetched from 538 API)
       const currentApproval = 40.5;
       const delta = Math.abs(bracket.midpoint - currentApproval);
-      
+
       // Political approval moves slowly due to rolling average nature
       const isImpossible = delta > this.confidenceThresholds.politics.delta;
       const timeToClose = this.hoursToClose(market.close_time);
-      
+
       // Even more impossible if closing soon
       if (isImpossible && timeToClose < 24) {
         opportunities.push({
@@ -2897,9 +2897,9 @@ class TailRiskEngine {
 
   extractPoliticsBracket(title) {
     if (!title) return null;
-    
+
     // Match approval rating brackets like "40-41%" or "Under 40%"
-    const rangeMatch = title.match(/(\d+)[%\s]*[-–][%\s]*(\d+)[%\s]*/);
+    const rangeMatch = title.match(/(\d+)[%\s]*[--][%\s]*(\d+)[%\s]*/);
     const underMatch = title.match(/under\s+(\d+)[%\s]*/i);
     const overMatch = title.match(/over\s+(\d+)[%\s]*/i);
 
@@ -2928,11 +2928,11 @@ class TailRiskEngine {
   // Main scan function
   async scanTailRisk(markets) {
     console.log('\n🎯 TAIL-RISK ENGINE: Cross-Category Penny-Picking');
-    
+
     const allOpportunities = [];
 
     // Crypto analysis
-    const cryptoMarkets = markets.filter(m => 
+    const cryptoMarkets = markets.filter(m =>
       ['KXBTC', 'KXETH', 'KXSOL', 'KXADA', 'KXDOT'].some(s => m.ticker.includes(s))
     );
     if (cryptoMarkets.length > 0) {
@@ -2943,7 +2943,7 @@ class TailRiskEngine {
     }
 
     // Economic analysis
-    const econMarkets = markets.filter(m => 
+    const econMarkets = markets.filter(m =>
       ['KXCPI', 'KXJOBS', 'KXGDP', 'KXFED'].some(s => m.ticker.includes(s))
     );
     if (econMarkets.length > 0) {
@@ -2954,7 +2954,7 @@ class TailRiskEngine {
     }
 
     // Politics analysis
-    const politicsMarkets = markets.filter(m => 
+    const politicsMarkets = markets.filter(m =>
       m.ticker.includes('APPROVE') || m.ticker.includes('538')
     );
     if (politicsMarkets.length > 0) {
@@ -2986,7 +2986,7 @@ class TailRiskEngine {
 
     console.log(`\n  🎰 TAIL-RISK OPPORTUNITIES: ${results.summary.total} found`);
     console.log(`     Very High Confidence: ${results.summary.highConfidence}`);
-    
+
     if (results.summary.byCategory.crypto > 0) {
       console.log(`     Crypto: ${results.summary.byCategory.crypto}`);
     }
@@ -3471,50 +3471,59 @@ async function fetchWithRetry(url, options = {}, retries = CONFIG.maxRetries) {
   throw new Error(`Failed after ${retries} retries`);
 }
 
-// Sign request for Kalshi API authentication
+// Sign request for Kalshi API authentication using RSA-PSS
 function signKalshiRequest(method, path, timestamp) {
-  if (!privateKey || !KALSHI_API_KEY) {
+  if (!privateKey || !KALSHI_ACCESS_KEY) {
     return null;
   }
-  
-  // Create the string to sign: "GET|/trade-api/v2/markets|timestamp"
-  const stringToSign = `${method}|${path}|${timestamp}`;
-  
-  // Sign with RSA-SHA256
+
+  // Strip query parameters from path before signing
+  const pathWithoutQuery = path.split('?')[0];
+
+  // Create the string to sign: "TIMESTAMP + METHOD + PATH"
+  // Note: No separators, just concatenation as per Kalshi docs
+  const stringToSign = `${timestamp}${method}${pathWithoutQuery}`;
+
+  // Sign with RSA-PSS (not regular RSA)
   const sign = crypto.createSign('RSA-SHA256');
   sign.update(stringToSign);
   sign.end();
-  
-  const signature = sign.sign(privateKey, 'base64');
+
+  const signature = sign.sign({
+    key: privateKey,
+    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+    saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
+  }, 'base64');
+
   return signature;
 }
 
 function fetchOnce(url, options = {}) {
   const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-  
+
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
     const isKalshiAPI = urlObj.hostname.includes('kalshi.com');
-    
+
     // Prepare headers
     const headers = {
       'Accept': 'application/json',
       'User-Agent': BROWSER_USER_AGENT,
       ...options.headers
     };
-    
+
     // Add Kalshi authentication if we have the keys
-    if (isKalshiAPI && privateKey && KALSHI_API_KEY) {
+    if (isKalshiAPI && privateKey && KALSHI_ACCESS_KEY) {
       const timestamp = Date.now().toString();
       const signature = signKalshiRequest('GET', urlObj.pathname + urlObj.search, timestamp);
-      
+
       if (signature) {
-        headers['KALSHI-API-KEY'] = KALSHI_API_KEY;
-        headers['KALSHI-TIMESTAMP'] = timestamp;
-        headers['KALSHI-SIGNATURE'] = signature;
+        headers['KALSHI-ACCESS-KEY'] = KALSHI_ACCESS_KEY;
+        headers['KALSHI-ACCESS-TIMESTAMP'] = timestamp;
+        headers['KALSHI-ACCESS-SIGNATURE'] = signature;
       }
     }
-    
+
     https.get(url, {
       headers,
       timeout: 15000,
@@ -3540,7 +3549,7 @@ function fetchOnce(url, options = {}) {
 // Fetch raw text (for RSS feeds)
 function fetchText(url, options = {}, timeoutMs = 10000) {
   const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-  
+
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
 
@@ -4477,7 +4486,7 @@ async function main() {
   // ==================== PENNY-PICKING BRACKET SCANNER ====================
   console.log('\n🪙 Running Penny-Picking Bracket Scanner...');
   const pennyScanner = new PennyPickingScanner();
-  
+
   // Build weather forecasts map for penny scanner
   const weatherForecastsForPenny = {};
   for (const [cityCode, forecast] of Object.entries(nwsForecasts)) {
@@ -4486,7 +4495,7 @@ async function main() {
       weatherForecastsForPenny[cityCode] = forecast[0].highTemp;
     }
   }
-  
+
   // Need raw market data for penny scanner - fetch it
   const allRawMarkets = [];
   for (const series of SERIES) {
@@ -4499,10 +4508,10 @@ async function main() {
       // Skip failed series
     }
   }
-  
+
   const pennyResults = await pennyScanner.scanPennyOpportunities(allRawMarkets, weatherForecastsForPenny);
   pennyScanner.printResults(pennyResults);
-  
+
   // Add penny opportunities to allTrades for display
   for (const penny of pennyResults.opportunities) {
     const existing = allTrades.find(t => t.ticker === penny.ticker);
@@ -4530,7 +4539,7 @@ async function main() {
         const marketProb = noPrice / 100; // Market implied probability
         const edge = (estimatedProb - marketProb) * 100; // Edge in percentage points
         const rScore = 1.5 + (edge / 20); // Higher edge = higher R-score
-        
+
         allTrades.push({
           ticker: penny.ticker,
           title: penny.title || rawMarket.title,
@@ -4560,7 +4569,7 @@ async function main() {
   // ==================== TAIL-RISK ENGINE (Cross-Category) ====================
   console.log('\n🎯 Running Tail-Risk Engine (all categories)...');
   const tailRiskEngine = new TailRiskEngine();
-  
+
   // Build external data sources map
   const externalData = {
     weather: {}, // Will be populated per-city below
@@ -4569,18 +4578,18 @@ async function main() {
     politics: 40.5, // Current approval rating - placeholder
     spx: { currentPrice: 5200, vix: 15, dailyHigh: 5220, dailyLow: 5180 } // Placeholder
   };
-  
+
   // Populate weather forecasts
   for (const [cityCode, forecast] of Object.entries(nwsForecasts)) {
     if (forecast && forecast.length > 0) {
       externalData.weather[cityCode] = forecast[0].highTemp;
     }
   }
-  
+
   // Run tail-risk analysis on all raw markets
   const tailRiskResults = await tailRiskEngine.scanTailRisk(allRawMarkets);
   tailRiskEngine.printResults(tailRiskResults);
-  
+
   // Merge tail-risk opportunities with penny results
   for (const tailRisk of tailRiskResults.opportunities) {
     const existing = allTrades.find(t => t.ticker === tailRisk.ticker);
@@ -4605,7 +4614,7 @@ async function main() {
         const marketProb = noPrice / 100;
         const edge = (estimatedProb - marketProb) * 100;
         const rScore = 1.5 + (edge / 20);
-        
+
         allTrades.push({
           ticker: tailRisk.ticker,
           title: tailRisk.title || rawMarket.title,
@@ -4631,7 +4640,7 @@ async function main() {
     }
   }
   // ==================== END TAIL-RISK ====================
-  
+
   // ==================== END ALTERNATIVE DATA ====================
 
   // Calculate composite scores for top trades
@@ -4731,14 +4740,14 @@ async function main() {
   // Ensure penny picks and tail-risk trades are included
   const pennyPickTrades = allTrades.filter(t => t.pennySignal);
   const tailRiskTrades = allTrades.filter(t => t.tailRiskSignal);
-  
+
   // Add penny picks and tail-risk trades that aren't already in topTrades
   for (const trade of [...pennyPickTrades, ...tailRiskTrades]) {
     if (!topTrades.find(t => t.ticker === trade.ticker)) {
       topTrades.push(trade);
     }
   }
-  
+
   // Re-sort after adding penny picks
   topTrades.sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
 
@@ -4922,7 +4931,7 @@ async function main() {
   if (tailRiskResults.opportunities.length > 0) {
     console.log('\n🎯 TAIL-RISK OPPORTUNITIES (Cross-Category):');
     console.log(`  Total: ${tailRiskResults.summary.total} | Very High Confidence: ${tailRiskResults.summary.highConfidence}`);
-    
+
     const cryptoTail = tailRiskResults.opportunities.filter(o => o.category === 'crypto');
     if (cryptoTail.length > 0) {
       console.log('\n  📊 Crypto (3-Sigma Dead Brackets):');
@@ -4930,7 +4939,7 @@ async function main() {
         console.log(`     ${o.ticker}: ${o.noPrice}¢ NO | ${o.priceDelta}% from price (${o.sigmaMove}σ move required)`);
       });
     }
-    
+
     const econTail = tailRiskResults.opportunities.filter(o => o.category === 'economics');
     if (econTail.length > 0) {
       console.log('\n  📊 Economics (Extreme Outliers):');
@@ -4938,7 +4947,7 @@ async function main() {
         console.log(`     ${o.ticker}: ${o.noPrice}¢ NO | ${o.delta}% from consensus`);
       });
     }
-    
+
     const politicsTail = tailRiskResults.opportunities.filter(o => o.category === 'politics');
     if (politicsTail.length > 0) {
       console.log('\n  📊 Politics (Inertia-Locked):');
