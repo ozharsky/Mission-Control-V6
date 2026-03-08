@@ -28,6 +28,8 @@ jobs:
       env:
         FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
         FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        KALSHI_API_KEY: ${{ secrets.KALSHI_API_KEY }}
+        KALSHI_PRIVATE_KEY: ${{ secrets.KALSHI_PRIVATE_KEY }}
         
     - name: Commit scan results
       run: |
