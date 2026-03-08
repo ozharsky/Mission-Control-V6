@@ -1067,6 +1067,19 @@ export function KalshiTradingView() {
   const [isLoadingTrades, setIsLoadingTrades] = useState(true);
   const [heatMap, setHeatMap] = useState<HeatMapAnalysis | null>(null);
   const [kellyAnalysis, setKellyAnalysis] = useState<KellyAnalysis | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  
+  // Advanced filters
+  const [minEdge, setMinEdge] = useState<number>(0);
+  const [maxEdge, setMaxEdge] = useState<number>(100);
+  const [minRScore, setMinRScore] = useState<number>(0);
+  const [hasAlert, setHasAlert] = useState<'any' | 'urgent' | 'high' | 'none'>('any');
+  const [sentimentFilter, setSentimentFilter] = useState<'any' | 'bullish' | 'bearish' | 'neutral'>('any');
+  const [showOnlyWhales, setShowOnlyWhales] = useState(false);
+  const [showOnlyWeatherLag, setShowOnlyWeatherLag] = useState(false);
+  const [showOnlyArbitrage, setShowOnlyArbitrage] = useState(false);
+  const [positionHistory, setPositionHistory] = useState<PaperPosition[]>([]);
   const hasLoadedScanner = useRef(false);
 
   // Load positions and stats from Firebase on mount
@@ -1318,12 +1331,64 @@ export function KalshiTradingView() {
     setIsLoading(false);
   };
 
-  // Filter and sort trades
+  // Filter and sort trades with advanced filters
   const filteredTrades = useMemo(() => {
     let result = [...trades];
+    
+    // Category filter
     if (selectedCategory !== 'all') {
       result = result.filter(t => t.category === selectedCategory);
     }
+    
+    // Edge range filter
+    result = result.filter(t => t.edge >= minEdge && t.edge <= maxEdge);
+    
+    // R-Score minimum filter
+    result = result.filter(t => t.rScore >= minRScore);
+    
+    // Alert severity filter
+    if (hasAlert !== 'any') {
+      if (hasAlert === 'none') {
+        result = result.filter(t => !t.alerts || t.alerts.length === 0);
+      } else {
+        result = result.filter(t => 
+          t.alerts?.some(a => a.severity === hasAlert)
+        );
+      }
+    }
+    
+    // Sentiment filter
+    if (sentimentFilter !== 'any') {
+      result = result.filter(t => {
+        if (sentimentFilter === 'bullish') {
+          return t.twitterSignal?.signal === 'bullish' || t.sentimentSignal?.label === 'positive';
+        }
+        if (sentimentFilter === 'bearish') {
+          return t.twitterSignal?.signal === 'bearish' || t.sentimentSignal?.label === 'negative';
+        }
+        if (sentimentFilter === 'neutral') {
+          return !t.twitterSignal && !t.sentimentSignal;
+        }
+        return true;
+      });
+    }
+    
+    // Whale activity filter
+    if (showOnlyWhales) {
+      result = result.filter(t => t.whale === true);
+    }
+    
+    // Weather lag filter
+    if (showOnlyWeatherLag) {
+      result = result.filter(t => t.nwsSignal?.lagDetected === true);
+    }
+    
+    // Arbitrage filter
+    if (showOnlyArbitrage) {
+      result = result.filter(t => !!t.polymarketArb);
+    }
+    
+    // Sorting
     result.sort((a, b) => {
       if (sortBy === 'composite') {
         const aScore = parseFloat(a.compositeScore || '0');
@@ -1335,8 +1400,9 @@ export function KalshiTradingView() {
       if (sortBy === 'volume') return b.volume - a.volume;
       return 0;
     });
+    
     return result;
-  }, [trades, selectedCategory, sortBy]);
+  }, [trades, selectedCategory, sortBy, minEdge, maxEdge, minRScore, hasAlert, sentimentFilter, showOnlyWhales, showOnlyWeatherLag, showOnlyArbitrage]);
 
   // Calculate position P&L - uses live prices from trades or stored current price
   const calculatePositionPnL = (position: PaperPosition) => {
@@ -1721,6 +1787,22 @@ export function KalshiTradingView() {
                 </span>
               </div>
             </>
+          )}
+
+          {/* Advanced Filters */}
+          {!isLoadingTrades && (
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                <Filter className="h-4 w-4" />
+                {showFilters ? 'Hide Filters' : 'Show Filters'}
+                {(minEdge > 0 || maxEdge < 100 || minRScore > 0 || hasAlert !== 'any') && (
+                  <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full">Active</span>
+                )}
+              </button>
+            </div>
           )}
 
           {/* Trade Cards - Only show when not loading */}
