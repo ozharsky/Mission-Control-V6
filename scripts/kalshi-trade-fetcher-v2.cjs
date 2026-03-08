@@ -3449,9 +3449,15 @@ async function fetchWithRetry(url, options = {}, retries = CONFIG.maxRetries) {
 }
 
 function fetchOnce(url, options) {
+  const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  
   return new Promise((resolve, reject) => {
     https.get(url, {
-      headers: { 'Accept': 'application/json' },
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': BROWSER_USER_AGENT,
+        ...options.headers
+      },
       timeout: 15000,
       ...options
     }, (res) => {
@@ -3474,12 +3480,14 @@ function fetchOnce(url, options) {
 
 // Fetch raw text (for RSS feeds)
 function fetchText(url, options = {}, timeoutMs = 10000) {
+  const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
 
     const req = protocol.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; KalshiScanner/2.6)',
+        'User-Agent': BROWSER_USER_AGENT,
         'Accept': 'application/rss+xml, application/xml, text/xml, */*',
         ...options.headers
       },
