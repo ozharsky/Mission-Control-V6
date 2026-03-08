@@ -3495,20 +3495,20 @@ async function main() {
             closeTime: m.close_time,
             expiration: m.expiration_date || m.close_time,
             kalshiUrl: buildUrl(m.ticker),
-            edge: edgeCalc.edge.toFixed(1),
-            rScore: edgeCalc.rScore.toFixed(2),
-            trueProbability: (edgeCalc.adjustedProb * 100).toFixed(1),
-            marketProbability: (edgeCalc.marketProb * 100).toFixed(1),
-            timeAdjustment: (edgeCalc.timeAdjustment * 100).toFixed(1),
-            volumeBoost: (edgeCalc.volumeBoost * 100).toFixed(1),
-            kellyPct: kelly.kellyPct,
+            edge: parseFloat(edgeCalc.edge.toFixed(1)), // Store as number
+            rScore: parseFloat(edgeCalc.rScore.toFixed(2)), // Store as number
+            trueProbability: parseFloat((edgeCalc.adjustedProb * 100).toFixed(1)),
+            marketProbability: parseFloat((edgeCalc.marketProb * 100).toFixed(1)),
+            timeAdjustment: parseFloat((edgeCalc.timeAdjustment * 100).toFixed(1)),
+            volumeBoost: parseFloat((edgeCalc.volumeBoost * 100).toFixed(1)),
+            kellyPct: parseFloat(kelly.kellyPct),
             position: kelly.position,
             recommendation,
             multiplier: Math.round((100 - yesPrice) / yesPrice * 10) / 10,
             catalyst: `Base ${(series.baseProb * 100).toFixed(0)}% + Time ${edgeCalc.timeAdjustment >= 0 ? '+' : ''}${(edgeCalc.timeAdjustment * 100).toFixed(0)}% + Vol ${(edgeCalc.volumeBoost * 100).toFixed(0)}%`,
             confidence: edgeCalc.rScore >= 2 ? 'high' : edgeCalc.rScore >= 1 ? 'medium' : 'low',
             health: health.health,
-            spread: health.avgSpread.toFixed(1),
+            spread: parseFloat(health.avgSpread.toFixed(1)),
             liquidityScore: health.liquidityScore,
             // New analytics fields
             whale: whaleData.isWhale,
@@ -3640,7 +3640,7 @@ async function main() {
     const clv = calculateHistoricalEdge(parseFloat(trade.edge), history, trade.ticker);
     
     const multiFactorScore = calculateMultiFactorScore(trade, momentum, clv, whaleData, relevantNews);
-    trade.compositeScore = multiFactorScore.total.toFixed(2);
+    trade.compositeScore = parseFloat(multiFactorScore.total.toFixed(2)); // Store as number
     trade.multiFactorScore = multiFactorScore; // Store full breakdown
 
     // Calculate Twitter/X sentiment for this trade
@@ -3648,6 +3648,21 @@ async function main() {
     if (twitterSignal) {
       trade.twitterSignal = twitterSignal;
     }
+
+    // Calculate Edge Decay Analysis
+    const decayAnalysis = edgeDecayTracker.calculateDecayRate(trade.ticker, parseFloat(trade.edge));
+    trade.decayAnalysis = decayAnalysis;
+    trade.stabilityScore = (() => {
+      let score = 5; // neutral
+      if (decayAnalysis.trend === 'improving_fast') score = 9;
+      else if (decayAnalysis.trend === 'improving') score = 7;
+      else if (decayAnalysis.trend === 'stable') score = 5;
+      else if (decayAnalysis.trend === 'decaying') score = 3;
+      else if (decayAnalysis.trend === 'decaying_fast') score = 1;
+      if (decayAnalysis.weekTrend === 'strong_improvement') score += 1;
+      else if (decayAnalysis.weekTrend === 'strong_decay') score -= 1;
+      return Math.max(0, Math.min(10, score));
+    })();
 
     // Record for win rate analytics
     winRateAnalytics.recordTradeOpportunity(trade);
