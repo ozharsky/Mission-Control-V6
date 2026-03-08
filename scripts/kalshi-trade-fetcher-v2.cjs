@@ -3906,7 +3906,7 @@ async function main() {
   backtestFramework.printComparisonReport(backtestResults);
   
   // Validate predictions against actual historical outcomes
-  await backtestFramework.validateWithHistoricalData(allTrades);
+  const historicalValidation = await backtestFramework.validateWithHistoricalData(allTrades);
   
   const arbitrage = detectArbitrage(allTrades);
   
@@ -3974,6 +3974,7 @@ async function main() {
     winRateRecommendations,
     twitterSentiment: categorySentiment,
     backtestResults,
+    historicalValidation,
     heatMap: heatMapAnalysis,
     kellyAnalysis,
     news: relevantNews.slice(0, 10), // Top 10 relevant news articles

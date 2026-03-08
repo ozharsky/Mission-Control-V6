@@ -2355,55 +2355,92 @@ export function KalshiTradingView() {
 
       {/* History Tab */}
       {activeTab === 'history' && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">Trade History</h2>
-          {positions.filter(p => p.status === 'closed').length === 0 ? (
-            <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
-              <History className="mx-auto h-12 w-12 text-gray-500" />
-              <p className="mt-4 text-gray-400">No closed trades yet</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-surface-hover text-gray-500">
-                    <th className="pb-2">Date</th>
-                    <th className="pb-2">Ticker</th>
-                    <th className="pb-2">Side</th>
-                    <th className="pb-2">Entry</th>
-                    <th className="pb-2">Shares</th>
-                    <th className="pb-2 text-right">Gross P&L</th>
-                    <th className="pb-2 text-right">Fees (7%)</th>
-                    <th className="pb-2 text-right">Net P&L</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-hover">
-                  {positions.filter(p => p.status === 'closed').map((position) => (
-                    <tr key={position.id}>
-                      <td className="py-3 text-gray-400">{new Date(position.openedAt).toLocaleDateString()}</td>
-                      <td className="py-3 text-white">{position.ticker}</td>
-                      <td className="py-3">
-                        <span className={`rounded px-2 py-0.5 text-xs ${position.side === 'yes' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
-                          {position.side.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="py-3 text-white">{position.entryPrice}¢</td>
-                      <td className="py-3 text-white">{position.shares}</td>
-                      <td className={`py-3 text-right ${(position.grossPnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {(position.grossPnl || 0) >= 0 ? '+' : ''}${(position.grossPnl || 0).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-right text-gray-500">
-                        {position.fees ? `-$${position.fees.toFixed(2)}` : '-'}
-                      </td>
-                      <td className={`py-3 text-right font-medium ${(position.pnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {(position.pnl || 0) >= 0 ? '+' : ''}${(position.pnl || 0).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="space-y-6">
+          {/* Historical Validation Section */}
+          {scanSummary?.historicalValidation && (
+            <div className="rounded-xl border border-surface-hover bg-surface p-4">
+              <h2 className="text-lg font-semibold text-white mb-4">📊 Validated Predictions (Historical API)</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-surface-hover/50 rounded-lg p-3 text-center">
+                  <p className="text-sm text-gray-400">Markets Resolved</p>
+                  <p className="text-2xl font-bold text-white">{scanSummary.historicalValidation.wins + scanSummary.historicalValidation.losses}</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded-lg p-3 text-center">
+                  <p className="text-sm text-gray-400">Win Rate</p>
+                  <p className="text-2xl font-bold text-success">{scanSummary.historicalValidation.winRate.toFixed(1)}%</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded-lg p-3 text-center">
+                  <p className="text-sm text-gray-400">Wins / Losses</p>
+                  <p className="text-xl font-bold text-white">
+                    <span className="text-success">{scanSummary.historicalValidation.wins}W</span>
+                    <span className="text-gray-500 mx-1">/</span>
+                    <span className="text-danger">{scanSummary.historicalValidation.losses}L</span>
+                  </p>
+                </div>
+                <div className="bg-surface-hover/50 rounded-lg p-3 text-center">
+                  <p className="text-sm text-gray-400">Total P&L</p>
+                  <p className={`text-2xl font-bold ${scanSummary.historicalValidation.totalPnl >= 0 ? 'text-success' : 'text-danger'}`}>
+                    {scanSummary.historicalValidation.totalPnl >= 0 ? '+' : ''}${scanSummary.historicalValidation.totalPnl.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-3">
+                Based on actual market resolutions from Kalshi's historical API
+              </p>
             </div>
           )}
+
+          {/* Trade History Section */}
+          <div>
+            <h2 className="text-lg font-semibold text-white mb-4">Paper Trade History</h2>
+            {positions.filter(p => p.status === 'closed').length === 0 ? (
+              <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
+                <History className="mx-auto h-12 w-12 text-gray-500" />
+                <p className="mt-4 text-gray-400">No closed trades yet</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-surface-hover text-gray-500">
+                      <th className="pb-2">Date</th>
+                      <th className="pb-2">Ticker</th>
+                      <th className="pb-2">Side</th>
+                      <th className="pb-2">Entry</th>
+                      <th className="pb-2">Shares</th>
+                      <th className="pb-2 text-right">Gross P&L</th>
+                      <th className="pb-2 text-right">Fees (7%)</th>
+                      <th className="pb-2 text-right">Net P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-hover">
+                    {positions.filter(p => p.status === 'closed').map((position) => (
+                      <tr key={position.id}>
+                        <td className="py-3 text-gray-400">{new Date(position.openedAt).toLocaleDateString()}</td>
+                        <td className="py-3 text-white">{position.ticker}</td>
+                        <td className="py-3">
+                          <span className={`rounded px-2 py-0.5 text-xs ${position.side === 'yes' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
+                            {position.side.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3 text-white">{position.entryPrice}¢</td>
+                        <td className="py-3 text-white">{position.shares}</td>
+                        <td className={`py-3 text-right ${(position.grossPnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                          {(position.grossPnl || 0) >= 0 ? '+' : ''}${(position.grossPnl || 0).toFixed(2)}
+                        </td>
+                        <td className="py-3 text-right text-gray-500">
+                          {position.fees ? `-$${position.fees.toFixed(2)}` : '-'}
+                        </td>
+                        <td className={`py-3 text-right font-medium ${(position.pnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                          {(position.pnl || 0) >= 0 ? '+' : ''}${(position.pnl || 0).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
