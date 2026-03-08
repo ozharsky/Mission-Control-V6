@@ -8,6 +8,26 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+// Kalshi API Configuration
+const KALSHI_API_KEY = process.env.KALSHI_API_KEY || ''; // Your Kalshi API Key ID
+const KALSHI_PRIVATE_KEY_PATH = process.env.KALSHI_PRIVATE_KEY_PATH || './kalshi_private_key.pem';
+
+// Load private key for RSA signing
+let privateKey = null;
+try {
+  if (fs.existsSync(KALSHI_PRIVATE_KEY_PATH)) {
+    privateKey = fs.readFileSync(KALSHI_PRIVATE_KEY_PATH, 'utf8');
+    console.log('✅ Loaded Kalshi private key for authentication');
+  } else {
+    console.log('⚠️ No private key found at', KALSHI_PRIVATE_KEY_PATH, '- API calls will fail with 401');
+    console.log('   Generate keys: openssl genrsa -out kalshi_private_key.pem 2048');
+    console.log('   Then upload the public key to your Kalshi account');
+  }
+} catch (e) {
+  console.error('❌ Failed to load private key:', e.message);
+}
 
 // Try to load Firebase if available
 let db = null;
@@ -1342,37 +1362,10 @@ class TwitterSentimentAnalyzer {
 // Fetch historical resolved markets from Kalshi API by series
 async function fetchHistoricalResolvedMarkets(seriesTicker, limit = 100) {
   try {
-    // Use public v1/events API (no auth required)
-    const url = `https://trading-api.kalshi.com/v1/events/${seriesTicker}`;
+    // Use authenticated trade-api/v2 endpoint
+    const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=${limit}&status=closed`;
     const data = await fetchWithRetry(url, {}, 2);
-    
-    // Transform v1/events response to match v2/markets structure
-    const markets = [];
-    if (data.event && data.event.markets) {
-      for (const market of data.event.markets) {
-        // Only include closed/resolved markets
-        if (market.status === 'closed' || market.status === 'resolved') {
-          markets.push({
-            ticker: market.ticker,
-            title: market.title,
-            subtitle: market.subtitle || data.event.title,
-            yes_ask: market.yes_ask,
-            yes_bid: market.yes_bid,
-            no_ask: market.no_ask,
-            no_bid: market.no_bid,
-            volume: market.volume || 0,
-            open_interest: market.open_interest,
-            close_time: market.close_time || data.event.close_time,
-            expiration_time: market.expiration_time,
-            status: market.status,
-            result: market.result, // For resolved markets
-            event_title: data.event.title,
-            category: data.event.category || 'unknown'
-          });
-        }
-      }
-    }
-    return markets.slice(0, limit);
+    return data.markets || [];
   } catch (e) {
     console.log(`⚠️ Failed to fetch historical markets for ${seriesTicker}:`, e.message);
     return [];
@@ -3475,16 +3468,52 @@ async function fetchWithRetry(url, options = {}, retries = CONFIG.maxRetries) {
   throw new Error(`Failed after ${retries} retries`);
 }
 
-function fetchOnce(url, options) {
+// Sign request for Kalshi API authentication
+function signKalshiRequest(method, path, timestamp) {
+  if (!privateKey || !KALSHI_API_KEY) {
+    return null;
+  }
+  
+  // Create the string to sign: "GET|/trade-api/v2/markets|timestamp"
+  const stringToSign = `${method}|${path}|${timestamp}`;
+  
+  // Sign with RSA-SHA256
+  const sign = crypto.createSign('RSA-SHA256');
+  sign.update(stringToSign);
+  sign.end();
+  
+  const signature = sign.sign(privateKey, 'base64');
+  return signature;
+}
+
+function fetchOnce(url, options = {}) {
   const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   
   return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const isKalshiAPI = urlObj.hostname.includes('kalshi.com');
+    
+    // Prepare headers
+    const headers = {
+      'Accept': 'application/json',
+      'User-Agent': BROWSER_USER_AGENT,
+      ...options.headers
+    };
+    
+    // Add Kalshi authentication if we have the keys
+    if (isKalshiAPI && privateKey && KALSHI_API_KEY) {
+      const timestamp = Date.now().toString();
+      const signature = signKalshiRequest('GET', urlObj.pathname + urlObj.search, timestamp);
+      
+      if (signature) {
+        headers['KALSHI-API-KEY'] = KALSHI_API_KEY;
+        headers['KALSHI-TIMESTAMP'] = timestamp;
+        headers['KALSHI-SIGNATURE'] = signature;
+      }
+    }
+    
     https.get(url, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': BROWSER_USER_AGENT,
-        ...options.headers
-      },
+      headers,
       timeout: 15000,
       ...options
     }, (res) => {
@@ -3547,33 +3576,9 @@ function fetchText(url, options = {}, timeoutMs = 10000) {
 }
 
 function fetchMarkets(seriesTicker) {
-  // Use public v1/events API (no auth required) instead of trade-api/v2
-  const url = `https://trading-api.kalshi.com/v1/events/${seriesTicker}`;
-  return fetchWithRetry(url).then(data => {
-    // Transform v1/events response to match v2/markets structure
-    const markets = [];
-    if (data.event && data.event.markets) {
-      for (const market of data.event.markets) {
-        markets.push({
-          ticker: market.ticker,
-          title: market.title,
-          subtitle: market.subtitle || data.event.title,
-          yes_ask: market.yes_ask,
-          yes_bid: market.yes_bid,
-          no_ask: market.no_ask,
-          no_bid: market.no_bid,
-          volume: market.volume || 0,
-          open_interest: market.open_interest,
-          close_time: market.close_time || data.event.close_time,
-          expiration_time: market.expiration_time,
-          status: market.status || 'open',
-          event_title: data.event.title,
-          category: data.event.category || 'unknown'
-        });
-      }
-    }
-    return { markets };
-  });
+  // Use authenticated trade-api/v2 endpoint
+  const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=20&status=open`;
+  return fetchWithRetry(url);
 }
 
 function cleanTitle(title) {
