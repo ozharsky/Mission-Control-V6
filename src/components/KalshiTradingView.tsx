@@ -664,6 +664,66 @@ function TradeDetailPanel({
               </div>
             )}
 
+            {/* Decay Analysis */}
+            {trade.decayAnalysis && (
+              <div className={`p-3 rounded-lg border ${
+                trade.decayAnalysis.trend.includes('improving') ? 'bg-emerald-500/10 border-emerald-500/30' :
+                trade.decayAnalysis.trend.includes('decaying') ? 'bg-rose-500/10 border-rose-500/30' :
+                'bg-gray-500/10 border-gray-500/30'
+              }`}>
+                <h4 className={`text-sm font-medium mb-2 ${
+                  trade.decayAnalysis.trend.includes('improving') ? 'text-emerald-400' :
+                  trade.decayAnalysis.trend.includes('decaying') ? 'text-rose-400' :
+                  'text-gray-400'
+                }`}>
+                  📊 Edge Decay Analysis
+                </h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Trend</span>
+                    <span className={
+                      trade.decayAnalysis.trend.includes('improving') ? 'text-emerald-400' :
+                      trade.decayAnalysis.trend.includes('decaying') ? 'text-rose-400' :
+                      'text-gray-300'
+                    }>
+                      {trade.decayAnalysis.trend.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">24h Change</span>
+                    <span className={trade.decayAnalysis.edgeChange24h > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {trade.decayAnalysis.edgeChange24h > 0 ? '+' : ''}{trade.decayAnalysis.edgeChange24h.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Decay Rate</span>
+                    <span className="text-white">{trade.decayAnalysis.decayRate.toFixed(2)}%/day</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Stability</span>
+                    <span className={
+                      (trade.stabilityScore || 0) >= 7 ? 'text-emerald-400' :
+                      (trade.stabilityScore || 0) >= 4 ? 'text-amber-400' :
+                      'text-rose-400'
+                    }>
+                      {trade.stabilityScore?.toFixed(1) || 'N/A'}/10
+                    </span>
+                  </div>
+                  {trade.decayAnalysis.weekTrend && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Week Trend</span>
+                      <span className={
+                        trade.decayAnalysis.weekTrend === 'strong_improvement' ? 'text-emerald-400' :
+                        trade.decayAnalysis.weekTrend === 'strong_decay' ? 'text-rose-400' :
+                        'text-gray-300'
+                      }>
+                        {trade.decayAnalysis.weekTrend.replace('_', ' ')}
+                      </span>
+                    </div>
+                  )}
+                </div>              </div>
+            )}
+
             {/* News Sentiment */}
             {trade.sentimentSignal && (
               <div className={`p-3 rounded-lg border ${
@@ -737,6 +797,19 @@ function TradeDetailPanel({
                     View on Polymarket <ArrowUpRight className="h-3 w-3" />
                   </a>
                 </div>
+              </div>
+            )}
+
+            {/* No Signals Message */}
+            {!trade.alerts?.length && 
+             !trade.twitterSignal?.signal && 
+             !trade.sentimentSignal && 
+             !trade.nwsSignal?.lagDetected && 
+             !trade.polymarketArb &&
+             !trade.decayAnalysis && (
+              <div className="p-6 rounded-lg bg-surface-hover/30 text-center">
+                <p className="text-sm text-gray-400">🔍 No special signals detected for this trade</p>
+                <p className="text-xs text-gray-500 mt-1">Scanner monitors: Twitter sentiment, news, weather lag, arbitrage, and edge decay</p>
               </div>
             )}
           </div>
