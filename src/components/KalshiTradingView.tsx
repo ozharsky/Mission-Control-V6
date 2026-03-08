@@ -1189,6 +1189,7 @@ export function KalshiTradingView() {
   const [showOnlyArbitrage, setShowOnlyArbitrage] = useState(false);
   const [positionHistory, setPositionHistory] = useState<PaperPosition[]>([]);
   const hasLoadedScanner = useRef(false);
+  const tradeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Load positions and stats from Firebase on mount
   useEffect(() => {
@@ -1850,7 +1851,14 @@ export function KalshiTradingView() {
                     <div 
                       key={trade.id} 
                       className="bg-surface-hover/50 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-surface-hover transition-colors"
-                      onClick={() => setExpandedTrade(expandedTrade === trade.id ? null : trade.id)}
+                      onClick={() => {
+                        // Scroll to trade in the list and expand it
+                        const tradeElement = tradeRefs.current.get(trade.id);
+                        if (tradeElement) {
+                          tradeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          setTimeout(() => setExpandedTrade(trade.id), 300);
+                        }
+                      }}
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-lg font-bold text-emerald-400">#{idx + 1}</span>
@@ -1876,44 +1884,14 @@ export function KalshiTradingView() {
                           <p className="text-xs text-gray-400">R-Score</p>
                           <p className="text-sm font-medium text-primary">{(trade.rScore || 0).toFixed(1)}</p>
                         </div>
-                        <ChevronDown 
-                          className={`h-5 w-5 text-gray-400 transition-transform ${
-                            expandedTrade === trade.id ? 'rotate-180' : ''
-                          }`} 
-                        />
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
                       </div>
                     </div>
                   ))}
               </div>
               <p className="text-xs text-emerald-400/70 mt-3">
-                💡 Click on any opportunity to see full details and buy options
+                💡 Click to jump to the opportunity in the list
               </p>
-            </div>
-          )}
-
-          {/* Expanded Top Opportunity Detail */}
-          {expandedTrade && trades.find(t => t.id === expandedTrade) && (
-            <div className="rounded-xl border border-emerald-500/30 bg-surface p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-emerald-400">Opportunity Details</h3>
-                <button 
-                  onClick={() => setExpandedTrade(null)}
-                  className="text-xs text-gray-400 hover:text-white"
-                >
-                  Close ✕
-                </button>
-              </div>
-              {(() => {
-                const trade = trades.find(t => t.id === expandedTrade)!;
-                return (
-                  <TradeDetailPanel 
-                    trade={trade} 
-                    kellyAnalysis={kellyAnalysis}
-                    onBuy={(side, amount) => executeTrade(trade, side, amount)}
-                    bankroll={stats.bankroll}
-                  />
-                );
-              })()}
             </div>
           )}
 
@@ -2179,6 +2157,9 @@ export function KalshiTradingView() {
               {filteredTrades.map((trade) => (
                 <div
                   key={trade.id}
+                  ref={(el) => {
+                    if (el) tradeRefs.current.set(trade.id, el);
+                  }}
                   className="rounded-xl border border-surface-hover bg-surface p-4 transition-all hover:border-primary/50"
                 >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
