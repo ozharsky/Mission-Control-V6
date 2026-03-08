@@ -10,6 +10,23 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// Helper to sanitize objects for Firebase (remove undefined values)
+function sanitizeForFirebase(obj) {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeForFirebase).filter(item => item !== undefined);
+  }
+  const sanitized = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      sanitized[key] = sanitizeForFirebase(value);
+    }
+  }
+  return sanitized;
+}
+
 // Kalshi API Configuration
 const KALSHI_ACCESS_KEY = process.env.KALSHI_ACCESS_KEY || process.env.KALSHI_API_KEY || '';
 
@@ -4899,7 +4916,9 @@ async function main() {
 
   if (db) {
     try {
-      await db.ref('v6/kalshi/latest_scan').set(output);
+      // Sanitize output to remove undefined values for Firebase
+      const sanitizedOutput = sanitizeForFirebase(output);
+      await db.ref('v6/kalshi/latest_scan').set(sanitizedOutput);
       console.log('✅ Saved to Firebase');
     } catch (e) {
       console.error('❌ Firebase save failed:', e.message);
