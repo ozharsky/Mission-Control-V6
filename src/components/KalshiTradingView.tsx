@@ -1906,8 +1906,9 @@ export function KalshiTradingView() {
               {(() => {
                 const trade = trades.find(t => t.id === expandedTrade)!;
                 return (
-                  <TradeCard 
+                  <TradeDetailPanel 
                     trade={trade} 
+                    kellyAnalysis={kellyAnalysis}
                     onBuy={(side, amount) => executeTrade(trade, side, amount)}
                     bankroll={stats.bankroll}
                   />
