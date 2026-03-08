@@ -4700,12 +4700,32 @@ async function main() {
       if (rawMarket) {
         const noPrice = penny.noPrice;
         const yesPrice = 100 - noPrice;
-        // For penny picks: edge is based on ROI potential (fat pitches have high forecast delta = high edge)
-        // Estimated true probability based on forecast delta: higher delta = more certain NO wins
-        const estimatedProb = penny.isFatPitch ? 0.95 : 0.85; // 85-95% chance NO wins
+        
+        // Calculate proper probability based on forecast delta and time remaining
+        // Higher delta + less time = higher probability of NO winning
+        const hoursToClose = Math.max(0, (new Date(rawMarket.close_time) - new Date()) / (1000 * 60 * 60));
+        const forecastDelta = penny.forecastDelta || 0;
+        
+        // Sigmoid-like function: probability increases with delta, decreases with time
+        // At 5° delta with 24h remaining = ~75% probability
+        // At 10° delta with 2h remaining = ~95% probability
+        const timeFactor = Math.max(0.1, Math.min(1, 24 / (hoursToClose + 1))); // 0.1 to 1
+        const deltaFactor = Math.min(1, forecastDelta / 10); // Normalize to 0-1 (10° = max)
+        
+        // Combine: higher delta + less time = higher probability
+        let estimatedProb = 0.5 + (deltaFactor * 0.25 * timeFactor) + (timeFactor * 0.15);
+        
+        // Fat pitch bonus: +10% if far from forecast with little time
+        if (penny.isFatPitch && forecastDelta >= 5 && hoursToClose <= 12) {
+          estimatedProb += 0.1;
+        }
+        
+        // Clamp between 0.6 and 0.98
+        estimatedProb = Math.max(0.6, Math.min(0.98, estimatedProb));
+        
         const marketProb = noPrice / 100; // Market implied probability
         const edge = (estimatedProb - marketProb) * 100; // Edge in percentage points
-        const rScore = 1.5 + (edge / 20); // Higher edge = higher R-score
+        const rScore = edge > 0 ? edge / 5 : 0.5; // Higher edge = higher R-score
 
         allTrades.push({
           ticker: penny.ticker,
@@ -4776,11 +4796,26 @@ async function main() {
       if (rawMarket) {
         const noPrice = tailRisk.noPrice;
         const yesPrice = 100 - noPrice;
-        // For tail-risk: very high confidence = ~90-95% probability
-        const estimatedProb = tailRisk.confidence === 'very_high' ? 0.95 : 0.85;
+        
+        // Calculate proper probability based on confidence, time, and distance
+        const hoursToClose = Math.max(0, (new Date(rawMarket.close_time) - new Date()) / (1000 * 60 * 60));
+        
+        // Base probability on confidence level
+        let baseProb = tailRisk.confidence === 'very_high' ? 0.88 : 0.75;
+        
+        // Time factor: less time = higher probability (less chance for reversal)
+        // Cap at 48 hours to avoid extreme values
+        const timeFactor = Math.min(1, 48 / (hoursToClose + 4)); // +4 to avoid division by zero
+        
+        // Calculate final probability
+        let estimatedProb = baseProb + (timeFactor * 0.08);
+        
+        // Clamp between 0.7 and 0.97
+        estimatedProb = Math.max(0.7, Math.min(0.97, estimatedProb));
+        
         const marketProb = noPrice / 100;
         const edge = (estimatedProb - marketProb) * 100;
-        const rScore = 1.5 + (edge / 20);
+        const rScore = edge > 0 ? edge / 5 : 0.5;
 
         allTrades.push({
           ticker: tailRisk.ticker,
