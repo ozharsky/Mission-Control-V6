@@ -1402,7 +1402,7 @@ class TwitterSentimentAnalyzer {
 async function fetchHistoricalResolvedMarkets(seriesTicker, limit = 100) {
   try {
     // Use authenticated trade-api/v2 endpoint
-    const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=${limit}&status=closed`;
+    const url = `https://api.elections.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=${limit}&status=closed`;
     const data = await fetchWithRetry(url, {}, 2);
     return data.markets || [];
   } catch (e) {
@@ -3646,7 +3646,7 @@ function fetchText(url, options = {}, timeoutMs = 10000) {
 
 function fetchMarkets(seriesTicker) {
   // Use authenticated trade-api/v2 endpoint
-  const url = `https://trading-api.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=20&status=open`;
+  const url = `https://api.elections.kalshi.com/trade-api/v2/markets?series_ticker=${seriesTicker}&limit=20&status=open`;
   return fetchWithRetry(url);
 }
 
