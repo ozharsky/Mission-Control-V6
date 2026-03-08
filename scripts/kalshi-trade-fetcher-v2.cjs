@@ -1557,7 +1557,7 @@ class BacktestingFramework {
       .sort((a, b) => (b[1].results?.totalPnl || 0) - (a[1].results?.totalPnl || 0));
 
     sorted.forEach(([key, result]) => {
-      if (result.error) return;
+      if (result.error || !result.results) return;
 
       const r = result.results;
       const name = result.strategy.padEnd(24);
@@ -1571,8 +1571,9 @@ class BacktestingFramework {
     });
 
     // Show best strategy
-    if (sorted.length > 0) {
-      const best = sorted[0][1];
+    const validResults = sorted.filter(([_, r]) => !r.error && r.results);
+    if (validResults.length > 0) {
+      const best = validResults[0][1];
       console.log(`\n  🏆 BEST STRATEGY: ${best.strategy}`);
       console.log(`     ${best.description}`);
       console.log(`     Win Rate: ${best.results.winRate}% | Total P&L: $${best.results.totalPnl}`);
@@ -3670,6 +3671,7 @@ async function main() {
 
   // Print win rate analytics report
   winRateAnalytics.printReport();
+  const winRateRecommendations = winRateAnalytics.getRecommendations();
 
   // Generate Portfolio Heat Map (using empty positions since this is a scanner, not portfolio tracker)
   const portfolioHeatMap = new PortfolioHeatMap(10000);
@@ -3680,6 +3682,11 @@ async function main() {
   const dynamicKelly = new DynamicKellySizing(10000);
   const kellyAnalysis = dynamicKelly.analyze(allTrades);
   dynamicKelly.printReport(kellyAnalysis);
+
+  // Run backtesting simulations
+  const backtestFramework = new BacktestingFramework();
+  const backtestResults = backtestFramework.runAllStrategies();
+  backtestFramework.printComparisonReport(backtestResults);
   
   const arbitrage = detectArbitrage(allTrades);
   
