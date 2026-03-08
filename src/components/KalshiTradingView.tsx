@@ -1011,6 +1011,8 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
         confidence: opp.confidence || 'medium',
         sources: opp.sources || ['Kalshi API']
       },
+      // v2.5 fields
+      polymarketArb: opp.polymarketArb,
       // v2.6 fields
       sentimentSignal: opp.sentimentSignal,
       nwsSignal: opp.nwsSignal,
@@ -1799,7 +1801,7 @@ export function KalshiTradingView() {
                 >
                   <Filter className="h-4 w-4" />
                   {showFilters ? 'Hide Filters' : 'Show Filters'}
-                  {(minEdge > 0 || maxEdge < 100 || minRScore > 0 || hasAlert !== 'any') && (
+                  {(minEdge > 0 || maxEdge < 100 || minRScore > 0 || hasAlert !== 'any' || sentimentFilter !== 'any' || showOnlyWhales || showOnlyWeatherLag || showOnlyArbitrage) && (
                     <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full">Active</span>
                   )}
                 </button>
@@ -1850,7 +1852,54 @@ export function KalshiTradingView() {
                         <option value="none">None</option>
                       </select>
                     </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Sentiment</label>
+                      <select
+                        value={sentimentFilter}
+                        onChange={(e) => setSentimentFilter(e.target.value as any)}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      >
+                        <option value="any">Any</option>
+                        <option value="bullish">📈 Bullish</option>
+                        <option value="bearish">📉 Bearish</option>
+                        <option value="neutral">➡️ Neutral/None</option>
+                      </select>
+                    </div>
                   </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => setShowOnlyWhales(!showOnlyWhales)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        showOnlyWhales 
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                          : 'bg-surface-hover text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🐋 Whale Activity
+                    </button>
+                    <button
+                      onClick={() => setShowOnlyWeatherLag(!showOnlyWeatherLag)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        showOnlyWeatherLag 
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                          : 'bg-surface-hover text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🌤️ Weather Lag
+                    </button>
+                    <button
+                      onClick={() => setShowOnlyArbitrage(!showOnlyArbitrage)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        showOnlyArbitrage 
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                          : 'bg-surface-hover text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🔗 Polymarket Arb
+                    </button>
+                  </div>
+
                   <div className="flex justify-end pt-2 border-t border-surface-hover">
                     <button
                       onClick={() => {
@@ -1858,6 +1907,10 @@ export function KalshiTradingView() {
                         setMaxEdge(100);
                         setMinRScore(0);
                         setHasAlert('any');
+                        setSentimentFilter('any');
+                        setShowOnlyWhales(false);
+                        setShowOnlyWeatherLag(false);
+                        setShowOnlyArbitrage(false);
                       }}
                       className="text-sm text-gray-400 hover:text-white transition-colors"
                     >
