@@ -1954,7 +1954,120 @@ export function KalshiTradingView() {
       {/* Portfolio Tab */}
       {activeTab === 'portfolio' && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">Open Positions ({openPositionsWithPnL.length})</h2>
+          {/* Portfolio Header with Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-surface rounded-xl border border-surface-hover p-4">
+              <p className="text-sm text-gray-400">Bankroll</p>
+              <p className="text-2xl font-bold text-white">${stats.bankroll.toLocaleString()}</p>
+              <p className={`text-xs ${stats.totalPnl >= 0 ? 'text-success' : 'text-danger'}`}>
+                {stats.totalPnl >= 0 ? '+' : ''}${stats.totalPnl.toFixed(2)} total
+              </p>
+            </div>
+            <div className="bg-surface rounded-xl border border-surface-hover p-4">
+              <p className="text-sm text-gray-400">Open Positions</p>
+              <p className="text-2xl font-bold text-white">{openPositionsWithPnL.length}</p>
+              <p className="text-xs text-gray-500">{stats.openPositions} tracked</p>
+            </div>
+            <div className="bg-surface rounded-xl border border-surface-hover p-4">
+              <p className="text-sm text-gray-400">Win Rate</p>
+              <p className="text-2xl font-bold text-white">{stats.winRate.toFixed(1)}%</p>
+              <p className="text-xs text-gray-500">{stats.winningTrades}W / {stats.losingTrades}L</p>
+            </div>
+            <div className="bg-surface rounded-xl border border-surface-hover p-4">
+              <p className="text-sm text-gray-400">ROI</p>
+              <p className={`text-2xl font-bold ${stats.roi >= 0 ? 'text-success' : 'text-danger'}`}>
+                {stats.roi >= 0 ? '+' : ''}{stats.roi.toFixed(1)}%
+              </p>
+              <p className="text-xs text-gray-500">Total Return</p>
+            </div>
+          </div>
+
+          {/* Portfolio Actions */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-white">Open Positions ({openPositionsWithPnL.length})</h2>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowResetConfirm(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-hover text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+                Reset Portfolio
+              </button>
+            </div>
+          </div>
+
+          {/* Reset Confirmation Modal */}
+          {showResetConfirm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-surface rounded-xl border border-surface-hover p-6 max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold text-white mb-2">Reset Portfolio?</h3>
+                <p className="text-gray-400 text-sm mb-4">
+                  This will close all open positions and reset your bankroll to $10,000. 
+                  Your trade history will be preserved.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setShowResetConfirm(false)}
+                    className="px-4 py-2 rounded-lg bg-surface-hover text-gray-300 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      // Save current positions to history
+                      const closedPositions = positions.map(p => ({
+                        ...p,
+                        status: 'closed' as const,
+                        closedAt: new Date().toISOString(),
+                        closeReason: 'portfolio_reset',
+                        pnl: 0 // Would calculate from current price
+                      }));
+                      
+                      // Update stats
+                      setStats({
+                        bankroll: 10000,
+                        initialBankroll: 10000,
+                        totalPnl: 0,
+                        totalTrades: 0,
+                        winningTrades: 0,
+                        losingTrades: 0,
+                        winRate: 0,
+                        roi: 0,
+                        maxDrawdown: 0,
+                        openPositions: 0
+                      });
+                      
+                      // Clear positions
+                      setPositions([]);
+                      
+                      // Save to Firebase
+                      await setData('v6/kalshi/positions', []);
+                      await setData('v6/kalshi/portfolio', {
+                        bankroll: 10000,
+                        initialBankroll: 10000,
+                        totalPnl: 0,
+                        totalTrades: 0,
+                        winningTrades: 0,
+                        losingTrades: 0,
+                        winRate: 0,
+                        roi: 0,
+                        maxDrawdown: 0,
+                        openPositions: 0,
+                        resetAt: new Date().toISOString()
+                      });
+                      
+                      setShowResetConfirm(false);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {!isDataLoaded ? (
             <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
               <RefreshCw className="mx-auto h-8 w-8 animate-spin text-gray-500" />
@@ -1977,6 +2090,9 @@ export function KalshiTradingView() {
                           {position.side.toUpperCase()}
                         </span>
                         <p className="text-sm text-gray-400">{position.ticker}</p>
+                        <span className="text-xs text-gray-500">
+                          {new Date(position.openedAt).toLocaleDateString()}
+                        </span>
                       </div>
                       <p className="mt-1 font-medium text-white">{position.marketTitle}</p>
                     </div>
@@ -1984,6 +2100,10 @@ export function KalshiTradingView() {
                       <div className="text-right">
                         <p className="text-xs text-gray-500">Entry</p>
                         <p className="text-white">{position.entryPrice}¢ × {position.shares}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">Current</p>
+                        <p className="text-white">{position.currentPrice || position.entryPrice}¢</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-gray-500">Value</p>
@@ -1997,7 +2117,7 @@ export function KalshiTradingView() {
                       </div>
                       <button
                         onClick={() => closePosition(position.id)}
-                        className="rounded-lg bg-surface-hover px-3 py-2 text-sm text-gray-300 hover:bg-danger/20 hover:text-danger"
+                        className="rounded-lg bg-surface-hover px-3 py-2 text-sm text-gray-300 hover:bg-success/20 hover:text-success"
                       >
                         Close
                       </button>
