@@ -4454,8 +4454,12 @@ async function main() {
       if (rawMarket) {
         const noPrice = penny.noPrice;
         const yesPrice = 100 - noPrice;
-        const edge = ((100 - yesPrice) - yesPrice); // Simplified edge calc
-        const rScore = edge > 0 ? 1 + (edge / 10) : 0.5;
+        // For penny picks: edge is based on ROI potential (fat pitches have high forecast delta = high edge)
+        // Estimated true probability based on forecast delta: higher delta = more certain NO wins
+        const estimatedProb = penny.isFatPitch ? 0.95 : 0.85; // 85-95% chance NO wins
+        const marketProb = noPrice / 100; // Market implied probability
+        const edge = (estimatedProb - marketProb) * 100; // Edge in percentage points
+        const rScore = 1.5 + (edge / 20); // Higher edge = higher R-score
         
         allTrades.push({
           ticker: penny.ticker,
@@ -4468,7 +4472,7 @@ async function main() {
           closeTime: rawMarket.close_time || rawMarket.close_date,
           edge: Math.round(edge * 10) / 10,
           rScore: Math.round(rScore * 10) / 10,
-          kellyPct: Math.max(1, Math.min(10, edge / 2)),
+          kellyPct: Math.max(1, Math.min(10, edge / 5)),
           recommendation: penny.type === 'fat_pitch' ? 'buy_urgent' : 'buy',
           pennySignal: penny,
           alerts: penny.type === 'fat_pitch' ? [{
@@ -4526,8 +4530,11 @@ async function main() {
       if (rawMarket) {
         const noPrice = tailRisk.noPrice;
         const yesPrice = 100 - noPrice;
-        const edge = ((100 - yesPrice) - yesPrice);
-        const rScore = edge > 0 ? 1 + (edge / 10) : 0.5;
+        // For tail-risk: very high confidence = ~90-95% probability
+        const estimatedProb = tailRisk.confidence === 'very_high' ? 0.95 : 0.85;
+        const marketProb = noPrice / 100;
+        const edge = (estimatedProb - marketProb) * 100;
+        const rScore = 1.5 + (edge / 20);
         
         allTrades.push({
           ticker: tailRisk.ticker,
@@ -4540,7 +4547,7 @@ async function main() {
           closeTime: rawMarket.close_time || rawMarket.close_date,
           edge: Math.round(edge * 10) / 10,
           rScore: Math.round(rScore * 10) / 10,
-          kellyPct: Math.max(1, Math.min(10, edge / 2)),
+          kellyPct: Math.max(1, Math.min(10, edge / 5)),
           recommendation: 'buy_urgent',
           tailRiskSignal: tailRisk,
           alerts: [{
