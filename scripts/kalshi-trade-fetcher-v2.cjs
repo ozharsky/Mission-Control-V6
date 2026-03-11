@@ -167,6 +167,19 @@ const CONFIG = {
     priceChange: { min: 10 },                   // 24h price change %
     sentiment: { min: 0.5 },                    // Sentiment score threshold
     weatherLag: { minDiff: 15 }                 // Weather lag % difference
+  },
+  // Category-specific thresholds based on Brier calibration
+  categoryThresholds: {
+    weather: { minEdge: 8, minRScore: 5, kellyMultiplier: 1.0 },      // Well calibrated
+    politics: { minEdge: 8, minRScore: 5, kellyMultiplier: 1.0 },     // Well calibrated
+    economics: { minEdge: 12, minRScore: 7, kellyMultiplier: 0.9 },   // Moderate
+    crypto: { minEdge: 15, minRScore: 8, kellyMultiplier: 0.6 }       // Poorly calibrated
+  },
+  // Position sizing limits (fat-tail protection)
+  positionLimits: {
+    maxPerPosition: 0.50,      // Max 50% of bankroll per position
+    maxPerCategory: 0.20,      // Max 20% of bankroll per category per day
+    maxPerDay: 0.75            // Max 75% of bankroll total per day
   }
 };
 
@@ -3860,9 +3873,9 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history 
   };
 }
 
-// Kelly Criterion
-// Kelly Criterion - uses true probability (not edge-based approximation)
-function calculateKelly(trueProb, price, bankroll = 10000) {
+// Kelly Criterion with calibration-based sizing
+// Uses Brier MSEP to adjust Kelly fraction by category
+function calculateKelly(trueProb, price, bankroll = 10000, category = 'unknown') {
   const marketProb = price / 100;
   if (trueProb <= marketProb) return { kellyPct: 0, position: 0 };
 
@@ -3870,9 +3883,56 @@ function calculateKelly(trueProb, price, bankroll = 10000) {
   const p = trueProb; // Use actual calculated probability (0-1)
   const q = 1 - p;
   const fullKelly = (b * p - q) / b;
-  const kellyFraction = fullKelly * CONFIG.kellyFraction;
-  const position = Math.min(bankroll * Math.max(0, kellyFraction), bankroll * 0.10);
-  return { kellyPct: (kellyFraction * 100).toFixed(1), position: Math.floor(position) };
+  
+  // Get category-specific Kelly multiplier (based on calibration quality)
+  const categoryConfig = CONFIG.categoryThresholds[category] || { kellyMultiplier: 0.8 };
+  const kellyMultiplier = categoryConfig.kellyMultiplier * CONFIG.kellyFraction;
+  
+  const kellyFraction = fullKelly * kellyMultiplier;
+  let position = bankroll * Math.max(0, kellyFraction);
+  
+  // Fat-tail protection: Cap at maxPerPosition (default 50%)
+  const maxPosition = bankroll * CONFIG.positionLimits.maxPerPosition;
+  position = Math.min(position, maxPosition);
+  
+  // Also cap at 10% for regular Kelly safety
+  position = Math.min(position, bankroll * 0.10);
+  
+  return { 
+    kellyPct: (kellyFraction * 100).toFixed(1), 
+    position: Math.floor(position),
+    rawKelly: (fullKelly * 100).toFixed(1),
+    multiplier: kellyMultiplier
+  };
+}
+
+// Calculate remaining category exposure for position limits
+function getCategoryExposure(category, positions, bankroll) {
+  const categoryPositions = positions.filter(p => 
+    p.category === category && p.status === 'open'
+  );
+  const totalExposure = categoryPositions.reduce((sum, p) => sum + p.value, 0);
+  return {
+    current: totalExposure,
+    remaining: (bankroll * CONFIG.positionLimits.maxPerCategory) - totalExposure,
+    canTrade: totalExposure < (bankroll * CONFIG.positionLimits.maxPerCategory)
+  };
+}
+
+// Check if trade passes dynamic thresholds based on category calibration
+function passesDynamicThresholds(trade, category) {
+  const thresholds = CONFIG.categoryThresholds[category] || CONFIG.categoryThresholds.economics;
+  
+  if (trade.edge < thresholds.minEdge) {
+    console.log(`   ⚠️ Edge ${trade.edge}% below ${category} threshold (${thresholds.minEdge}%)`);
+    return false;
+  }
+  if (trade.rScore < thresholds.minRScore) {
+    console.log(`   ⚠️ R-Score ${trade.rScore} below ${category} threshold (${thresholds.minRScore})`);
+    return false;
+  }
+  
+  return true;
 }
 
 function isClosingSoon(closeTime) {
@@ -4493,7 +4553,12 @@ async function main() {
         if (yesPrice >= CONFIG.minPrice && yesPrice <= CONFIG.maxPrice &&
             volume >= CONFIG.minVolume && netEdge >= CONFIG.minEdge) {
 
-          const kelly = calculateKelly(edgeCalc.adjustedProb, yesPrice);
+          // Check dynamic thresholds based on category calibration
+          if (!passesDynamicThresholds({ edge: netEdge, rScore: edgeCalc.rScore }, series.category)) {
+            continue;
+          }
+
+          const kelly = calculateKelly(edgeCalc.adjustedProb, yesPrice, 10000, series.category);
           let recommendation = 'hold';
           if (edgeCalc.rScore >= 2.0) recommendation = 'strong_buy';
           else if (edgeCalc.rScore >= 1.5) recommendation = 'buy';
@@ -4911,14 +4976,50 @@ async function main() {
   // Re-sort by composite score
   allTrades.sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
 
+  // CORRELATION AVOIDANCE: Filter out highly correlated trades
+  // If two trades historically move together (>70% correlation), keep only the higher-edge one
+  function filterCorrelatedTrades(trades) {
+    const filtered = [];
+    const correlations = new Map(); // ticker -> array of correlated tickers
+    
+    for (const trade of trades) {
+      let shouldInclude = true;
+      
+      // Check against already included trades
+      for (const included of filtered) {
+        // Simple correlation heuristic based on category and ticker patterns
+        // In production, this should use historical outcome data from Brier tracker
+        const sameCategory = trade.category === included.category;
+        const similarTicker = trade.ticker.split('-')[0] === included.ticker.split('-')[0];
+        
+        if (sameCategory && similarTicker) {
+          // Same event type - highly correlated
+          shouldInclude = false;
+          console.log(`   🔄 Correlation filter: Skipping ${trade.ticker} (correlated with ${included.ticker})`);
+          break;
+        }
+      }
+      
+      if (shouldInclude) {
+        filtered.push(trade);
+      }
+    }
+    
+    return filtered;
+  }
+
+  // Apply correlation filter to allTrades before selecting top trades
+  const uncorrelatedTrades = filterCorrelatedTrades(allTrades);
+  console.log(`\n📊 Correlation filtering: ${allTrades.length} → ${uncorrelatedTrades.length} uncorrelated trades`);
+
   // Check threshold-based alerts (AFTER all data is collected)
   console.log('\n🔔 Checking alert thresholds...');
   const alertManager = new AlertManager();
-  const triggeredAlerts = alertManager.checkThresholds(allTrades, polymarketArbs, weatherLags);
+  const triggeredAlerts = alertManager.checkThresholds(uncorrelatedTrades, polymarketArbs, weatherLags);
   alertManager.printSummary();
 
   // Print edge decay report
-  edgeDecayTracker.printDecayReport(allTrades);
+  edgeDecayTracker.printDecayReport(uncorrelatedTrades);
   await edgeDecayTracker.saveToFile();
 
   // Print correlation matrix report
@@ -4930,12 +5031,12 @@ async function main() {
 
   // Generate Portfolio Heat Map (using empty positions since this is a scanner, not portfolio tracker)
   const portfolioHeatMap = new PortfolioHeatMap(10000);
-  const heatMapAnalysis = portfolioHeatMap.analyzePortfolio([], allTrades);
+  const heatMapAnalysis = portfolioHeatMap.analyzePortfolio([], uncorrelatedTrades);
   portfolioHeatMap.printReport(heatMapAnalysis);
 
   // Dynamic Kelly Sizing Analysis
   const dynamicKelly = new DynamicKellySizing(10000);
-  const kellyAnalysis = dynamicKelly.analyze(allTrades);
+  const kellyAnalysis = dynamicKelly.analyze(uncorrelatedTrades);
   dynamicKelly.printReport(kellyAnalysis);
 
   // Run backtesting simulations
@@ -4944,15 +5045,15 @@ async function main() {
   backtestFramework.printComparisonReport(backtestResults);
 
   // Validate predictions against actual historical outcomes
-  const historicalValidation = await backtestFramework.validateWithHistoricalData(allTrades);
+  const historicalValidation = await backtestFramework.validateWithHistoricalData(uncorrelatedTrades);
 
-  const arbitrage = detectArbitrage(allTrades);
+  const arbitrage = detectArbitrage(uncorrelatedTrades);
 
   const byCategory = {
-    weather: allTrades.filter(t => t.category === 'weather'),
-    crypto: allTrades.filter(t => t.category === 'crypto'),
-    politics: allTrades.filter(t => t.category === 'politics'),
-    economics: allTrades.filter(t => t.category === 'economics')
+    weather: uncorrelatedTrades.filter(t => t.category === 'weather'),
+    crypto: uncorrelatedTrades.filter(t => t.category === 'crypto'),
+    politics: uncorrelatedTrades.filter(t => t.category === 'politics'),
+    economics: uncorrelatedTrades.filter(t => t.category === 'economics')
   };
 
   for (const cat in byCategory) {
@@ -4967,8 +5068,8 @@ async function main() {
   ].sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
 
   // Ensure penny picks and tail-risk trades are included
-  const pennyPickTrades = allTrades.filter(t => t.pennySignal);
-  const tailRiskTrades = allTrades.filter(t => t.tailRiskSignal);
+  const pennyPickTrades = uncorrelatedTrades.filter(t => t.pennySignal);
+  const tailRiskTrades = uncorrelatedTrades.filter(t => t.tailRiskSignal);
 
   // Add penny picks and tail-risk trades that aren't already in topTrades
   for (const trade of [...pennyPickTrades, ...tailRiskTrades]) {
@@ -4994,6 +5095,8 @@ async function main() {
     summary: {
       totalMarkets: SERIES.length * CONFIG.maxMarketsPerSeries,
       analyzed: allTrades.length,
+      uncorrelated: uncorrelatedTrades.length,
+      filteredByCorrelation: allTrades.length - uncorrelatedTrades.length,
       opportunities: topTrades.length,
       arbitrage: arbitrage.length,
       polymarketArbs: polymarketArbs.length,
