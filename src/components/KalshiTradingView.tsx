@@ -1411,7 +1411,7 @@ export function KalshiTradingView() {
     if (!isDataLoaded || positions.length === 0) return;
     
     console.log('🔍 Checking for auto-settlement opportunities...');
-    const scanData = { brier: summary?.brier };
+    const scanData = { brier: scanSummary?.brier };
     
     const { positions: updatedPositions, stats: updatedStats, settled } = 
       settlePositionsFromScan(positions, scanData, stats);
@@ -1421,7 +1421,7 @@ export function KalshiTradingView() {
       setPositions(updatedPositions);
       setStats(updatedStats);
     }
-  }, [summary?.scan_time, isDataLoaded]); // Run when new scan data arrives
+  }, [scanSummary?.scan_time, isDataLoaded]); // Run when new scan data arrives
 
   // Debug logging for positions
   useEffect(() => {
