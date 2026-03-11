@@ -180,8 +180,120 @@ const CONFIG = {
     maxPerPosition: 0.50,      // Max 50% of bankroll per position
     maxPerCategory: 0.20,      // Max 20% of bankroll per category per day
     maxPerDay: 0.75            // Max 75% of bankroll total per day
+  },
+  // Rate limiting (Token Bucket)
+  rateLimit: {
+    readRequestsPerSecond: 20,    // Basic tier limit
+    writeRequestsPerSecond: 10,   // Basic tier limit
+    burstAllowance: 5,            // Allow burst of 5 requests
+    retryAfter429: true,          // Honor Retry-After headers
+    maxRetries: 3,
+    baseRetryDelay: 1000,         // 1 second base
+    maxRetryDelay: 30000          // 30 seconds max
   }
 };
+
+// Token Bucket Rate Limiter
+class TokenBucket {
+  constructor(tokensPerSecond, burstSize) {
+    this.tokensPerSecond = tokensPerSecond;
+    this.burstSize = burstSize;
+    this.tokens = burstSize;
+    this.lastRefill = Date.now();
+  }
+
+  // Try to consume tokens, returns wait time if not enough
+  consume(tokens = 1) {
+    this.refill();
+    
+    if (this.tokens >= tokens) {
+      this.tokens -= tokens;
+      return 0; // No wait needed
+    }
+    
+    // Calculate wait time needed
+    const tokensNeeded = tokens - this.tokens;
+    const waitMs = (tokensNeeded / this.tokensPerSecond) * 1000;
+    return Math.ceil(waitMs);
+  }
+
+  refill() {
+    const now = Date.now();
+    const elapsedMs = now - this.lastRefill;
+    const tokensToAdd = (elapsedMs / 1000) * this.tokensPerSecond;
+    
+    this.tokens = Math.min(this.burstSize, this.tokens + tokensToAdd);
+    this.lastRefill = now;
+  }
+}
+
+// Global rate limiters
+const readRateLimiter = new TokenBucket(
+  CONFIG.rateLimit.readRequestsPerSecond,
+  CONFIG.rateLimit.burstAllowance
+);
+const writeRateLimiter = new TokenBucket(
+  CONFIG.rateLimit.writeRequestsPerSecond,
+  CONFIG.rateLimit.burstAllowance
+);
+
+// Rate-limited wrapper for fetchOnce (used for Kalshi API calls)
+async function rateLimitedFetchOnce(url, options = {}, isWrite = false) {
+  const limiter = isWrite ? writeRateLimiter : readRateLimiter;
+  const waitTime = limiter.consume(1);
+  
+  if (waitTime > 0) {
+    console.log(`⏳ Rate limit: waiting ${waitTime}ms before request`);
+    await delay(waitTime);
+  }
+  
+  return fetchOnce(url, options);
+}
+
+// Exponential backoff with jitter for 429 errors
+async function fetchWithRetry(url, options = {}, maxRetries = CONFIG.rateLimit.maxRetries, isWrite = false) {
+  let lastError;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // Apply rate limiting and make request
+      const result = await rateLimitedFetchOnce(url, options, isWrite);
+      
+      // If we got here without error, return the result
+      return result;
+      
+    } catch (error) {
+      lastError = error;
+      
+      // Check if it's a 429 error (rate limited by server)
+      if (error.message && error.message.includes('429')) {
+        const delayMs = Math.min(
+          CONFIG.rateLimit.baseRetryDelay * Math.pow(2, attempt),
+          CONFIG.rateLimit.maxRetryDelay
+        );
+        // Add jitter (±25%) to prevent thundering herd
+        const jitter = delayMs * (0.75 + Math.random() * 0.5);
+        
+        console.log(`🚦 429 received, waiting ${Math.round(jitter)}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+        await delay(jitter);
+        continue;
+      }
+      
+      if (attempt < maxRetries) {
+        const delayMs = Math.min(
+          CONFIG.rateLimit.baseRetryDelay * Math.pow(2, attempt),
+          CONFIG.rateLimit.maxRetryDelay
+        );
+        const jitter = delayMs * (0.75 + Math.random() * 0.5);
+        
+        console.log(`⚠️ Request failed, retrying in ${Math.round(jitter)}ms: ${error.message}`);
+        await delay(jitter);
+      }
+    }
+  }
+  
+  throw lastError || new Error(`Failed after ${maxRetries} retries`);
+}
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -3762,18 +3874,6 @@ function getPerformanceAttribution(trade, momentum, whaleData, clv) {
   }
 
   return factors.sort((a, b) => b.contribution - a.contribution);
-}
-
-async function fetchWithRetry(url, options = {}, retries = CONFIG.maxRetries) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fetchOnce(url, options);
-    } catch (err) {
-      console.error(`  ⚠️ Attempt ${i + 1}/${retries} failed: ${err.message}`);
-      if (i < retries - 1) await delay(1000 * (i + 1));
-    }
-  }
-  throw new Error(`Failed after ${retries} retries`);
 }
 
 // Sign request for Kalshi API authentication using RSA-PSS
