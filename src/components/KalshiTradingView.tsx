@@ -8,6 +8,13 @@ import {
 import { getData, setData } from '../lib/firebase';
 import { RESEARCHED_TRADES } from './trades-data';
 import { BrierScoreCard } from './BrierScoreCard';
+import { 
+  updatePositionsWithLatestPrices, 
+  settlePositionsFromScan, 
+  calculateUnrealizedPnL,
+  getPortfolioValue,
+  logPositionStatus 
+} from '../lib/portfolio-utils';
 
 // Types
 interface KalshiTrade {
@@ -1381,6 +1388,48 @@ export function KalshiTradingView() {
     }
   }, [stats, isDataLoaded]);
 
+  // Auto-update position prices when trades change (from scanner)
+  useEffect(() => {
+    if (!isDataLoaded || positions.length === 0) return;
+    
+    console.log('🔄 Auto-updating position prices from scanner data...');
+    const updatedPositions = updatePositionsWithLatestPrices(positions, trades);
+    
+    // Only update if prices actually changed
+    const hasChanges = updatedPositions.some((p, i) => 
+      p.currentPrice !== positions[i]?.currentPrice
+    );
+    
+    if (hasChanges) {
+      console.log('✅ Position prices updated');
+      setPositions(updatedPositions);
+    }
+  }, [trades, isDataLoaded]); // Run when trades change
+
+  // Auto-settle positions when scan data includes resolved markets
+  useEffect(() => {
+    if (!isDataLoaded || positions.length === 0) return;
+    
+    console.log('🔍 Checking for auto-settlement opportunities...');
+    const scanData = { brier: summary?.brier };
+    
+    const { positions: updatedPositions, stats: updatedStats, settled } = 
+      settlePositionsFromScan(positions, scanData, stats);
+    
+    if (settled.length > 0) {
+      console.log(`✅ Auto-settled ${settled.length} positions:`, settled.map(p => p.ticker));
+      setPositions(updatedPositions);
+      setStats(updatedStats);
+    }
+  }, [summary?.scan_time, isDataLoaded]); // Run when new scan data arrives
+
+  // Debug logging for positions
+  useEffect(() => {
+    if (activeTab === 'portfolio') {
+      logPositionStatus(positions);
+    }
+  }, [positions, activeTab]);
+
   // Fetch live data from Kalshi API
   const fetchLiveData = async () => {
     setIsLoading(true);
@@ -1555,34 +1604,10 @@ export function KalshiTradingView() {
     return result;
   }, [trades, selectedCategory, sortBy, minEdge, maxEdge, minRScore, hasAlert, sentimentFilter, showOnlyWhales, showOnlyWeatherLag, showOnlyArbitrage, showOnlyPennyPicks]);
 
-  // Calculate position P&L - uses live prices from trades or stored current price
+  // Calculate position P&L - uses stored currentPrice (auto-updated by scanner)
   const calculatePositionPnL = (position: PaperPosition) => {
     if (position.status !== 'open') return position.pnl || 0;
-    
-    // Find current market data in trades
-    const currentTrade = trades.find(t => t.ticker === position.ticker);
-    
-    let currentPrice: number;
-    
-    if (currentTrade) {
-      // Use live price from trades
-      currentPrice = position.side === 'yes' ? currentTrade.yesPrice : currentTrade.noPrice;
-    } else if (position.currentPrice) {
-      // Use stored current price from last update
-      currentPrice = position.currentPrice;
-      console.log(`Using stored price for ${position.ticker}: ${currentPrice}¢`);
-    } else {
-      // No price data available - P&L is 0 (price hasn't changed from entry)
-      console.log(`No price data for ${position.ticker}, assuming entry price`);
-      return 0;
-    }
-    
-    const priceDiff = (currentPrice - position.entryPrice) / 100;
-    const pnl = priceDiff * position.shares;
-    
-    console.log(`P&L for ${position.ticker}: entry=${position.entryPrice}¢, current=${currentPrice}¢, shares=${position.shares}, pnl=$${pnl.toFixed(2)}`);
-    
-    return pnl;
+    return calculateUnrealizedPnL(position);
   };
 
   // Execute paper trade
@@ -1673,31 +1698,27 @@ export function KalshiTradingView() {
     }
   };
 
-  // Memoize open positions with calculated P&L so it updates when trades change
+  // Memoize open positions with calculated P&L
+  // Uses stored currentPrice which is auto-updated when scanner runs
   const openPositionsWithPnL = useMemo(() => {
     return positions
       .filter(p => p.status === 'open')
       .map(p => {
-        // Find current price from trades
-        const currentTrade = trades.find(t => t.ticker === p.ticker);
-        const currentPrice = currentTrade 
-          ? (p.side === 'yes' ? currentTrade.yesPrice : currentTrade.noPrice)
-          : p.currentPrice; // Fallback to stored price
+        // Use stored currentPrice (auto-updated by useEffect when scanner runs)
+        const currentPrice = p.currentPrice || p.entryPrice;
         
         // Calculate P&L
-        const priceForCalc = currentPrice || p.entryPrice; // Use entry price if no current price
-        const priceDiff = (priceForCalc - p.entryPrice) / 100;
+        const priceDiff = (currentPrice - p.entryPrice) / 100;
         const pnl = priceDiff * p.shares;
         
         return { 
           ...p, 
           pnl, 
-          pnlPct: (pnl / p.value) * 100,
-          currentPrice: priceForCalc // Store current price for next calc
+          pnlPct: (pnl / p.value) * 100
         };
       })
       .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl)); // Sort by biggest P&L first
-  }, [positions, trades]); // Recalculate when either changes
+  }, [positions]); // Only recalculate when positions change (currentPrice is part of position)
 
   // Stats cards
   const StatCard = ({ title, value, trend, icon: Icon, color }: any) => (
@@ -2613,6 +2634,16 @@ export function KalshiTradingView() {
             </div>
           ) : (
             <div className="space-y-3">
+              {/* Price update indicator */}
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>
+                  {positions.filter(p => p.status === 'open' && p.currentPrice).length} of {openPositionsWithPnL.length} positions have live prices
+                </span>
+                <span>
+                  Prices auto-update when scanner runs
+                </span>
+              </div>
+              
               {openPositionsWithPnL.map((position) => (
                 <div key={position.id} className="rounded-xl border border-surface-hover bg-surface p-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
