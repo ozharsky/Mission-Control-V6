@@ -323,6 +323,49 @@ function getMarketPrices(market) {
   };
 }
 
+// Orderbook Reciprocity Helper
+// Kalshi API only shows BIDs, not Asks. Asks must be derived mathematically.
+// In a binary market (YES/NO), the sides are complementary:
+//   YES Ask = 100 - NO Bid
+//   NO Ask = 100 - YES Bid
+//
+// This is because buying YES at price P is equivalent to selling NO at price (100-P)
+// Example: If someone bids 30¢ for NO, they're willing to "sell" YES at 70¢
+function getOrderbookWithReciprocity(market) {
+  const prices = getMarketPrices(market);
+  
+  // Derive asks from opposite side's bids
+  const yesAskFromNoBid = 100 - prices.noBid;
+  const noAskFromYesBid = 100 - prices.yesBid;
+  
+  // Use the derived asks if explicit asks aren't available or seem incorrect
+  // Explicit asks might be stale or missing in some API responses
+  const yesAsk = prices.yesAsk > prices.yesBid ? prices.yesAsk : yesAskFromNoBid;
+  const noAsk = prices.noAsk > prices.noBid ? prices.noAsk : noAskFromYesBid;
+  
+  // Validate reciprocity (should sum to 100 for complementary contracts)
+  const yesSum = prices.yesBid + noAsk;
+  const noSum = prices.noBid + yesAsk;
+  
+  // Log warning if reciprocity is significantly violated (indicates stale data)
+  if (Math.abs(yesSum - 100) > 5 || Math.abs(noSum - 100) > 5) {
+    console.warn(`⚠️ Orderbook reciprocity violation for ${market.ticker}: YES=${prices.yesBid}/${yesAsk}, NO=${prices.noBid}/${noAsk}`);
+  }
+  
+  return {
+    yesBid: prices.yesBid,
+    yesAsk: Math.min(yesAsk, 99), // Cap at 99¢
+    yesPrice: prices.yesPrice,
+    noBid: prices.noBid,
+    noAsk: Math.min(noAsk, 99), // Cap at 99¢
+    noPrice: prices.noPrice,
+    // Derived metrics
+    yesSpread: yesAsk - prices.yesBid,
+    noSpread: noAsk - prices.noBid,
+    reciprocityCheck: { yesSum, noSum, isValid: Math.abs(yesSum - 100) <= 5 }
+  };
+}
+
 // Calculate probability for crypto markets based on live external price vs bracket
 // Uses CoinGecko API for live prices - NOT circular like Kalshi price history
 async function calculateCryptoProbabilityFromMarketPrice(marketTitle, livePrice) {
@@ -4628,16 +4671,16 @@ async function main() {
       console.log(`✅ ${series.name}: ${markets.length} markets`);
 
       for (const m of markets.slice(0, CONFIG.maxMarketsPerSeries)) {
-        // Use schema-agnostic price extraction (handles both old and new Kalshi formats)
-        const prices = getMarketPrices(m);
-        const yesPrice = prices.yesAsk || prices.yesPrice || 0;
-        const noPrice = prices.noAsk || (100 - yesPrice);
+        // Use orderbook reciprocity (handles Kalshi's bid-only API by deriving asks)
+        const book = getOrderbookWithReciprocity(m);
+        const yesPrice = book.yesAsk || book.yesPrice || 0;
+        const noPrice = book.noAsk || (100 - yesPrice);
         const volume = m.volume || 0;
 
         if (isClosingSoon(m.close_time)) continue;
 
-        // Get market health (now uses schema-agnostic prices)
-        const health = getMarketHealth({ ...m, ...prices });
+        // Get market health (now uses reciprocity-aware orderbook)
+        const health = getMarketHealth({ ...m, ...book });
         if (!health.isLiquid) {
           console.log(`  ⚠️ Skipping ${m.ticker}: poor liquidity (spread=${health.avgSpread.toFixed(1)}¢)`);
           continue;
@@ -4667,8 +4710,8 @@ async function main() {
         // Calculate edge with time adjustment (now with proper R-Score)
         const edgeCalc = calculateEdge(yesPrice, effectiveBaseProb, volume, m.close_time, series.category, history, m.ticker);
 
-        // Calculate spread cost (exit liquidity risk) using schema-agnostic prices
-        const spreadCost = calculateSpreadCost(prices.yesBid, prices.yesAsk);
+        // Calculate spread cost (exit liquidity risk) using reciprocity-aware orderbook
+        const spreadCost = calculateSpreadCost(book.yesBid, book.yesAsk);
 
         // Adjust edge for spread cost and fees
         const grossEdge = edgeCalc.edge;
@@ -4726,10 +4769,13 @@ async function main() {
             category: series.category,
             yesPrice,
             noPrice,
-            yesBid: prices.yesBid,
-            yesAsk: prices.yesAsk,
-            noBid: prices.noBid,
-            noAsk: prices.noAsk,
+            yesBid: book.yesBid,
+            yesAsk: book.yesAsk,
+            noBid: book.noBid,
+            noAsk: book.noAsk,
+            yesSpread: book.yesSpread,
+            noSpread: book.noSpread,
+            reciprocityValid: book.reciprocityCheck.isValid,
             volume,
             closeTime: m.close_time,
             expiration: m.expiration_date || m.close_time,
