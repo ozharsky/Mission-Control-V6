@@ -2404,6 +2404,9 @@ export function KalshiTradingView() {
                   ref={(el) => {
                     if (el) tradeRefs.current.set(trade.id, el);
                   }}
+                  data-ticker={trade.ticker}
+                  data-has-penny={trade.pennySignal ? 'true' : 'false'}
+                  data-has-tailrisk={trade.tailRiskSignal ? 'true' : 'false'}
                   className={`rounded-xl border p-4 transition-all hover:border-primary/50 ${
                     trade.pennySignal || trade.tailRiskSignal
                       ? 'border-purple-500/50 bg-purple-500/5'
@@ -2420,6 +2423,13 @@ export function KalshiTradingView() {
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${RECOMMENDATION_COLORS[trade.recommendation]}`}>
                         {trade.recommendation === 'buy_urgent' ? '🔥 BUY URGENT' : trade.recommendation.replace('_', ' ').toUpperCase()}
                       </span>
+                      {/* DEBUG: Always show penny signal check */}
+                      {(() => {
+                        if (trade.pennySignal) {
+                          console.log('🪙 DEBUG RENDER: Rendering penny badge for', trade.ticker, trade.pennySignal);
+                        }
+                        return null;
+                      })()}
                       {trade.pennySignal && (
                         <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
                           🪙 Penny Pick {trade.pennySignal.noPrice}¢
