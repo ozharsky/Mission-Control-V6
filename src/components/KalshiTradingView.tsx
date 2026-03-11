@@ -1054,11 +1054,31 @@ function transformResearchedTrades(): KalshiTrade[] {
 
 // Transform scanner output to KalshiTrade format
 function transformScannerOutput(scannerData: any): KalshiTrade[] {
+  console.log('🔍 DEBUG transformScannerOutput:', {
+    hasOpportunities: !!scannerData?.opportunities,
+    opportunityCount: scannerData?.opportunities?.length || 0,
+    hasPennyResults: !!scannerData?.pennyResults,
+    pennyOpportunityCount: scannerData?.pennyResults?.opportunities?.length || 0,
+    hasTailRiskResults: !!scannerData?.tailRiskResults,
+    tailRiskOpportunityCount: scannerData?.tailRiskResults?.opportunities?.length || 0
+  });
+
   if (!scannerData?.opportunities || !Array.isArray(scannerData.opportunities)) {
+    console.log('⚠️ DEBUG: No opportunities array found');
     return [];
   }
-  
-  return scannerData.opportunities.map((opp: any) => {
+
+  // Log sample opportunities with penny/tail-risk signals
+  const sampleOpps = scannerData.opportunities.slice(0, 5);
+  console.log('🔍 DEBUG Sample opportunities:', sampleOpps.map((o: any) => ({
+    ticker: o.ticker,
+    hasPennySignal: !!o.pennySignal,
+    hasTailRiskSignal: !!o.tailRiskSignal,
+    edge: o.edge,
+    rScore: o.rScore
+  })));
+
+  const result = scannerData.opportunities.map((opp: any) => {
     // Edge is now a number from scanner (was string in v2.5)
     const edge = typeof opp.edge === 'number' ? opp.edge : parseFloat(opp.edge?.replace('%', '') || '0');
     const rScore = typeof opp.rScore === 'number' ? opp.rScore : parseFloat(opp.rScore || '0');
@@ -1151,7 +1171,19 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
       pennySignal: opp.pennySignal,
       tailRiskSignal: opp.tailRiskSignal
     };
-  }); // Removed edge > 0 filter since scanner already filters
+  });
+
+  // Log summary of transformed trades
+  const withPenny = result.filter((t: KalshiTrade) => t.pennySignal).length;
+  const withTailRisk = result.filter((t: KalshiTrade) => t.tailRiskSignal).length;
+  console.log('✅ DEBUG transformScannerOutput result:', {
+    totalTrades: result.length,
+    withPennySignal: withPenny,
+    withTailRiskSignal: withTailRisk,
+    sampleTickers: result.slice(0, 3).map(t => t.ticker)
+  });
+
+  return result;
 }
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -1269,11 +1301,29 @@ export function KalshiTradingView() {
         if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities) && scannerOutput.opportunities.length > 0) {
           console.log(`Base data: ${scannerOutput.opportunities.length} opportunities from scanner`);
           let transformed = transformScannerOutput(scannerOutput);
-          
+
+          // DEBUG: Check transformed trades for penny picks
+          const transformedWithPenny = transformed.filter((t: KalshiTrade) => t.pennySignal).length;
+          const transformedWithTailRisk = transformed.filter((t: KalshiTrade) => t.tailRiskSignal).length;
+          console.log('🔍 DEBUG After transform:', {
+            totalTransformed: transformed.length,
+            withPennySignal: transformedWithPenny,
+            withTailRiskSignal: transformedWithTailRisk
+          });
+
           // 2. Fetch live prices to update
           console.log('Fetching live price updates...');
           const updatedTrades = await updateWithLivePrices(transformed);
-          
+
+          // DEBUG: Check after live price update
+          const updatedWithPenny = updatedTrades.filter((t: KalshiTrade) => t.pennySignal).length;
+          const updatedWithTailRisk = updatedTrades.filter((t: KalshiTrade) => t.tailRiskSignal).length;
+          console.log('🔍 DEBUG After live price update:', {
+            totalUpdated: updatedTrades.length,
+            withPennySignal: updatedWithPenny,
+            withTailRiskSignal: updatedWithTailRisk
+          });
+
           setTrades(updatedTrades);
           setLastUpdated(new Date());
           setScanSummary(scannerOutput.summary);
@@ -1479,29 +1529,49 @@ export function KalshiTradingView() {
   // Filter and sort trades with advanced filters
   const filteredTrades = useMemo(() => {
     let result = [...trades];
-    
+
+    // DEBUG: Log initial state
+    const initialPennyCount = result.filter(t => t.pennySignal).length;
+    const initialTailRiskCount = result.filter(t => t.tailRiskSignal).length;
+    console.log('🔍 DEBUG filteredTrades initial:', {
+      totalTrades: result.length,
+      withPennySignal: initialPennyCount,
+      withTailRiskSignal: initialTailRiskCount,
+      filters: { selectedCategory, minEdge, maxEdge, minRScore, showOnlyPennyPicks }
+    });
+
     // Category filter
     if (selectedCategory !== 'all') {
       result = result.filter(t => t.category === selectedCategory);
     }
-    
+
     // Edge range filter
     result = result.filter(t => t.edge >= minEdge && t.edge <= maxEdge);
-    
+
+    // DEBUG: Log after edge filter
+    const afterEdgePennyCount = result.filter(t => t.pennySignal).length;
+    if (initialPennyCount > 0 && afterEdgePennyCount === 0) {
+      console.log('⚠️ DEBUG: All penny picks filtered out by edge range!', {
+        minEdge,
+        maxEdge,
+        samplePennyEdges: trades.filter(t => t.pennySignal).slice(0, 3).map(t => ({ ticker: t.ticker, edge: t.edge }))
+      });
+    }
+
     // R-Score minimum filter
     result = result.filter(t => t.rScore >= minRScore);
-    
+
     // Alert severity filter
     if (hasAlert !== 'any') {
       if (hasAlert === 'none') {
         result = result.filter(t => !t.alerts || t.alerts.length === 0);
       } else {
-        result = result.filter(t => 
+        result = result.filter(t =>
           t.alerts?.some(a => a.severity === hasAlert)
         );
       }
     }
-    
+
     // Sentiment filter
     if (sentimentFilter !== 'any') {
       result = result.filter(t => {
@@ -1517,27 +1587,36 @@ export function KalshiTradingView() {
         return true;
       });
     }
-    
+
     // Whale activity filter
     if (showOnlyWhales) {
       result = result.filter(t => t.whale === true);
     }
-    
+
     // Weather lag filter
     if (showOnlyWeatherLag) {
       result = result.filter(t => t.nwsSignal?.lagDetected === true);
     }
-    
+
     // Arbitrage filter
     if (showOnlyArbitrage) {
       result = result.filter(t => !!t.polymarketArb);
     }
-    
+
     // Penny picks filter
     if (showOnlyPennyPicks) {
       result = result.filter(t => t.pennySignal || t.tailRiskSignal);
     }
-    
+
+    // DEBUG: Log final result
+    const finalPennyCount = result.filter(t => t.pennySignal).length;
+    const finalTailRiskCount = result.filter(t => t.tailRiskSignal).length;
+    console.log('🔍 DEBUG filteredTrades final:', {
+      totalFiltered: result.length,
+      withPennySignal: finalPennyCount,
+      withTailRiskSignal: finalTailRiskCount
+    });
+
     // Sorting
     result.sort((a, b) => {
       if (sortBy === 'composite') {
@@ -1550,7 +1629,7 @@ export function KalshiTradingView() {
       if (sortBy === 'volume') return b.volume - a.volume;
       return 0;
     });
-    
+
     return result;
   }, [trades, selectedCategory, sortBy, minEdge, maxEdge, minRScore, hasAlert, sentimentFilter, showOnlyWhales, showOnlyWeatherLag, showOnlyArbitrage, showOnlyPennyPicks]);
 
