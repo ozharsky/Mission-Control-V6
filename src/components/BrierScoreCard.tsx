@@ -249,16 +249,16 @@ export function BrierScoreCard() {
       {/* Legend */}
       <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap gap-3 text-xs text-gray-500">
         <span className="flex items-center gap-1">
-          <span className="text-emerald-400">⭐⭐</span> < 0.15 Excellent
+          <span className="text-emerald-400">⭐⭐</span> &lt; 0.15 Excellent
         </span>
         <span className="flex items-center gap-1">
-          <span className="text-blue-400">⭐</span> < 0.20 Good
+          <span className="text-blue-400">⭐</span> &lt; 0.20 Good
         </span>
         <span className="flex items-center gap-1">
-          <span className="text-yellow-400">✅</span> < 0.25 Fair
+          <span className="text-yellow-400">✅</span> &lt; 0.25 Fair
         </span>
         <span className="flex items-center gap-1">
-          <span className="text-rose-400">⚠️</span> ≥ 0.25 Poor
+          <span className="text-rose-400">⚠️</span> &ge; 0.25 Poor
         </span>
       </div>
     </div>
