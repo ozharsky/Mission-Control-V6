@@ -1054,31 +1054,11 @@ function transformResearchedTrades(): KalshiTrade[] {
 
 // Transform scanner output to KalshiTrade format
 function transformScannerOutput(scannerData: any): KalshiTrade[] {
-  console.log('🔍 DEBUG transformScannerOutput:', {
-    hasOpportunities: !!scannerData?.opportunities,
-    opportunityCount: scannerData?.opportunities?.length || 0,
-    hasPennyResults: !!scannerData?.pennyResults,
-    pennyOpportunityCount: scannerData?.pennyResults?.opportunities?.length || 0,
-    hasTailRiskResults: !!scannerData?.tailRiskResults,
-    tailRiskOpportunityCount: scannerData?.tailRiskResults?.opportunities?.length || 0
-  });
-
   if (!scannerData?.opportunities || !Array.isArray(scannerData.opportunities)) {
-    console.log('⚠️ DEBUG: No opportunities array found');
     return [];
   }
 
-  // Log sample opportunities with penny/tail-risk signals
-  const sampleOpps = scannerData.opportunities.slice(0, 5);
-  console.log('🔍 DEBUG Sample opportunities:', sampleOpps.map((o: any) => ({
-    ticker: o.ticker,
-    hasPennySignal: !!o.pennySignal,
-    hasTailRiskSignal: !!o.tailRiskSignal,
-    edge: o.edge,
-    rScore: o.rScore
-  })));
-
-  const result = scannerData.opportunities.map((opp: any) => {
+  return scannerData.opportunities.map((opp: any) => {
     // Edge is now a number from scanner (was string in v2.5)
     const edge = typeof opp.edge === 'number' ? opp.edge : parseFloat(opp.edge?.replace('%', '') || '0');
     const rScore = typeof opp.rScore === 'number' ? opp.rScore : parseFloat(opp.rScore || '0');
@@ -1172,18 +1152,6 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
       tailRiskSignal: opp.tailRiskSignal
     };
   });
-
-  // Log summary of transformed trades
-  const withPenny = result.filter((t: KalshiTrade) => t.pennySignal).length;
-  const withTailRisk = result.filter((t: KalshiTrade) => t.tailRiskSignal).length;
-  console.log('✅ DEBUG transformScannerOutput result:', {
-    totalTrades: result.length,
-    withPennySignal: withPenny,
-    withTailRiskSignal: withTailRisk,
-    sampleTickers: result.slice(0, 3).map(t => t.ticker)
-  });
-
-  return result;
 }
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -1302,27 +1270,9 @@ export function KalshiTradingView() {
           console.log(`Base data: ${scannerOutput.opportunities.length} opportunities from scanner`);
           let transformed = transformScannerOutput(scannerOutput);
 
-          // DEBUG: Check transformed trades for penny picks
-          const transformedWithPenny = transformed.filter((t: KalshiTrade) => t.pennySignal).length;
-          const transformedWithTailRisk = transformed.filter((t: KalshiTrade) => t.tailRiskSignal).length;
-          console.log('🔍 DEBUG After transform:', {
-            totalTransformed: transformed.length,
-            withPennySignal: transformedWithPenny,
-            withTailRiskSignal: transformedWithTailRisk
-          });
-
           // 2. Fetch live prices to update
           console.log('Fetching live price updates...');
           const updatedTrades = await updateWithLivePrices(transformed);
-
-          // DEBUG: Check after live price update
-          const updatedWithPenny = updatedTrades.filter((t: KalshiTrade) => t.pennySignal).length;
-          const updatedWithTailRisk = updatedTrades.filter((t: KalshiTrade) => t.tailRiskSignal).length;
-          console.log('🔍 DEBUG After live price update:', {
-            totalUpdated: updatedTrades.length,
-            withPennySignal: updatedWithPenny,
-            withTailRiskSignal: updatedWithTailRisk
-          });
 
           setTrades(updatedTrades);
           setLastUpdated(new Date());
@@ -1530,16 +1480,6 @@ export function KalshiTradingView() {
   const filteredTrades = useMemo(() => {
     let result = [...trades];
 
-    // DEBUG: Log initial state
-    const initialPennyCount = result.filter(t => t.pennySignal).length;
-    const initialTailRiskCount = result.filter(t => t.tailRiskSignal).length;
-    console.log('🔍 DEBUG filteredTrades initial:', {
-      totalTrades: result.length,
-      withPennySignal: initialPennyCount,
-      withTailRiskSignal: initialTailRiskCount,
-      filters: { selectedCategory, minEdge, maxEdge, minRScore, showOnlyPennyPicks }
-    });
-
     // Category filter
     if (selectedCategory !== 'all') {
       result = result.filter(t => t.category === selectedCategory);
@@ -1547,16 +1487,6 @@ export function KalshiTradingView() {
 
     // Edge range filter
     result = result.filter(t => t.edge >= minEdge && t.edge <= maxEdge);
-
-    // DEBUG: Log after edge filter
-    const afterEdgePennyCount = result.filter(t => t.pennySignal).length;
-    if (initialPennyCount > 0 && afterEdgePennyCount === 0) {
-      console.log('⚠️ DEBUG: All penny picks filtered out by edge range!', {
-        minEdge,
-        maxEdge,
-        samplePennyEdges: trades.filter(t => t.pennySignal).slice(0, 3).map(t => ({ ticker: t.ticker, edge: t.edge }))
-      });
-    }
 
     // R-Score minimum filter
     result = result.filter(t => t.rScore >= minRScore);
@@ -1607,15 +1537,6 @@ export function KalshiTradingView() {
     if (showOnlyPennyPicks) {
       result = result.filter(t => t.pennySignal || t.tailRiskSignal);
     }
-
-    // DEBUG: Log final result
-    const finalPennyCount = result.filter(t => t.pennySignal).length;
-    const finalTailRiskCount = result.filter(t => t.tailRiskSignal).length;
-    console.log('🔍 DEBUG filteredTrades final:', {
-      totalFiltered: result.length,
-      withPennySignal: finalPennyCount,
-      withTailRiskSignal: finalTailRiskCount
-    });
 
     // Sorting
     result.sort((a, b) => {
@@ -2404,9 +2325,6 @@ export function KalshiTradingView() {
                   ref={(el) => {
                     if (el) tradeRefs.current.set(trade.id, el);
                   }}
-                  data-ticker={trade.ticker}
-                  data-has-penny={trade.pennySignal ? 'true' : 'false'}
-                  data-has-tailrisk={trade.tailRiskSignal ? 'true' : 'false'}
                   className={`rounded-xl border p-4 transition-all hover:border-primary/50 ${
                     trade.pennySignal || trade.tailRiskSignal
                       ? 'border-purple-500/50 bg-purple-500/5'
@@ -2423,13 +2341,6 @@ export function KalshiTradingView() {
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${RECOMMENDATION_COLORS[trade.recommendation]}`}>
                         {trade.recommendation === 'buy_urgent' ? '🔥 BUY URGENT' : trade.recommendation.replace('_', ' ').toUpperCase()}
                       </span>
-                      {/* DEBUG: Always show penny signal check */}
-                      {(() => {
-                        if (trade.pennySignal) {
-                          console.log('🪙 DEBUG RENDER: Rendering penny badge for', trade.ticker, trade.pennySignal);
-                        }
-                        return null;
-                      })()}
                       {trade.pennySignal && (
                         <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
                           🪙 Penny Pick {trade.pennySignal.noPrice}¢
