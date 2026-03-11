@@ -185,19 +185,75 @@ const CONFIG = {
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Fee calculation for Kalshi
-// Kalshi charges a flat 1% trading fee on the notional value
-function calculateKalshiFees(positionSize, price, isWin = true) {
-  // Flat 1% fee on position size (Kalshi's standard trading fee)
-  const tradingFeeRate = 0.01; // 1%
-  return positionSize * tradingFeeRate;
+// Kalshi Fee Calculation - Quadratic Formula
+// Formula: Fee = ceil(contracts × price × (1 - price) × 0.05)
+// Where price is in dollar decimal (e.g., 0.50 for 50¢)
+// This creates a parabolic curve peaking at 50¢ (max uncertainty)
+//
+// Example fees:
+// - 50¢ contract: 1.25% fee (max)
+// - 10¢ or 90¢ contract: 0.45% fee
+// - 1¢ or 99¢ contract: ~0.05% fee
+function calculateKalshiFees(contracts, priceCents, isTaker = true) {
+  // Convert cents to dollar decimal
+  const priceDollars = priceCents / 100;
+  
+  // Base fee rate is 5% (0.05)
+  const baseFeeRate = 0.05;
+  
+  // Quadratic formula: price × (1 - price) peaks at 0.25 when price = 0.50
+  const uncertaintyComponent = priceDollars * (1 - priceDollars);
+  
+  // Calculate raw fee
+  const rawFee = contracts * uncertaintyComponent * baseFeeRate;
+  
+  // Round up to nearest cent (Kalshi rounds up)
+  const feeDollars = Math.ceil(rawFee * 100) / 100;
+  
+  // For maker orders (providing liquidity), fee is half
+  // Some series have special maker fees, but standard is 50% discount
+  const finalFee = isTaker ? feeDollars : feeDollars * 0.5;
+  
+  return {
+    fee: finalFee,
+    feeRate: (finalFee / (contracts * priceDollars)) * 100, // As percentage
+    uncertaintyComponent,
+    isTaker
+  };
 }
 
 // Calculate effective edge after fees
-function calculateNetEdge(grossEdge, price, positionSize) {
-  const fees = calculateKalshiFees(positionSize, price);
-  const feePercentage = (fees / positionSize) * 100;
-  return grossEdge - feePercentage;
+function calculateNetEdge(grossEdge, priceCents, positionSize, isTaker = true) {
+  // Estimate contracts from position size and price
+  const priceDollars = priceCents / 100;
+  const contracts = positionSize / priceDollars;
+  
+  const feeResult = calculateKalshiFees(contracts, priceCents, isTaker);
+  const feePercentage = feeResult.feeRate;
+  
+  return {
+    netEdge: grossEdge - feePercentage,
+    feeAmount: feeResult.fee,
+    feePercentage,
+    grossEdge
+  };
+}
+
+// Special fee multipliers for specific series
+// Some markets have reduced fees (e.g., S&P 500 uses 0.025 instead of 0.05)
+function getFeeMultiplier(seriesTicker) {
+  const specialMultipliers = {
+    'KXSPX': 0.5,    // S&P 500 - 50% fee reduction
+    'KXNDX': 0.5,    // Nasdaq-100 - 50% fee reduction
+    // Add more as needed
+  };
+  
+  // Check if series ticker starts with any special prefix
+  for (const [prefix, multiplier] of Object.entries(specialMultipliers)) {
+    if (seriesTicker.startsWith(prefix)) return multiplier;
+  }
+  
+  return 1.0; // Standard fee
 }
 
 // Calculate probability for crypto markets based on live external price vs bracket
@@ -4545,7 +4601,8 @@ async function main() {
 
         // Adjust edge for spread cost and fees
         const grossEdge = edgeCalc.edge;
-        const netEdge = calculateNetEdge(grossEdge - spreadCost, yesPrice, 100); // Assume $100 position for calc
+        const netEdgeResult = calculateNetEdge(grossEdge - spreadCost, yesPrice, 100, true); // Assume $100 position, taker
+        const netEdge = netEdgeResult.netEdge;
 
         // Calculate historical edge (CLV tracking)
         const clv = calculateHistoricalEdge(netEdge, history, m.ticker);
@@ -4612,7 +4669,8 @@ async function main() {
             timeAdjustment: parseFloat((edgeCalc.timeAdjustment * 100).toFixed(1)),
             volumeBoost: parseFloat((edgeCalc.volumeBoost * 100).toFixed(1)),
             spreadCost: parseFloat(spreadCost.toFixed(1)), // Exit liquidity cost
-            estimatedFees: parseFloat(calculateKalshiFees(100, yesPrice, true).toFixed(2)), // Fees on $100 position
+            estimatedFees: parseFloat(calculateKalshiFees(100, yesPrice, true).fee.toFixed(2)), // Fees on $100 position
+            feeRate: parseFloat(calculateKalshiFees(100, yesPrice, true).feeRate.toFixed(2)), // Fee percentage
             kellyPct: parseFloat(kelly.kellyPct),
             position: kelly.position,
             recommendation,
