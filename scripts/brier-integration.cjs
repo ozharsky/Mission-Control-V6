@@ -272,7 +272,8 @@ module.exports = {
   recordOpportunities,
   
   // Passthrough from brier-tracker
-  updateMetrics
+  updateMetrics,
+  getEdgeCalibration
 };
 
 // If run directly, show metrics
