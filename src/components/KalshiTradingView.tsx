@@ -2175,6 +2175,9 @@ export function KalshiTradingView() {
             </>
           )}
 
+          {/* Brier Score Card - Always visible */}
+          <BrierScoreCard />
+
           {/* Advanced Filters */}
           {!isLoadingTrades && (
             <div className="space-y-3">
@@ -2314,9 +2317,6 @@ export function KalshiTradingView() {
                   </div>
                 </div>
               )}
-
-              {/* Brier Score Card */}
-              <BrierScoreCard />
             </div>
           )}
 
