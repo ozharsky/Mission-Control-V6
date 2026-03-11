@@ -1,0 +1,20 @@
+[
+  {
+    "ticker": "TEST-MARKET-001",
+    "eventTicker": "TEST",
+    "marketTitle": "Test Market",
+    "category": "test",
+    "side": "NO",
+    "entryTime": "2026-03-11T21:33:40.694Z",
+    "closeDate": "2026-03-12T21:33:40.693Z",
+    "entryPrice": 10,
+    "marketProb": 0.1,
+    "ourProb": 0.85,
+    "edge": 0.75,
+    "signalType": "test_signal",
+    "status": "resolved",
+    "outcome": 1,
+    "brierScore": 0.022500000000000006,
+    "resolvedAt": "2026-03-11T21:33:40.698Z"
+  }
+]

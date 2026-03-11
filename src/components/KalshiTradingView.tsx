@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { getData, setData } from '../lib/firebase';
 import { RESEARCHED_TRADES } from './trades-data';
+import { BrierScoreCard } from './BrierScoreCard';
 
 // Types
 interface KalshiTrade {
@@ -2313,6 +2314,9 @@ export function KalshiTradingView() {
                   </div>
                 </div>
               )}
+
+              {/* Brier Score Card */}
+              <BrierScoreCard />
             </div>
           )}
 

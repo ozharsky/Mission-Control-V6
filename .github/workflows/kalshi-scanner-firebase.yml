@@ -4,6 +4,8 @@ on:
   schedule:
     # Run every 5 minutes for more frequent price updates
     - cron: '*/5 * * * *'
+    # Run resolution fetcher every 6 hours to check for resolved markets
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -22,6 +24,12 @@ jobs:
     - name: Install dependencies
       run: |
         npm install firebase-admin
+        
+    - name: Resolve Brier Predictions
+      run: node scripts/kalshi-resolution-fetcher.cjs --days=7
+      env:
+        KALSHI_ACCESS_KEY: ${{ secrets.KALSHI_API_KEY }}
+        KALSHI_API_KEY: ${{ secrets.KALSHI_API_KEY }}
         
     - name: Run Kalshi Trade Fetcher v2
       run: node scripts/kalshi-trade-fetcher-v2.cjs

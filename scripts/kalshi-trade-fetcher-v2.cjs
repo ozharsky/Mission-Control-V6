@@ -10,6 +10,15 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// Brier Score Integration (optional)
+let brierIntegration = null;
+try {
+  brierIntegration = require('./brier-integration.cjs');
+  console.log('✅ Brier score tracking enabled');
+} catch (e) {
+  console.log('⚠️ Brier score tracking not available');
+}
+
 // Helper to sanitize objects for Firebase (remove undefined values)
 function sanitizeForFirebase(obj) {
   if (obj === undefined) return null;
@@ -3788,6 +3797,12 @@ function getMarketHealth(m) {
   return { yesSpread, noSpread, avgSpread, liquidityScore, health, isLiquid: avgSpread <= CONFIG.maxSpread };
 }
 
+// Brier-based edge calibration
+function getBrierEdgeCalibration(category) {
+  if (!brierIntegration) return 1.0;
+  return brierIntegration.getEdgeCalibration(category);
+}
+
 // Calculate edge with time and volume adjustments
 function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history = null, ticker = null) {
   // Initialize all local variables at the start
@@ -3801,12 +3816,20 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history 
   let adjustedProb = Math.min(baseProb + volumeBoost + timeAdjustment, 0.99);
   adjustedProb = Math.max(adjustedProb, 0.01);
 
-  const edge = (adjustedProb - marketProb) * 100;
+  let edge = (adjustedProb - marketProb) * 100;
+  
+  // Apply Brier-based calibration
+  const brierCalibration = getBrierEdgeCalibration(category);
+  const calibratedEdge = edge * brierCalibration;
+  
+  if (brierCalibration !== 1.0) {
+    console.log(`   📊 Brier calibration for ${category}: ${brierCalibration.toFixed(2)}x (edge: ${edge.toFixed(1)}% → ${calibratedEdge.toFixed(1)}%)`);
+  }
 
   // Calculate proper R-Score: edge divided by historical volatility (signal-to-noise)
   // If no history, use a default volatility of 5% to avoid division by zero
   
-  if (edge > 0) {
+  if (calibratedEdge > 0) {
     if (history && ticker && history[ticker] && history[ticker].length >= 5) {
       // Calculate standard deviation of historical edges
       const edges = history[ticker].map(h => h.edge).filter(e => typeof e === 'number');
@@ -3821,11 +3844,13 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history 
     }
     
     // R-Score = edge / historical volatility (signal-to-noise ratio)
-    rScore = edge / historicalVolatility;
+    rScore = calibratedEdge / historicalVolatility;
   }
 
   return {
-    edge,
+    edge: calibratedEdge,
+    rawEdge: edge,
+    brierCalibration,
     adjustedProb,
     marketProb,
     rScore,
@@ -5188,6 +5213,35 @@ async function main() {
       console.log(`   📈 Top factor: ${topFactor.factor} (+${topFactor.contribution.toFixed(2)})`);
     }
   });
+
+  // ==================== BRIER SCORE INTEGRATION ====================
+  if (brierIntegration) {
+    console.log('\n📝 Recording predictions for Brier analysis...');
+    
+    // Record top trades
+    const recorded = brierIntegration.recordOpportunities(topTrades, 'top_opportunity');
+    
+    // Record penny picks
+    const pennyRecorded = brierIntegration.recordOpportunities(
+      pennyResults.opportunities.filter(o => o.type === 'fat_pitch'), 
+      'fat_pitch'
+    );
+    
+    // Record tail risk
+    const tailRecorded = brierIntegration.recordOpportunities(
+      tailRiskResults.opportunities, 
+      'tail_risk'
+    );
+    
+    console.log(`   Recorded: ${recorded + pennyRecorded + tailRecorded} predictions`);
+    
+    // Add Brier analysis to output
+    output.brier = brierIntegration.getBrierMetrics();
+    
+    // Print Brier summary
+    brierIntegration.printBrierSummary(output.brier);
+  }
+  // ==================== END BRIER INTEGRATION ====================
 
   return output;
 }
