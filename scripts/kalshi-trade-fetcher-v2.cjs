@@ -256,6 +256,73 @@ function getFeeMultiplier(seriesTicker) {
   return 1.0; // Standard fee
 }
 
+// Fixed-Point Schema Migration Helper
+// Kalshi migrated from integer cents to fixed-point dollar strings
+// Old format: yes_price: 50 (cents)
+// New format: yes_price_dollars: "0.5000" (dollars as string)
+// This helper handles both formats and always returns cents
+function getPriceCents(market, fieldPrefix) {
+  // Try new format first (_dollars suffix)
+  const newFormatField = `${fieldPrefix}_dollars`;
+  if (market[newFormatField] !== undefined) {
+    const dollars = parseFloat(market[newFormatField]);
+    if (!isNaN(dollars)) {
+      return Math.round(dollars * 100); // Convert to cents
+    }
+  }
+  
+  // Try new format with _fp suffix (fixed-point)
+  const fpFormatField = `${fieldPrefix}_fp`;
+  if (market[fpFormatField] !== undefined) {
+    const fpValue = parseFloat(market[fpFormatField]);
+    if (!isNaN(fpValue)) {
+      // _fp fields are typically already in a usable format
+      // For prices, they might be in cents or dollars depending on field
+      return Math.round(fpValue <= 1 ? fpValue * 100 : fpValue);
+    }
+  }
+  
+  // Fall back to old format (integer cents)
+  const oldFormatField = fieldPrefix;
+  if (market[oldFormatField] !== undefined) {
+    const cents = parseInt(market[oldFormatField], 10);
+    if (!isNaN(cents)) {
+      return cents;
+    }
+  }
+  
+  // Final fallback: try yes_price or no_price without prefix
+  const fallbackMap = {
+    'yes_ask': ['yes_price', 'last_price', 'mid_price'],
+    'yes_bid': ['yes_price', 'last_price'],
+    'no_ask': ['no_price'],
+    'no_bid': ['no_price']
+  };
+  
+  const fallbacks = fallbackMap[fieldPrefix] || [];
+  for (const fallback of fallbacks) {
+    if (market[fallback] !== undefined) {
+      const val = parseInt(market[fallback], 10);
+      if (!isNaN(val)) return val;
+    }
+  }
+  
+  console.warn(`⚠️ Could not extract ${fieldPrefix} for ${market.ticker || 'unknown market'}`);
+  return 0;
+}
+
+// Helper to get all prices for a market in consistent format
+function getMarketPrices(market) {
+  return {
+    yesBid: getPriceCents(market, 'yes_bid'),
+    yesAsk: getPriceCents(market, 'yes_ask'),
+    yesPrice: getPriceCents(market, 'yes_price'),
+    noBid: getPriceCents(market, 'no_bid'),
+    noAsk: getPriceCents(market, 'no_ask'),
+    noPrice: getPriceCents(market, 'no_price')
+  };
+}
+
 // Calculate probability for crypto markets based on live external price vs bracket
 // Uses CoinGecko API for live prices - NOT circular like Kalshi price history
 async function calculateCryptoProbabilityFromMarketPrice(marketTitle, livePrice) {
@@ -3846,11 +3913,13 @@ function getTimeConfidence(closeTime, category) {
 }
 
 // Market health metrics
+// Now accepts market object with either old format (m.yes_bid) or new format (prices from getMarketPrices)
 function getMarketHealth(m) {
-  const yesBid = m.yes_bid || 0;
-  const yesAsk = m.yes_ask || m.yes_price || 0;
-  const noBid = m.no_bid || 0;
-  const noAsk = m.no_ask || (100 - yesAsk);
+  // Use provided values or fall back to getMarketPrices extraction
+  const yesBid = m.yesBid || m.yes_bid || 0;
+  const yesAsk = m.yesAsk || m.yes_ask || m.yes_price || 0;
+  const noBid = m.noBid || m.no_bid || 0;
+  const noAsk = m.noAsk || m.no_ask || (100 - yesAsk);
 
   const yesSpread = yesAsk - yesBid;
   const noSpread = noAsk - noBid;
@@ -4559,14 +4628,16 @@ async function main() {
       console.log(`✅ ${series.name}: ${markets.length} markets`);
 
       for (const m of markets.slice(0, CONFIG.maxMarketsPerSeries)) {
-        const yesPrice = m.yes_ask || m.yes_price || 0;
-        const noPrice = m.no_ask || (100 - yesPrice);
+        // Use schema-agnostic price extraction (handles both old and new Kalshi formats)
+        const prices = getMarketPrices(m);
+        const yesPrice = prices.yesAsk || prices.yesPrice || 0;
+        const noPrice = prices.noAsk || (100 - yesPrice);
         const volume = m.volume || 0;
 
         if (isClosingSoon(m.close_time)) continue;
 
-        // Get market health
-        const health = getMarketHealth(m);
+        // Get market health (now uses schema-agnostic prices)
+        const health = getMarketHealth({ ...m, ...prices });
         if (!health.isLiquid) {
           console.log(`  ⚠️ Skipping ${m.ticker}: poor liquidity (spread=${health.avgSpread.toFixed(1)}¢)`);
           continue;
@@ -4596,8 +4667,8 @@ async function main() {
         // Calculate edge with time adjustment (now with proper R-Score)
         const edgeCalc = calculateEdge(yesPrice, effectiveBaseProb, volume, m.close_time, series.category, history, m.ticker);
 
-        // Calculate spread cost (exit liquidity risk)
-        const spreadCost = calculateSpreadCost(m.yes_bid, m.yes_ask);
+        // Calculate spread cost (exit liquidity risk) using schema-agnostic prices
+        const spreadCost = calculateSpreadCost(prices.yesBid, prices.yesAsk);
 
         // Adjust edge for spread cost and fees
         const grossEdge = edgeCalc.edge;
@@ -4655,8 +4726,10 @@ async function main() {
             category: series.category,
             yesPrice,
             noPrice,
-            yesBid: m.yes_bid,
-            yesAsk: m.yes_ask,
+            yesBid: prices.yesBid,
+            yesAsk: prices.yesAsk,
+            noBid: prices.noBid,
+            noAsk: prices.noAsk,
             volume,
             closeTime: m.close_time,
             expiration: m.expiration_date || m.close_time,
