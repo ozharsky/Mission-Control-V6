@@ -49,6 +49,21 @@ function sanitizeForFirebase(obj) {
 // Kalshi API Configuration
 const KALSHI_ACCESS_KEY = process.env.KALSHI_ACCESS_KEY || process.env.KALSHI_API_KEY || '';
 
+// Debug flag for verbose auth logging (security risk - only enable for local debugging)
+const DEBUG_AUTH = process.env.DEBUG_AUTH === 'true';
+
+// Helper to redact secrets - show only first N chars, mask the rest
+function redactSecret(value, keep = 6) {
+  if (!value) return '(missing)';
+  if (value.length <= keep) return '*'.repeat(value.length);
+  return `${value.slice(0, keep)}...${'*'.repeat(4)}`;
+}
+
+// Helper for conditional auth debug logging
+function debugAuth(...args) {
+  if (DEBUG_AUTH) console.log(...args);
+}
+
 // Load private key from env var or file
 let privateKey = null;
 try {
@@ -61,13 +76,18 @@ try {
       .replace(/\r/g, '\n');      // Old Mac newlines
     
     console.log('✅ Loaded Kalshi private key from environment variable');
-    console.log(`   Key length: ${privateKey.length} chars`);
-    console.log(`   Key starts with: ${privateKey.substring(0, 50)}...`);
+    
+    // Only show key fingerprint, never the actual key content
+    const keyFingerprint = crypto.createHash('sha256').update(privateKey).digest('hex').slice(0, 12);
+    console.log(`   Key fingerprint: ${keyFingerprint}...`);
+    
+    debugAuth(`   Key length: ${privateKey.length} chars`);
+    debugAuth(`   Key starts with: ${privateKey.substring(0, 50)}...`);
     
     // Validate key format
     if (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
       console.log('   ⚠️ WARNING: Key does not contain expected header!');
-      console.log(`   First line: ${privateKey.split('\n')[0]}`);
+      debugAuth(`   First line: ${privateKey.split('\n')[0]}`);
     }
   } else if (fs.existsSync('./kalshi_private_key.pem')) {
     // Use key from file (local development)
@@ -79,7 +99,7 @@ try {
   }
   
   if (KALSHI_ACCESS_KEY) {
-    console.log(`✅ Kalshi Access Key loaded: ${KALSHI_ACCESS_KEY.substring(0, 8)}...`);
+    console.log(`✅ Kalshi Access Key loaded: ${redactSecret(KALSHI_ACCESS_KEY, 8)}`);
   } else {
     console.log('⚠️ No Kalshi Access Key found');
   }
@@ -95,7 +115,8 @@ try {
         padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
         saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
       }, 'base64');
-      console.log(`✅ Private key test sign: OK (sig length: ${testSig.length})`);
+      console.log(`✅ Private key test sign: OK`);
+      debugAuth(`   Signature length: ${testSig.length}`);
     } catch (e) {
       console.log(`❌ Private key test sign FAILED: ${e.message}`);
     }
@@ -4440,21 +4461,31 @@ function parseRSS(xmlData, source, category = 'general') {
   return items;
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function extractField(xml, fieldNames) {
-  for (const field of fieldNames) {
-    // Try CDATA version first
-    const cdataRegex = new RegExp(`<${field}[\\s\\S]*?>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${field}>`, 'i');
-    const normalRegex = new RegExp(`<${field}[\s]*[^>]*>([^<]*)<\/${field}>`, 'i');
-
-    const cdataMatch = xml.match(cdataRegex);
-    if (cdataMatch) return cdataMatch[1].trim();
-
-    const normalMatch = xml.match(normalRegex);
-    if (normalMatch) return normalMatch[1].trim();
+  for (const fieldName of fieldNames) {
+    const field = escapeRegExp(fieldName);
+    // Unified regex that handles attributes, CDATA, and inner text
+    const regex = new RegExp(
+      `<${field}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${field}>`,
+      'i'
+    );
+    const match = xml.match(regex);
+    if (!match) continue;
+    
+    // Clean up the extracted value
+    const value = cleanText(match[1])
+      .replace(/^<!\[CDATA\[/, '')  // Remove CDATA start
+      .replace(/\]\]>$/, '')        // Remove CDATA end
+      .trim();
+    
+    if (value) return value;
   }
   return null;
 }
-
 function extractLink(linkField) {
   if (!linkField) return null;
   // Handle href attribute format: <link href="..." />
