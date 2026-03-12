@@ -10,6 +10,16 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// WebSocket Client for real-time data (optional)
+let KalshiWebSocket = null;
+try {
+  const wsModule = require('./kalshi-websocket.cjs');
+  KalshiWebSocket = wsModule.KalshiWebSocketClient;
+  console.log('✅ WebSocket support available');
+} catch (e) {
+  console.log('⚠️ WebSocket not available (npm install ws)');
+}
+
 // Brier Score Integration (optional)
 let brierIntegration = null;
 try {
@@ -4722,8 +4732,37 @@ function detectWeatherLag(kalshiMarket, nwsForecast) {
 }
 
 async function main() {
-  console.log('🔍 Starting Kalshi Trade Fetch v2.2...\n');
+  console.log('🔍 Starting Kalshi Trade Fetch v2.3 (WebSocket + REST Hybrid)...\n');
   const scanStartTime = Date.now();
+
+  // Real-time price cache from WebSocket
+  const livePriceCache = new Map();
+  let wsClient = null;
+
+  // Initialize WebSocket for real-time data if available
+  if (KalshiWebSocket && privateKey && KALSHI_ACCESS_KEY) {
+    console.log('🔌 Initializing WebSocket for real-time prices...');
+    wsClient = new KalshiWebSocketClient({
+      apiKey: KALSHI_ACCESS_KEY,
+      privateKey: privateKey,
+      onConnect: () => console.log('✅ WebSocket connected for live prices'),
+      onDisconnect: (code) => console.log(`⚠️ WebSocket disconnected: ${code}`),
+      onError: (err) => console.log('❌ WebSocket error:', err.message)
+    });
+
+    // Connect and subscribe to top markets
+    await wsClient.connect();
+
+    // Subscribe to all series markets
+    for (const series of SERIES) {
+      // We'll subscribe dynamically as we discover markets
+      // For now, set up the callback handler
+    }
+
+    console.log('✅ WebSocket ready\n');
+  } else {
+    console.log('ℹ️ Using REST-only mode (WebSocket not available)\n');
+  }
 
   // Load historical data
   const history = await loadHistory();
@@ -4771,8 +4810,42 @@ async function main() {
       console.log(`✅ ${series.name}: ${markets.length} markets`);
 
       for (const m of markets.slice(0, CONFIG.maxMarketsPerSeries)) {
+        // Subscribe to WebSocket for real-time updates if available
+        if (wsClient && wsClient.isConnected()) {
+          if (!wsClient.subscriptions.has(m.ticker)) {
+            wsClient.subscribe(m.ticker, (type, book) => {
+              if (book) {
+                livePriceCache.set(m.ticker, {
+                  yesPrice: book.yes.ask,
+                  yesBid: book.yes.bid,
+                  noPrice: book.no.ask,
+                  noBid: book.no.bid,
+                  timestamp: Date.now()
+                });
+              }
+            });
+          }
+        }
+
+        // Use WebSocket live price if available and recent (< 30 seconds)
+        const cachedPrice = livePriceCache.get(m.ticker);
+        const useLivePrice = cachedPrice && (Date.now() - cachedPrice.timestamp < 30000);
+        
+        if (useLivePrice) {
+          console.log(`  ⚡ Using live WebSocket price for ${m.ticker}`);
+        }
+
         // Use orderbook reciprocity (handles Kalshi's bid-only API by deriving asks)
-        const book = getOrderbookWithReciprocity(m);
+        const book = useLivePrice ? {
+          yesBid: cachedPrice.yesBid,
+          yesAsk: cachedPrice.yesPrice,
+          noBid: cachedPrice.noBid,
+          noAsk: cachedPrice.noPrice,
+          yesSpread: cachedPrice.yesPrice - cachedPrice.yesBid,
+          noSpread: cachedPrice.noPrice - cachedPrice.noBid,
+          reciprocityCheck: { isValid: true }
+        } : getOrderbookWithReciprocity(m);
+        
         const yesPrice = book.yesAsk || book.yesPrice || 0;
         const noPrice = book.noAsk || (100 - yesPrice);
         const volume = m.volume || 0;
@@ -5622,6 +5695,15 @@ async function main() {
     brierIntegration.printBrierSummary(output.brier);
   }
   // ==================== END BRIER INTEGRATION ====================
+
+  // Cleanup WebSocket connection
+  if (wsClient) {
+    console.log('\n🔌 Closing WebSocket connection...');
+    wsClient.disconnect();
+  }
+
+  const scanDuration = ((Date.now() - scanStartTime) / 1000).toFixed(1);
+  console.log(`\n⏱️ Scan completed in ${scanDuration}s`);
 
   return output;
 }
