@@ -16,9 +16,15 @@ const CONFIG = {
   maxMarkets: 1000 // Limit for initial fetch
 };
 
-// Ensure output directory exists
-if (!fs.existsSync(CONFIG.outputDir)) {
-  fs.mkdirSync(CONFIG.outputDir, { recursive: true });
+// Ensure output directory exists (including parents)
+async function ensureOutputDir() {
+  const parentDir = path.dirname(CONFIG.outputDir);
+  if (!fs.existsSync(parentDir)) {
+    fs.mkdirSync(parentDir, { recursive: true });
+  }
+  if (!fs.existsSync(CONFIG.outputDir)) {
+    fs.mkdirSync(CONFIG.outputDir, { recursive: true });
+  }
 }
 
 // Get API credentials from env
@@ -223,6 +229,9 @@ async function buildTrainingDataset() {
   }
   
   console.log(`\nTotal resolved markets: ${allMarkets.length}`);
+  
+  // Ensure output directory exists before saving
+  await ensureOutputDir();
   
   // Save dataset
   const outputPath = path.join(CONFIG.outputDir, 'training_dataset.json');
