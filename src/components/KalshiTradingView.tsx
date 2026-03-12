@@ -1318,7 +1318,12 @@ export function KalshiTradingView() {
           
           console.log(`✅ Displaying ${updatedTrades.length} trades with live prices`);
         } else {
-          console.log('No scanner data - using fallback');
+          console.log('❌ No scanner data - using fallback');
+          console.log('   scannerOutput exists:', !!scannerOutput);
+          console.log('   scannerOutput keys:', scannerOutput ? Object.keys(scannerOutput) : 'N/A');
+          console.log('   opportunities exists:', !!scannerOutput?.opportunities);
+          console.log('   opportunities is array:', Array.isArray(scannerOutput?.opportunities));
+          console.log('   opportunities length:', scannerOutput?.opportunities?.length);
           setTrades(transformResearchedTrades());
         }
       } catch (e) {
