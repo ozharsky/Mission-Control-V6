@@ -9,6 +9,7 @@ import { useAppStore } from '../stores/appStore';
 import { SkeletonCard } from "./Loading";
 import { RevenueMiniChart } from './RevenueMiniChart';
 import type { Task, Project, Job, InventoryItem, Printer } from '../types';
+import { OpenClawLivePanel } from './OpenClawLivePanel';
 import { AGENT_EMOJIS, AGENT_EMOJI_FALLBACKS, AGENT_NAMES } from '../constants/agents';
 
 // Agent Activity Mini Widget
@@ -645,6 +646,9 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
 
       {/* Agent Activity - Live Data */}
       <AgentActivityWidget onNavigate={onNavigate} />
+
+      {/* OpenClaw Live - Real-time Agent Control */}
+      <OpenClawLivePanel />
 
       {/* Recent Tasks - Compact List */}
       <div className="rounded-xl touch-feedback border border-surface-hover bg-surface p-3 md:p-4">
