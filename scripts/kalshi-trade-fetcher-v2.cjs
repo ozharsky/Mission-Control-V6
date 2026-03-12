@@ -4478,6 +4478,264 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
   };
 }
 
+// ==================== PHASE 4: CROSS-EXCHANGE ARBITRAGE ====================
+
+// Exchange API configurations for cross-exchange arbitrage
+const EXCHANGE_APIS = {
+  polymarket: {
+    name: 'Polymarket',
+    url: 'https://gamma-api.polymarket.com/events',
+    priceExtractor: (market) => {
+      try {
+        const outcomes = JSON.parse(market.outcomes || '[]');
+        const prices = market.outcomePrices ? market.outcomePrices.split(',') : [];
+        const yesIndex = outcomes.findIndex(o => typeof o === 'string' && o.toLowerCase() === 'yes');
+        if (yesIndex !== -1 && yesIndex < prices.length) {
+          return parseFloat(prices[yesIndex]) * 100;
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
+    }
+  },
+  predictit: {
+    name: 'PredictIt',
+    url: 'https://www.predictit.org/api/marketdata/all',
+    priceExtractor: (market) => {
+      // PredictIt contracts have bestBuyYesCost
+      const yesPrice = market.bestBuyYesCost || market.lastTradePrice;
+      return yesPrice ? yesPrice * 100 : null;
+    }
+  }
+};
+
+// Fetch prices from multiple exchanges for comparison
+async function fetchCrossExchangePrices(kalshiTrade) {
+  const prices = { kalshi: kalshiTrade.yesPrice };
+  const mappings = getExchangeMappings(kalshiTrade.ticker);
+  
+  for (const [exchange, searchTerm] of Object.entries(mappings)) {
+    try {
+      const config = EXCHANGE_APIS[exchange];
+      if (!config) continue;
+      
+      const url = searchTerm 
+        ? `${config.url}?search=${encodeURIComponent(searchTerm)}`
+        : config.url;
+      
+      const data = await fetchWithRetry(url, {}, 2).catch(() => null);
+      if (!data) continue;
+      
+      // Extract price based on exchange format
+      const externalPrice = extractPriceFromExchange(data, kalshiTrade, config);
+      if (externalPrice !== null) {
+        prices[exchange] = externalPrice;
+      }
+    } catch (e) {
+      log('DEBUG', `Failed to fetch from ${exchange}:`, e.message);
+    }
+  }
+  
+  return prices;
+}
+
+function getExchangeMappings(kalshiTicker) {
+  const series = kalshiTicker.split('-')[0];
+  const mappings = {
+    'KXBTC': { polymarket: 'bitcoin', predictit: null },
+    'KXETH': { polymarket: 'ethereum', predictit: null },
+    'KXFED': { polymarket: 'fed funds', predictit: 'fed' },
+    'KXCPI': { polymarket: 'cpi', predictit: 'inflation' },
+    'KXTRUMP': { polymarket: 'trump', predictit: 'trump' }
+  };
+  return mappings[series] || {};
+}
+
+function extractPriceFromExchange(data, kalshiTrade, config) {
+  if (!Array.isArray(data)) return null;
+  
+  // Find matching market
+  const searchTerms = kalshiTrade.title.toLowerCase().split(' ').slice(0, 3);
+  
+  for (const event of data) {
+    const eventTitle = (event.title || '').toLowerCase();
+    const matches = searchTerms.filter(term => eventTitle.includes(term)).length;
+    
+    if (matches >= 2 && event.markets && event.markets.length > 0) {
+      return config.priceExtractor(event.markets[0]);
+    }
+  }
+  
+  return null;
+}
+
+// Find best arbitrage across all exchanges
+async function findCrossExchangeArbitrage(kalshiTrade) {
+  const prices = await fetchCrossExchangePrices(kalshiTrade);
+  
+  if (Object.keys(prices).length < 2) return null;
+  
+  const priceValues = Object.entries(prices).filter(([_, p]) => p !== null);
+  if (priceValues.length < 2) return null;
+  
+  const minPrice = Math.min(...priceValues.map(([_, p]) => p));
+  const maxPrice = Math.max(...priceValues.map(([_, p]) => p));
+  const spread = ((maxPrice - minPrice) / minPrice) * 100;
+  
+  if (spread < 3) return null; // 3% minimum threshold
+  
+  const buyExchange = priceValues.find(([_, p]) => p === minPrice)[0];
+  const sellExchange = priceValues.find(([_, p]) => p === maxPrice)[0];
+  
+  return {
+    ticker: kalshiTrade.ticker,
+    spread: spread.toFixed(2),
+    buyOn: buyExchange,
+    sellOn: sellExchange,
+    buyPrice: minPrice.toFixed(1),
+    sellPrice: maxPrice.toFixed(1),
+    prices
+  };
+}
+
+// ==================== PHASE 4: MARKET MICROSTRUCTURE ====================
+
+class MarketMicrostructureAnalyzer {
+  analyzeOrderBookDepth(market, positionSize) {
+    const priceDollars = market.yesPrice / 100;
+    const contracts = positionSize / priceDollars;
+    const dailyVolume = market.volume || 1;
+    
+    // Square root law of market impact
+    const participationRate = contracts / dailyVolume;
+    const estimatedImpact = Math.sqrt(participationRate) * (market.spread || 5);
+    
+    return {
+      estimatedImpact: estimatedImpact.toFixed(2),
+      fillable: participationRate < 0.1,
+      slippageCost: (estimatedImpact * positionSize / 100).toFixed(2),
+      participationRate: (participationRate * 100).toFixed(1) + '%'
+    };
+  }
+  
+  detectInformedOrderFlow(marketHistory) {
+    if (!marketHistory || marketHistory.length < 5) {
+      return { buyPressure: 0.5, signal: 'neutral' };
+    }
+    
+    const recent = marketHistory.slice(-5);
+    const buyPressure = recent.filter(h => h.priceChange > 0).length / recent.length;
+    
+    let signal = 'neutral';
+    if (buyPressure > 0.7) signal = 'heavy_buying';
+    else if (buyPressure < 0.3) signal = 'heavy_selling';
+    
+    return { buyPressure: buyPressure.toFixed(2), signal };
+  }
+}
+
+// ==================== PHASE 4: PORTFOLIO OPTIMIZER ====================
+
+class PortfolioOptimizer {
+  optimizePositions(opportunities, bankroll, riskTolerance = 'moderate') {
+    // Filter to top opportunities
+    const topOpps = opportunities
+      .filter(o => o.edge > 5 && o.rScore > 1)
+      .slice(0, 20);
+    
+    if (topOpps.length === 0) return [];
+    
+    // Risk tolerance parameters
+    const riskParams = {
+      conservative: { maxVol: 0.1, targetReturn: 0.05, maxPosition: 0.05 },
+      moderate: { maxVol: 0.2, targetReturn: 0.10, maxPosition: 0.1 },
+      aggressive: { maxVol: 0.35, targetReturn: 0.20, maxPosition: 0.15 }
+    };
+    
+    const params = riskParams[riskTolerance] || riskParams.moderate;
+    
+    // Calculate positions with Kelly sizing and constraints
+    const positions = topOpps.map(opp => {
+      const kellyFraction = parseFloat(opp.kellyPct) / 100;
+      const rawPosition = bankroll * kellyFraction;
+      
+      // Apply constraints
+      const maxPosition = bankroll * params.maxPosition;
+      const position = Math.min(rawPosition, maxPosition);
+      
+      // Calculate expected Sharpe
+      const expectedReturn = opp.edge / 100;
+      const risk = opp.rScore > 0 ? (opp.edge / 100) / opp.rScore : 0.2;
+      const sharpe = risk > 0 ? expectedReturn / risk : 0;
+      
+      return {
+        ticker: opp.ticker,
+        size: Math.floor(position),
+        kellyPct: opp.kellyPct,
+        expectedReturn: (expectedReturn * 100).toFixed(1) + '%',
+        sharpe: sharpe.toFixed(2),
+        rScore: opp.rScore
+      };
+    });
+    
+    // Normalize to not exceed total exposure limit
+    const totalPosition = positions.reduce((sum, p) => sum + p.size, 0);
+    const maxTotal = bankroll * 0.5; // Max 50% deployed
+    
+    if (totalPosition > maxTotal) {
+      const scale = maxTotal / totalPosition;
+      positions.forEach(p => p.size = Math.floor(p.size * scale));
+    }
+    
+    return positions.filter(p => p.size > 0);
+  }
+}
+
+// ==================== PHASE 4: MARKET REGIME DETECTOR ====================
+
+class MarketRegimeDetector {
+  detectRegime(allMarkets, history) {
+    if (allMarkets.length === 0) return { regime: 'unknown', thresholds: {} };
+    
+    // Calculate market-wide metrics
+    const edges = allMarkets.map(m => m.edge || 0).filter(e => e > 0);
+    const avgEdge = edges.length > 0 
+      ? edges.reduce((a, b) => a + b, 0) / edges.length 
+      : 0;
+    
+    const volumes = allMarkets.map(m => m.volume || 0);
+    const avgVolume = volumes.length > 0
+      ? volumes.reduce((a, b) => a + b, 0) / volumes.length
+      : 0;
+    
+    // Detect regime
+    let regime = 'normal';
+    if (avgEdge > 15) regime = 'high_opportunity';
+    else if (avgEdge < 3) regime = 'efficient';
+    else if (avgVolume > 100000) regime = 'high_activity';
+    
+    // Dynamic thresholds based on regime
+    const thresholds = {
+      normal: { minEdge: 5, minRScore: 1.0, maxPosition: 0.1 },
+      high_opportunity: { minEdge: 8, minRScore: 1.5, maxPosition: 0.15 },
+      efficient: { minEdge: 3, minRScore: 0.8, maxPosition: 0.05 },
+      high_activity: { minEdge: 6, minRScore: 1.2, maxPosition: 0.08 },
+      unknown: { minEdge: 5, minRScore: 1.0, maxPosition: 0.1 }
+    };
+    
+    return {
+      regime,
+      thresholds: thresholds[regime],
+      metrics: { 
+        avgEdge: avgEdge.toFixed(1), 
+        avgVolume: Math.round(avgVolume),
+        numMarkets: allMarkets.length
+      }
+    };
+  }
+}
+
 // ==================== ALTERNATIVE DATA MODULES ====================
 
 // RSS News Feed Parser - fetch news from multiple sources
@@ -5671,6 +5929,61 @@ async function main() {
 
   // Validate predictions against actual historical outcomes
   const historicalValidation = await backtestFramework.validateWithHistoricalData(uncorrelatedTrades);
+
+  // ==================== PHASE 4: ADVANCED FEATURES ====================
+
+  // Market Regime Detection
+  console.log('\n📊 Detecting market regime...');
+  const regimeDetector = new MarketRegimeDetector();
+  const marketRegime = regimeDetector.detectRegime(allTrades, history);
+  console.log(`   Regime: ${marketRegime.regime}`);
+  console.log(`   Avg Edge: ${marketRegime.metrics.avgEdge}%`);
+  console.log(`   Markets: ${marketRegime.metrics.numMarkets}`);
+
+  // Cross-Exchange Arbitrage Check
+  console.log('\n🔗 Checking cross-exchange arbitrage...');
+  const crossExchangeArbs = [];
+  if (uncorrelatedTrades.length > 0) {
+    // Check top 5 opportunities for cross-exchange arbitrage
+    for (const trade of uncorrelatedTrades.slice(0, 5)) {
+      const arb = await findCrossExchangeArbitrage(trade);
+      if (arb) {
+        crossExchangeArbs.push(arb);
+        console.log(`   🎯 ${trade.ticker}: ${arb.spread}% spread (${arb.buyOn} → ${arb.sellOn})`);
+      }
+    }
+  }
+  if (crossExchangeArbs.length === 0) {
+    console.log('   No cross-exchange arbitrage opportunities found');
+  }
+
+  // Portfolio Optimization
+  console.log('\n💼 Optimizing portfolio positions...');
+  const portfolioOptimizer = new PortfolioOptimizer();
+  const optimizedPositions = portfolioOptimizer.optimizePositions(
+    uncorrelatedTrades, 
+    10000, 
+    'moderate'
+  );
+  if (optimizedPositions.length > 0) {
+    console.log(`   ${optimizedPositions.length} positions optimized`);
+    optimizedPositions.slice(0, 3).forEach(p => {
+      console.log(`      ${p.ticker}: $${p.size} (Sharpe: ${p.sharpe})`);
+    });
+  }
+
+  // Market Microstructure Analysis for top trades
+  console.log('\n📈 Analyzing market microstructure...');
+  const microstructureAnalyzer = new MarketMicrostructureAnalyzer();
+  for (const trade of uncorrelatedTrades.slice(0, 3)) {
+    const depth = microstructureAnalyzer.analyzeOrderBookDepth(trade, 1000);
+    console.log(`   ${trade.ticker}: Impact ${depth.estimatedImpact}¢, Fillable: ${depth.fillable}`);
+    
+    // Add to trade object
+    trade.marketImpact = depth;
+  }
+
+  // ==================== OUTPUT GENERATION ====================
 
   const arbitrage = detectArbitrage(uncorrelatedTrades);
 
