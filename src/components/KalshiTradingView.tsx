@@ -2144,8 +2144,8 @@ export function KalshiTradingView() {
 
           {!isLoadingTrades && (
             <>
-              {/* Category Buttons */}
-              <div className="flex flex-wrap gap-2">
+              {/* Category Buttons - Scrollable on mobile */}
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
                 {(['all', 'weather', 'crypto', 'politics', 'economics'] as const).map((cat) => {
                   const Icon = CATEGORY_ICONS[cat];
                   const count = cat === 'all' 
@@ -2155,14 +2155,15 @@ export function KalshiTradingView() {
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all flex-shrink-0 ${
                         selectedCategory === cat 
                           ? 'bg-primary text-white' 
                           : 'bg-surface text-gray-300 hover:bg-surface-hover'
                       }`}
                     >
                       <Icon className="h-4 w-4" />
-                      <span>{CATEGORY_LABELS[cat]}</span>
+                      <span className="hidden sm:inline">{CATEGORY_LABELS[cat]}</span>
+                      <span className="sm:hidden">{CATEGORY_LABELS[cat].slice(0, 3)}</span>
                       <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${
                         selectedCategory === cat ? 'bg-white/20' : 'bg-surface-hover'
                       }`}>
@@ -2173,23 +2174,25 @@ export function KalshiTradingView() {
                 })}
               </div>
 
-              {/* Sort Dropdown */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Sort by:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm text-white"
-                >
-                  <option value="composite">Composite Score</option>
-                  <option value="rScore">R-Score</option>
-                  <option value="edge">Edge</option>
-                  <option value="volume">Volume</option>
-                </select>
-                <span className="ml-auto text-sm text-gray-500">
+              {/* Sort Dropdown - Stacked on mobile */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">Sort by:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm text-white"
+                  >
+                    <option value="composite">Composite Score</option>
+                    <option value="rScore">R-Score</option>
+                    <option value="edge">Edge</option>
+                    <option value="volume">Volume</option>
+                  </select>
+                </div>
+                <span className="sm:ml-auto text-sm text-gray-500">
                   Showing <span className="font-medium text-white">{filteredTrades.length}</span> trades
                   {scanSummary?.opportunities && (
-                    <span className="text-gray-400"> (scanner found {scanSummary.opportunities})</span>
+                    <span className="text-gray-400 hidden sm:inline"> (scanner found {scanSummary.opportunities})</span>
                   )}
                 </span>
               </div>

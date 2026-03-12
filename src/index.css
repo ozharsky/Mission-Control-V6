@@ -190,3 +190,10 @@ button:focus-visible, .btn:focus-visible {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Prevent horizontal overflow on mobile */
+@media (max-width: 640px) {
+  body {
+    overflow-x: hidden;
+  }
+}
