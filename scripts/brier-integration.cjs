@@ -235,16 +235,27 @@ async function integrateWithScanner(scanOutput) {
  */
 function recordOpportunities(opportunities, signalType = 'unknown') {
   let recorded = 0;
+  
+  // DEBUG: Log input
+  console.log(`   Brier DEBUG: Received ${opportunities?.length || 0} opportunities for ${signalType}`);
 
   for (const trade of opportunities) {
     const ourProb = calculateOurProbability(trade);
+    const edge = parseFloat(trade.edge) || 0;
+    
+    // DEBUG: Log each trade
+    if (!trade.edge || ourProb <= 0.6 || edge <= 0) {
+      console.log(`   Brier SKIP: ${trade.ticker} - edge: ${edge}, ourProb: ${ourProb.toFixed(2)}`);
+    }
 
     // FIX: Only record if we have meaningful confidence AND positive edge
-    if (ourProb > 0.6 && parseFloat(trade.edge) > 0) {
+    if (ourProb > 0.6 && edge > 0) {
       recordTradePrediction(trade, ourProb, signalType);
       recorded++;
     }
   }
+  
+  console.log(`   Brier DEBUG: Recorded ${recorded} for ${signalType}`);
 
   return recorded;
 }
