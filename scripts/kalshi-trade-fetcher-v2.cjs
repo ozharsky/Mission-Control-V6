@@ -653,21 +653,56 @@ async function calculateCryptoProbabilityFromMarketPrice(marketTitle, livePrice,
   return 0.5; // Default
 }
 
+// CoinGecko API configuration
+const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
+const COINGECKO_BASE_URL = COINGECKO_API_KEY
+  ? 'https://pro-api.coingecko.com/api/v3'
+  : 'https://api.coingecko.com/api/v3';
+
+// Cache for crypto prices
+const cryptoPriceCache = {
+  data: null,
+  timestamp: 0,
+  ttlMs: COINGECKO_API_KEY ? 30000 : 120000 // 30s with API key, 2min without
+};
+
 // Fetch live crypto prices from CoinGecko
 async function fetchLiveCryptoPrices() {
+  // Check cache first
+  const now = Date.now();
+  if (cryptoPriceCache.data && (now - cryptoPriceCache.timestamp) < cryptoPriceCache.ttlMs) {
+    console.log('  💰 Using cached crypto prices');
+    return cryptoPriceCache.data;
+  }
+
   try {
-    const url = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,cardano,polkadot&vs_currencies=usd';
-    const data = await fetchWithRetry(url, {}, 2);
-    
-    return {
+    const url = `${COINGECKO_BASE_URL}/simple/price?ids=bitcoin,ethereum,solana,cardano,polkadot&vs_currencies=usd`;
+    const headers = COINGECKO_API_KEY ? { 'X-CG-PRO-API-KEY': COINGECKO_API_KEY } : {};
+
+    console.log(`  💰 Fetching from ${COINGECKO_API_KEY ? 'CoinGecko Pro' : 'CoinGecko (free)'}`);
+
+    const data = await fetchWithRetry(url, { headers }, 2);
+
+    const prices = {
       'KXBTC': data.bitcoin?.usd,
       'KXETH': data.ethereum?.usd,
       'KXSOL': data.solana?.usd,
       'KXADA': data.cardano?.usd,
       'KXDOT': data.polkadot?.usd
     };
+
+    // Update cache
+    cryptoPriceCache.data = prices;
+    cryptoPriceCache.timestamp = now;
+
+    return prices;
   } catch (e) {
     console.log('  ⚠️ Failed to fetch live crypto prices:', e.message);
+    // Return cached data even if stale
+    if (cryptoPriceCache.data) {
+      console.log('  ⚠️ Using stale cached prices');
+      return cryptoPriceCache.data;
+    }
     return {};
   }
 }
