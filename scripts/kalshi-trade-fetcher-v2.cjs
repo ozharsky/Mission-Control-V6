@@ -727,14 +727,17 @@ async function fetchLiveCryptoPrices() {
 
     const data = await response.json();
 
+    // DEBUG: Log the response structure
+    console.log('  🔍 FreeCryptoAPI response:', JSON.stringify(data).slice(0, 200));
+
     // Map API response to our format
     // FreeCryptoAPI returns data in format: { BTC: { price: 65000, ... }, ... }
     const prices = {
-      'KXBTC': data.BTC?.price,
-      'KXETH': data.ETH?.price,
-      'KXSOL': data.SOL?.price,
-      'KXADA': data.ADA?.price,
-      'KXDOT': data.DOT?.price
+      'KXBTC': data.BTC?.price || data.bitcoin?.price || data.BTC?.USD || data.bitcoin?.usd,
+      'KXETH': data.ETH?.price || data.ethereum?.price || data.ETH?.USD || data.ethereum?.usd,
+      'KXSOL': data.SOL?.price || data.solana?.price || data.SOL?.USD || data.solana?.usd,
+      'KXADA': data.ADA?.price || data.cardano?.price || data.ADA?.USD || data.cardano?.usd,
+      'KXDOT': data.DOT?.price || data.polkadot?.price || data.DOT?.USD || data.polkadot?.usd
     };
 
     // Validate we got all prices

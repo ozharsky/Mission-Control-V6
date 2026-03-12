@@ -243,13 +243,19 @@ function recordOpportunities(opportunities, signalType = 'unknown') {
     const ourProb = calculateOurProbability(trade);
     const edge = parseFloat(trade.edge) || 0;
     
+    // FIX: Lower threshold from 0.6 to 0.15 (15% probability)
+    // Also record if edge is positive and meaningful
+    const shouldRecord = (ourProb > 0.15 || edge > 5) && edge > 0;
+    
     // DEBUG: Log each trade
-    if (!trade.edge || ourProb <= 0.6 || edge <= 0) {
+    if (!shouldRecord) {
       console.log(`   Brier SKIP: ${trade.ticker} - edge: ${edge}, ourProb: ${ourProb.toFixed(2)}`);
+    } else {
+      console.log(`   Brier RECORD: ${trade.ticker} - edge: ${edge}, ourProb: ${ourProb.toFixed(2)}`);
     }
 
-    // FIX: Only record if we have meaningful confidence AND positive edge
-    if (ourProb > 0.6 && edge > 0) {
+    // FIX: Record if we have positive edge and reasonable probability
+    if (shouldRecord) {
       recordTradePrediction(trade, ourProb, signalType);
       recorded++;
     }
