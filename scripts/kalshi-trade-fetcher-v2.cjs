@@ -486,7 +486,7 @@ function getPriceCents(market, fieldPrefix) {
       return Math.round(dollars * 100); // Convert to cents
     }
   }
-  
+
   // Try new format with _fp suffix (fixed-point)
   const fpFormatField = `${fieldPrefix}_fp`;
   if (market[fpFormatField] !== undefined) {
@@ -497,7 +497,7 @@ function getPriceCents(market, fieldPrefix) {
       return Math.round(fpValue <= 1 ? fpValue * 100 : fpValue);
     }
   }
-  
+
   // Fall back to old format (integer cents)
   const oldFormatField = fieldPrefix;
   if (market[oldFormatField] !== undefined) {
@@ -506,7 +506,7 @@ function getPriceCents(market, fieldPrefix) {
       return cents;
     }
   }
-  
+
   // Final fallback: try yes_price or no_price without prefix
   const fallbackMap = {
     'yes_ask': ['yes_price', 'last_price', 'mid_price'],
@@ -514,7 +514,7 @@ function getPriceCents(market, fieldPrefix) {
     'no_ask': ['no_price'],
     'no_bid': ['no_price']
   };
-  
+
   const fallbacks = fallbackMap[fieldPrefix] || [];
   for (const fallback of fallbacks) {
     if (market[fallback] !== undefined) {
@@ -522,8 +522,42 @@ function getPriceCents(market, fieldPrefix) {
       if (!isNaN(val)) return val;
     }
   }
-  
-  console.warn(`⚠️ Could not extract ${fieldPrefix} for ${market.ticker || 'unknown market'}`);
+
+  // FIX: Last resort - derive from complementary field using reciprocity
+  // YES bid + NO ask = 100, YES ask + NO bid = 100
+  if (fieldPrefix.includes('yes')) {
+    const oppositeField = fieldPrefix.replace('yes', 'no');
+    const oppositePrice = getPriceCents(market, oppositeField);
+    if (oppositePrice > 0) {
+      // If we have yes_bid but missing yes_ask, derive from no_bid
+      // If we have yes_ask but missing yes_bid, derive from no_ask
+      if (fieldPrefix.includes('bid')) {
+        const noAsk = getPriceCents(market, 'no_ask');
+        if (noAsk > 0) return 100 - noAsk;
+      }
+      if (fieldPrefix.includes('ask')) {
+        const noBid = getPriceCents(market, 'no_bid');
+        if (noBid > 0) return 100 - noBid;
+      }
+      // Generic: use opposite price
+      return 100 - oppositePrice;
+    }
+  }
+
+  // FIX: Reduce log spam - only log once per market
+  if (!market._loggedMissingPrices) {
+    market._loggedMissingPrices = new Set();
+  }
+  if (!market._loggedMissingPrices.has(fieldPrefix)) {
+    market._loggedMissingPrices.add(fieldPrefix);
+    // Only log if we've tried all options
+    if (market._loggedMissingPrices.size >= 4) {
+      console.warn(`⚠️ Could not extract prices for ${market.ticker || 'unknown market'}`, {
+        available: Object.keys(market).filter(k => k.includes('price') || k.includes('_fp') || k.includes('_dollars'))
+      });
+    }
+  }
+
   return 0;
 }
 
