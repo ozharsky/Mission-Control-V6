@@ -1047,6 +1047,7 @@ class CrossMarketCorrelation {
     ];
     this.correlationHistory = new Map(); // Stores price movements for correlation calc
     this.minHistoryPoints = 5; // Minimum data points for correlation
+    this.lastCorrelations = []; // FIX #2: Store last analysis on instance
   }
 
   // Record price movement for a ticker
@@ -1156,6 +1157,8 @@ class CrossMarketCorrelation {
       });
     }
 
+    // FIX #2: Store on instance for safe access
+    this.lastCorrelations = correlations;
     return correlations;
   }
 
@@ -1166,8 +1169,10 @@ class CrossMarketCorrelation {
       .sort((a, b) => b.signal.confidence - a.signal.confidence);
   }
 
-  printCorrelationReport(correlations) {
-    if (correlations.length === 0) {
+  printCorrelationReport(correlations = null) {
+    // FIX #2: Use instance storage as fallback
+    const data = correlations || this.lastCorrelations || [];
+    if (!data || data.length === 0) {
       console.log('\n📊 No correlation data available yet (need more price history)');
       return;
     }
@@ -1176,7 +1181,7 @@ class CrossMarketCorrelation {
 
     // Group by type
     const byType = {};
-    correlations.forEach(c => {
+    data.forEach(c => {
       if (!byType[c.type]) byType[c.type] = [];
       byType[c.type].push(c);
     });
@@ -1191,7 +1196,7 @@ class CrossMarketCorrelation {
     }
 
     // Print signals
-    const signals = this.getCorrelationSignals(correlations);
+    const signals = this.getCorrelationSignals(data);
     if (signals.length > 0) {
       console.log('\n  🎯 CORRELATION SIGNALS:');
       signals.forEach(s => {
@@ -4191,13 +4196,29 @@ function calculateKelly(trueProb, price, bankroll = 10000, category = 'unknown')
   const marketProb = price / 100;
   if (trueProb <= marketProb) return { kellyPct: 0, position: 0 };
   
-  // Guard against zero price
-  if (price <= 0) return { kellyPct: 0, position: 0 };
+  // FIX #3: Guard against edge cases in price (both low and high)
+  if (price <= 0 || price >= 99) {
+    console.warn(`⚠️ Invalid price for Kelly calc: ${price}`);
+    return { kellyPct: 0, position: 0 };
+  }
 
   const b = (100 - price) / price; // Decimal odds minus 1
   const p = trueProb; // Use actual calculated probability (0-1)
   const q = 1 - p;
+  
+  // FIX #3: Additional safety - check b is positive and reasonable
+  if (b <= 0 || !isFinite(b)) {
+    console.warn(`⚠️ Invalid odds ratio: ${b}`);
+    return { kellyPct: 0, position: 0 };
+  }
+  
   const fullKelly = (b * p - q) / b;
+  
+  // FIX #3: Validate Kelly result
+  if (!isFinite(fullKelly) || fullKelly < 0) {
+    console.warn(`⚠️ Invalid Kelly result: ${fullKelly}`);
+    return { kellyPct: 0, position: 0 };
+  }
   
   // Get category-specific Kelly multiplier (based on calibration quality)
   const categoryConfig = CONFIG.categoryThresholds[category] || { kellyMultiplier: 0.8 };
@@ -4327,12 +4348,40 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
 
   const pmMarket = pmEvent.markets[0];
 
-  // Find the correct YES outcome index (not always first!)
-  const outcomes = JSON.parse(pmMarket.outcomes || '[]');
+  // FIX #1: Safely parse outcomes with try/catch
+  let outcomes = [];
+  try {
+    outcomes = JSON.parse(pmMarket.outcomes || '[]');
+  } catch (e) {
+    console.warn(`⚠️ Invalid outcomes JSON for ${pmEvent.slug}: ${e.message}`);
+    return null;
+  }
+  
+  // Additional safety: ensure outcomes is actually an array
+  if (!Array.isArray(outcomes)) {
+    console.warn(`⚠️ Outcomes is not an array for ${pmEvent.slug}`);
+    return null;
+  }
+
   const prices = pmMarket.outcomePrices ? pmMarket.outcomePrices.split(',') : [];
-  const yesIndex = outcomes.findIndex(o => o.toLowerCase() === 'yes');
-  const pmYesPrice = yesIndex !== -1 && prices[yesIndex] ?
-    parseFloat(prices[yesIndex]) * 100 : 50;
+  
+  // FIX #1: Add safety check for string type and bounds
+  const yesIndex = outcomes.findIndex(o => 
+    typeof o === 'string' && o.toLowerCase() === 'yes'
+  );
+  
+  // FIX #1: Safety check for price array bounds
+  if (yesIndex === -1 || yesIndex >= prices.length) {
+    return null;
+  }
+  
+  const yesPriceValue = parseFloat(prices[yesIndex]);
+  if (isNaN(yesPriceValue)) {
+    console.warn(`⚠️ Invalid price for ${pmEvent.slug}: ${prices[yesIndex]}`);
+    return null;
+  }
+  
+  const pmYesPrice = yesPriceValue * 100;
 
   const kalshiYesPrice = kalshiTrade.yesPrice;
   const priceDiff = Math.abs(kalshiYesPrice - pmYesPrice);
@@ -5480,7 +5529,13 @@ async function main() {
   await edgeDecayTracker.saveToFile();
 
   // Print correlation matrix report
-  correlationMatrix.printCorrelationReport(correlations);
+  // FIX #2: Add safety check before calling printCorrelationReport
+  if (correlations && (Array.isArray(correlations) || correlations instanceof Map) && 
+      (correlations.length > 0 || correlations.size > 0)) {
+    correlationMatrix.printCorrelationReport(correlations);
+  } else {
+    console.log('\n📊 No correlation data available yet (need more price history)');
+  }
 
   // Print win rate analytics report
   winRateAnalytics.printReport();
