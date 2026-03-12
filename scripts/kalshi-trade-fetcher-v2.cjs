@@ -67,6 +67,22 @@ function normalCDF(x) {
   return 0.5 * (1 + erf(x / Math.sqrt(2)));
 }
 
+// FIX #9: Log level system for controlling output verbosity
+const LOG_LEVELS = { ERROR: 0, WARN: 1, INFO: 2, DEBUG: 3 };
+const CURRENT_LOG_LEVEL = LOG_LEVELS[process.env.LOG_LEVEL?.toUpperCase()] || LOG_LEVELS.INFO;
+
+function log(level, ...args) {
+  if (LOG_LEVELS[level] <= CURRENT_LOG_LEVEL) {
+    console.log(...args);
+  }
+}
+
+// Usage:
+// log('DEBUG', 'Detailed auth info:', signature);  // Only shown if LOG_LEVEL=DEBUG
+// log('INFO', '✅ Connected to WebSocket');         // Shown by default
+// log('WARN', '⚠️ API rate limited');              // Always shown
+// log('ERROR', '❌ Fatal error:', err);            // Always shown
+
 // Kalshi API Configuration
 const KALSHI_ACCESS_KEY = process.env.KALSHI_ACCESS_KEY || process.env.KALSHI_API_KEY || '';
 
@@ -315,16 +331,33 @@ async function rateLimitedFetchOnce(url, options = {}, isWrite = false) {
 async function fetchWithRetry(url, options = {}, maxRetries = CONFIG.rateLimit.maxRetries, isWrite = false) {
   let lastError;
   
+  // FIX #7: Add timeout wrapper
+  const fetchWithTimeout = async (timeoutMs = 15000) => {
+    return Promise.race([
+      rateLimitedFetchOnce(url, options, isWrite),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`Request timeout after ${timeoutMs}ms`)), timeoutMs)
+      )
+    ]);
+  };
+  
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // Apply rate limiting and make request
-      const result = await rateLimitedFetchOnce(url, options, isWrite);
+      // FIX #7: Apply rate limiting and make request with timeout
+      const result = await fetchWithTimeout(15000);
       
       // If we got here without error, return the result
       return result;
       
     } catch (error) {
       lastError = error;
+      
+      // FIX #7: Check for timeout errors
+      const isTimeout = error.message && error.message.includes('timeout');
+      
+      if (isTimeout) {
+        console.log(`⏱️ Request timeout, retrying... (${attempt + 1}/${maxRetries})`);
+      }
       
       // Check if it's a 429 error (rate limited by server)
       if (error.message && error.message.includes('429')) {
@@ -3017,14 +3050,33 @@ class PennyPickingScanner {
   }
 
   // Group markets by event (extract base event key from ticker)
+  // FIX #8: More flexible regex patterns to handle different ticker formats
   groupByEvent(markets) {
     const groups = {};
     for (const market of markets) {
-      // Extract event key: KXHIGHNY-26MAR08 from KXHIGHNY-26MAR08-T75
-      const match = market.ticker.match(/([A-Z]+-\d{2}[A-Z]{3}\d{2})/);
-      if (!match) continue;
+      if (!market.ticker) continue;
+      
+      // Try multiple patterns for flexibility
+      const patterns = [
+        /^([A-Z]+-\d{2}[A-Z]{3}\d{2})/i,  // Standard: KXHIGHNY-26MAR08
+        /^([A-Z]+-\d{8})/i,                // Numeric: KXHIGHNY-20260308
+        /^(.+)-[^-]+$/                     // Fallback: up to last hyphen
+      ];
+      
+      let eventKey = null;
+      for (const pattern of patterns) {
+        const match = market.ticker.match(pattern);
+        if (match) {
+          eventKey = match[1].toUpperCase();
+          break;
+        }
+      }
+      
+      if (!eventKey) {
+        console.warn(`⚠️ Could not parse event key from ticker: ${market.ticker}`);
+        eventKey = market.ticker; // Use full ticker as fallback
+      }
 
-      const eventKey = match[1];
       if (!groups[eventKey]) groups[eventKey] = [];
       groups[eventKey].push(market);
     }
@@ -4863,12 +4915,48 @@ function detectWeatherLag(kalshiMarket, nwsForecast) {
   };
 }
 
+// FIX #10: Bounded cache with size limits and TTL
+class BoundedCache {
+  constructor(maxSize = 1000, ttlMs = 60000) {
+    this.cache = new Map();
+    this.maxSize = maxSize;
+    this.ttlMs = ttlMs;
+  }
+
+  get(key) {
+    const item = this.cache.get(key);
+    if (!item) return null;
+    if (Date.now() > item.expiresAt) {
+      this.cache.delete(key);
+      return null;
+    }
+    return item.value;
+  }
+
+  set(key, value) {
+    // Evict oldest if at capacity
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+
+    this.cache.set(key, {
+      value,
+      expiresAt: Date.now() + this.ttlMs
+    });
+  }
+
+  has(key) {
+    return this.get(key) !== null;
+  }
+}
+
 async function main() {
   console.log('🔍 Starting Kalshi Trade Fetch v2.3 (WebSocket + REST Hybrid)...\n');
   const scanStartTime = Date.now();
 
-  // Real-time price cache from WebSocket
-  const livePriceCache = new Map();
+  // FIX #10: Real-time price cache from WebSocket with bounds
+  const livePriceCache = new BoundedCache(1000, 30000); // Max 1000 items, 30s TTL
   let wsClient = null;
 
   // Initialize WebSocket for real-time data if available
