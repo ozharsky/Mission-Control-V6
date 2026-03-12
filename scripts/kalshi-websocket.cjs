@@ -322,6 +322,12 @@ class KalshiWebSocketClient {
    * Send subscribe message
    */
   sendSubscribe(ticker, sid) {
+    // FIX: Check connection is ready before subscribing
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      log('DEBUG', `⏳ Queueing subscribe for ${ticker} (connection not ready)`);
+      return;
+    }
+    
     this.send({
       type: 'subscribe',
       channel: 'orderbook_delta',

@@ -528,14 +528,38 @@ function getPriceCents(market, fieldPrefix) {
 }
 
 // Helper to get all prices for a market in consistent format
+// FIX: More aggressive fallback when primary price fields are missing
 function getMarketPrices(market) {
+  const yesBid = getPriceCents(market, 'yes_bid');
+  const yesAsk = getPriceCents(market, 'yes_ask');
+  const yesPrice = getPriceCents(market, 'yes_price');
+  const noBid = getPriceCents(market, 'no_bid');
+  const noAsk = getPriceCents(market, 'no_ask');
+  const noPrice = getPriceCents(market, 'no_price');
+  
+  // FIX: If yes_price is 0, try last_price or mid_price
+  const fallbackYesPrice = yesPrice || 
+    (market.last_price ? parseInt(market.last_price, 10) : 0) ||
+    (market.mid_price ? parseInt(market.mid_price, 10) : 0) ||
+    (yesBid && noBid ? Math.round((yesBid + (100 - noBid)) / 2) : 0);
+  
+  // FIX: If yes_ask is 0, derive from no_bid via reciprocity
+  const fallbackYesAsk = yesAsk || 
+    (noBid ? 100 - noBid : 0) ||
+    (yesBid ? yesBid + 1 : 0); // Assume 1¢ spread if no other data
+  
+  // FIX: If yes_bid is 0, try to derive from yes_ask or last_price
+  const fallbackYesBid = yesBid || 
+    (yesAsk ? yesAsk - 1 : 0) ||
+    (fallbackYesPrice ? fallbackYesPrice - 1 : 0);
+  
   return {
-    yesBid: getPriceCents(market, 'yes_bid'),
-    yesAsk: getPriceCents(market, 'yes_ask'),
-    yesPrice: getPriceCents(market, 'yes_price'),
-    noBid: getPriceCents(market, 'no_bid'),
-    noAsk: getPriceCents(market, 'no_ask'),
-    noPrice: getPriceCents(market, 'no_price')
+    yesBid: fallbackYesBid || yesBid,
+    yesAsk: fallbackYesAsk || yesAsk,
+    yesPrice: fallbackYesPrice || yesPrice,
+    noBid: noBid || (noAsk ? noAsk - 1 : 0),
+    noAsk: noAsk || (yesBid ? 100 - yesBid : 0),
+    noPrice: noPrice || (fallbackYesPrice ? 100 - fallbackYesPrice : 0)
   };
 }
 
@@ -4447,9 +4471,13 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
     return null;
   }
   
-  const yesPriceValue = parseFloat(prices[yesIndex]);
+  // FIX: Handle array-wrapped price strings from Polymarket API
+  let priceValue = prices[yesIndex];
+  if (Array.isArray(priceValue)) priceValue = priceValue[0];
+  
+  const yesPriceValue = parseFloat(priceValue);
   if (isNaN(yesPriceValue)) {
-    console.warn(`⚠️ Invalid price for ${pmEvent.slug}: ${prices[yesIndex]}`);
+    console.warn(`⚠️ Invalid price for ${pmEvent.slug}: ${priceValue}`);
     return null;
   }
   
