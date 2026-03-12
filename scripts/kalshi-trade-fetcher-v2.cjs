@@ -52,24 +52,6 @@ const KALSHI_ACCESS_KEY = process.env.KALSHI_ACCESS_KEY || process.env.KALSHI_AP
 // Load private key from env var or file
 let privateKey = null;
 try {
-// Debug flag for verbose auth logging (security risk - only enable for local debugging)
-const DEBUG_AUTH = process.env.DEBUG_AUTH === 'true';
-
-// Helper to redact secrets - show only first N chars, mask the rest
-function redactSecret(value, keep = 6) {
-  if (!value) return '(missing)';
-  if (value.length <= keep) return '*'.repeat(value.length);
-  return `${value.slice(0, keep)}...${'*'.repeat(4)}`;
-}
-
-// Helper for conditional auth debug logging
-function debugAuth(...args) {
-  if (DEBUG_AUTH) console.log(...args);
-}
-
-// Load private key from env var or file
-let privateKey = null;
-try {
   if (process.env.KALSHI_PRIVATE_KEY) {
     // Use key from env var (GitHub Actions)
     // Handle various newline formats that GitHub Secrets might use
@@ -79,18 +61,13 @@ try {
       .replace(/\r/g, '\n');      // Old Mac newlines
     
     console.log('✅ Loaded Kalshi private key from environment variable');
-    
-    // Only show key fingerprint, never the actual key content
-    const keyFingerprint = crypto.createHash('sha256').update(privateKey).digest('hex').slice(0, 12);
-    console.log(`   Key fingerprint: ${keyFingerprint}...`);
-    
-    debugAuth(`   Key length: ${privateKey.length} chars`);
-    debugAuth(`   Key starts with: ${privateKey.substring(0, 50)}...`);
+    console.log(`   Key length: ${privateKey.length} chars`);
+    console.log(`   Key starts with: ${privateKey.substring(0, 50)}...`);
     
     // Validate key format
     if (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
       console.log('   ⚠️ WARNING: Key does not contain expected header!');
-      debugAuth(`   First line: ${privateKey.split('\n')[0]}`);
+      console.log(`   First line: ${privateKey.split('\n')[0]}`);
     }
   } else if (fs.existsSync('./kalshi_private_key.pem')) {
     // Use key from file (local development)
@@ -102,7 +79,7 @@ try {
   }
   
   if (KALSHI_ACCESS_KEY) {
-    console.log(`✅ Kalshi Access Key loaded: ${redactSecret(KALSHI_ACCESS_KEY, 8)}`);
+    console.log(`✅ Kalshi Access Key loaded: ${KALSHI_ACCESS_KEY.substring(0, 8)}...`);
   } else {
     console.log('⚠️ No Kalshi Access Key found');
   }
@@ -118,8 +95,7 @@ try {
         padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
         saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
       }, 'base64');
-      console.log(`✅ Private key test sign: OK`);
-      debugAuth(`   Signature length: ${testSig.length}`);
+      console.log(`✅ Private key test sign: OK (sig length: ${testSig.length})`);
     } catch (e) {
       console.log(`❌ Private key test sign FAILED: ${e.message}`);
     }
@@ -453,8 +429,7 @@ function getPriceCents(market, fieldPrefix) {
     }
   }
   
-  // Silently return 0 if field not found (market may not have price data yet)
-  // This prevents log spam for markets that are closed or not yet trading
+  console.warn(`⚠️ Could not extract ${fieldPrefix} for ${market.ticker || 'unknown market'}`);
   return 0;
 }
 
@@ -1229,69 +1204,21 @@ class WinRateAnalytics {
   }
 
   // Record a trade opportunity for later outcome tracking
-  // Stores all fields needed for reproducible backtesting and strategy replay
   async recordTradeOpportunity(trade) {
-    const marketProb = Number(trade.yesPrice) / 100;
-    const inferredTrueProb = Math.max(0, Math.min(1, marketProb + (Number(trade.edge || 0) / 100)));
-
     const record = {
-      // Market identification
       ticker: trade.ticker,
       category: trade.category,
       title: trade.title,
-      subtitle: trade.subtitle || '',
-      
-      // Price data
-      yesPrice: Number(trade.yesPrice),
-      noPrice: Number(trade.noPrice || (100 - trade.yesPrice)),
-      yesBid: Number(trade.yesBid || 0),
-      yesAsk: Number(trade.yesAsk || trade.yesPrice || 0),
-      
-      // Volume and liquidity
-      volume: Number(trade.volume || 0),
-      spread: Number(trade.spread || 0),
-      liquidityScore: Number(trade.liquidityScore || 0),
-      health: trade.health || 'unknown',
-      
-      // Edge and probability metrics
-      edge: Number(trade.edge) || 0,
-      rScore: Number(trade.rScore) || 0,
-      compositeScore: Number(trade.compositeScore) || 0,
-      grossEdge: Number(trade.grossEdge) || 0,
-      marketProb: marketProb,
-      trueProbability: Number.isFinite(Number(trade.trueProbability)) 
-        ? Math.max(0, Math.min(1, Number(trade.trueProbability)))
-        : inferredTrueProb,
-      
-      // Signal data
-      whale: Boolean(trade.whale),
-      whaleSpikeRatio: Number(trade.whaleSpikeRatio || 0),
-      momentum: trade.momentum || 'neutral',
-      momentumChange24h: Number(trade.momentumChange24h || 0),
-      
-      // Decay analysis
-      isEdgeDeteriorating: Boolean(trade.isEdgeDeteriorating),
-      decayTrend: trade.decayAnalysis?.trend || 'unknown',
-      stabilityScore: Number(trade.stabilityScore || 0),
-      
-      // Risk and sizing
-      kellyPct: Number(trade.kellyPct || 0),
-      position: Number(trade.position || 0),
-      recommendation: trade.recommendation || null,
-      
-      // Time tracking
+      yesPrice: trade.yesPrice,
+      edge: parseFloat(trade.edge) || 0,
+      rScore: parseFloat(trade.rScore) || 0,
+      compositeScore: parseFloat(trade.compositeScore) || 0,
       timestamp: new Date().toISOString(),
       hour: new Date().getHours(),
       dayOfWeek: new Date().getDay(), // 0-6 (Sun-Sat)
       month: new Date().getMonth(),
-      closeTime: trade.closeTime || null,
-      
-      // Resolution tracking (filled in later)
-      result: null,
-      actualReturn: null,
-      contracts: null,
-      positionDollars: null,
-      resolvedAt: null
+      result: null, // Will be updated later when market resolves
+      actualReturn: null
     };
 
     // Don't duplicate if we already recorded this ticker today
@@ -3972,10 +3899,8 @@ function signKalshiRequest(method, path, timestamp) {
   // Create the string to sign: "TIMESTAMP + METHOD + PATH"
   // Note: No separators, just concatenation as per Kalshi docs
   const stringToSign = `${timestamp}${method}${pathWithoutQuery}`;
-  
-  // NEVER log stringToSign in production - it could help attackers forge signatures
-  debugAuth(`    📝 String to sign: ${stringToSign}`);
-  debugAuth(`    📏 String length: ${stringToSign.length}`);
+  console.log(`    📝 String to sign: ${stringToSign}`);
+    console.log(`    📏 String length: ${stringToSign.length}`);
 
   try {
     // Sign with RSA-PSS (not regular RSA)
@@ -3989,9 +3914,6 @@ function signKalshiRequest(method, path, timestamp) {
       saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
     }, 'base64');
 
-    // Only log signature length, never the signature itself
-    debugAuth(`    🔏 Signature length: ${signature.length}`);
-    
     return signature;
   } catch (e) {
     console.log(`    ❌ Signing error: ${e.message}`);
@@ -4025,8 +3947,8 @@ function fetchOnce(url, options = {}) {
         headers['KALSHI-ACCESS-SIGNATURE'] = signature;
         console.log(`  🔐 Auth for ${urlObj.href}:`);
         console.log(`     Path signed: ${pathWithQuery.split('?')[0]}`);
-        debugAuth(`     Key: ${redactSecret(KALSHI_ACCESS_KEY, 16)}`);
-        debugAuth(`     Sig: ${redactSecret(signature, 24)}`);
+        console.log(`     Key: ${KALSHI_ACCESS_KEY.substring(0, 16)}...`);
+        console.log(`     Sig: ${signature.substring(0, 24)}...`);
       } else {
         console.log(`  ⚠️ Failed to sign request for ${urlObj.pathname}`);
       }
@@ -4518,29 +4440,17 @@ function parseRSS(xmlData, source, category = 'general') {
   return items;
 }
 
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function extractField(xml, fieldNames) {
-  for (const fieldName of fieldNames) {
-    const field = escapeRegExp(fieldName);
-    // Unified regex that handles attributes, CDATA, and inner text
-    const regex = new RegExp(
-      `<${field}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${field}>`,
-      'i'
-    );
-    const match = xml.match(regex);
-    if (!match) continue;
-    
-    // Clean up the extracted value
-    const value = cleanText(match[1])
-      .replace(/^\u003c!\[CDATA\[/, '')  // Remove CDATA start
-      .replace(/\]\]\u003e$/, '')        // Remove CDATA end
-      .trim();
-    
-    if (value) return value;
+  for (const field of fieldNames) {
+    // Try CDATA version first
+    const cdataRegex = new RegExp(`<${field}[\\s\\S]*?>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${field}>`, 'i');
+    const normalRegex = new RegExp(`<${field}[\s]*[^>]*>([^<]*)<\/${field}>`, 'i');
+
+    const cdataMatch = xml.match(cdataRegex);
+    if (cdataMatch) return cdataMatch[1].trim();
+
+    const normalMatch = xml.match(normalRegex);
+    if (normalMatch) return normalMatch[1].trim();
   }
   return null;
 }
@@ -4939,11 +4849,6 @@ async function main() {
         const yesPrice = book.yesAsk || book.yesPrice || 0;
         const noPrice = book.noAsk || (100 - yesPrice);
         const volume = m.volume || 0;
-
-        // Skip markets with no valid price data
-        if (!yesPrice || yesPrice <= 0) {
-          continue;
-        }
 
         if (isClosingSoon(m.close_time)) continue;
 
