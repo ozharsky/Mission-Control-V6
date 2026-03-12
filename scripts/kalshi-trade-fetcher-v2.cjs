@@ -52,6 +52,24 @@ const KALSHI_ACCESS_KEY = process.env.KALSHI_ACCESS_KEY || process.env.KALSHI_AP
 // Load private key from env var or file
 let privateKey = null;
 try {
+// Debug flag for verbose auth logging (security risk - only enable for local debugging)
+const DEBUG_AUTH = process.env.DEBUG_AUTH === 'true';
+
+// Helper to redact secrets - show only first N chars, mask the rest
+function redactSecret(value, keep = 6) {
+  if (!value) return '(missing)';
+  if (value.length <= keep) return '*'.repeat(value.length);
+  return `${value.slice(0, keep)}...${'*'.repeat(4)}`;
+}
+
+// Helper for conditional auth debug logging
+function debugAuth(...args) {
+  if (DEBUG_AUTH) console.log(...args);
+}
+
+// Load private key from env var or file
+let privateKey = null;
+try {
   if (process.env.KALSHI_PRIVATE_KEY) {
     // Use key from env var (GitHub Actions)
     // Handle various newline formats that GitHub Secrets might use
@@ -61,13 +79,18 @@ try {
       .replace(/\r/g, '\n');      // Old Mac newlines
     
     console.log('✅ Loaded Kalshi private key from environment variable');
-    console.log(`   Key length: ${privateKey.length} chars`);
-    console.log(`   Key starts with: ${privateKey.substring(0, 50)}...`);
+    
+    // Only show key fingerprint, never the actual key content
+    const keyFingerprint = crypto.createHash('sha256').update(privateKey).digest('hex').slice(0, 12);
+    console.log(`   Key fingerprint: ${keyFingerprint}...`);
+    
+    debugAuth(`   Key length: ${privateKey.length} chars`);
+    debugAuth(`   Key starts with: ${privateKey.substring(0, 50)}...`);
     
     // Validate key format
     if (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
       console.log('   ⚠️ WARNING: Key does not contain expected header!');
-      console.log(`   First line: ${privateKey.split('\n')[0]}`);
+      debugAuth(`   First line: ${privateKey.split('\n')[0]}`);
     }
   } else if (fs.existsSync('./kalshi_private_key.pem')) {
     // Use key from file (local development)
@@ -79,7 +102,7 @@ try {
   }
   
   if (KALSHI_ACCESS_KEY) {
-    console.log(`✅ Kalshi Access Key loaded: ${KALSHI_ACCESS_KEY.substring(0, 8)}...`);
+    console.log(`✅ Kalshi Access Key loaded: ${redactSecret(KALSHI_ACCESS_KEY, 8)}`);
   } else {
     console.log('⚠️ No Kalshi Access Key found');
   }
@@ -95,7 +118,8 @@ try {
         padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
         saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
       }, 'base64');
-      console.log(`✅ Private key test sign: OK (sig length: ${testSig.length})`);
+      console.log(`✅ Private key test sign: OK`);
+      debugAuth(`   Signature length: ${testSig.length}`);
     } catch (e) {
       console.log(`❌ Private key test sign FAILED: ${e.message}`);
     }
@@ -3900,8 +3924,10 @@ function signKalshiRequest(method, path, timestamp) {
   // Create the string to sign: "TIMESTAMP + METHOD + PATH"
   // Note: No separators, just concatenation as per Kalshi docs
   const stringToSign = `${timestamp}${method}${pathWithoutQuery}`;
-  console.log(`    📝 String to sign: ${stringToSign}`);
-    console.log(`    📏 String length: ${stringToSign.length}`);
+  
+  // NEVER log stringToSign in production - it could help attackers forge signatures
+  debugAuth(`    📝 String to sign: ${stringToSign}`);
+  debugAuth(`    📏 String length: ${stringToSign.length}`);
 
   try {
     // Sign with RSA-PSS (not regular RSA)
@@ -3915,6 +3941,9 @@ function signKalshiRequest(method, path, timestamp) {
       saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
     }, 'base64');
 
+    // Only log signature length, never the signature itself
+    debugAuth(`    🔏 Signature length: ${signature.length}`);
+    
     return signature;
   } catch (e) {
     console.log(`    ❌ Signing error: ${e.message}`);
@@ -3948,8 +3977,8 @@ function fetchOnce(url, options = {}) {
         headers['KALSHI-ACCESS-SIGNATURE'] = signature;
         console.log(`  🔐 Auth for ${urlObj.href}:`);
         console.log(`     Path signed: ${pathWithQuery.split('?')[0]}`);
-        console.log(`     Key: ${KALSHI_ACCESS_KEY.substring(0, 16)}...`);
-        console.log(`     Sig: ${signature.substring(0, 24)}...`);
+        debugAuth(`     Key: ${redactSecret(KALSHI_ACCESS_KEY, 16)}`);
+        debugAuth(`     Sig: ${redactSecret(signature, 24)}`);
       } else {
         console.log(`  ⚠️ Failed to sign request for ${urlObj.pathname}`);
       }
