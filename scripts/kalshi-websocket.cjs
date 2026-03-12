@@ -47,7 +47,7 @@ class KalshiWebSocketClient {
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n');
 
-    const stringToSign = `${timestamp}GET/ws/v2`;
+    const stringToSign = `${timestamp}GET/trade-api/ws/v2`;
     
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(stringToSign);
