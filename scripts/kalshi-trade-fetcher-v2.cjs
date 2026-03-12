@@ -4781,16 +4781,18 @@ async function main() {
       onError: (err) => console.log('❌ WebSocket error:', err.message)
     });
 
-    // Connect and subscribe to top markets
-    await wsClient.connect();
-
-    // Subscribe to all series markets
-    for (const series of SERIES) {
-      // We'll subscribe dynamically as we discover markets
-      // For now, set up the callback handler
+    // Connect with timeout - don't block scanner if WebSocket fails
+    const wsTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('WebSocket connection timeout')), 5000)
+    );
+    
+    try {
+      await Promise.race([wsClient.connect(), wsTimeout]);
+      console.log('✅ WebSocket ready\n');
+    } catch (err) {
+      console.log(`⚠️ WebSocket failed (${err.message}), using REST-only mode\n`);
+      wsClient = null; // Disable WebSocket for this run
     }
-
-    console.log('✅ WebSocket ready\n');
   } else {
     console.log('ℹ️ Using REST-only mode (WebSocket not available)\n');
   }
