@@ -4608,19 +4608,30 @@ function analyzeSentiment(text) {
 // Match news articles to relevant markets
 function matchNewsToMarkets(articles, trades) {
   const keywordMap = {
+    // Crypto
     'KXBTC': ['bitcoin', 'btc', 'crypto', 'cryptocurrency'],
     'KXETH': ['ethereum', 'eth', 'crypto', 'cryptocurrency'],
     'KXSOL': ['solana', 'sol', 'crypto'],
+    'KXADA': ['cardano', 'ada', 'crypto'],
+    'KXDOT': ['polkadot', 'dot', 'crypto'],
+    // Politics
     'KXTRUMP': ['trump', 'president', 'biden', 'white house'],
     'KXTRUTHSOCIAL': ['truth social', 'trump media', 'djt'],
+    'KX538APPROVE': ['approval rating', 'biden approval', 'trump approval', 'poll'],
+    'KXTRUMPZELENSKYY': ['zelenskyy', 'ukraine', 'trump ukraine', 'meeting'],
+    'KXTRUMPMEET': ['trump meets', 'trump meeting', 'biden meets', 'summit'],
+    // Economics
     'KXFED': ['fed', 'federal reserve', 'interest rate', 'powell'],
     'KXCPI': ['inflation', 'cpi', 'consumer price'],
     'KXJOBS': ['jobs', 'employment', 'unemployment', 'nfp', 'payroll'],
     'KXGDP': ['gdp', 'economy', 'economic growth'],
-    'KXHIGHNY': ['new york', 'nyc', 'manhattan', 'weather'],
-    'KXHIGHCHI': ['chicago', 'illinois', 'midwest', 'weather'],
-    'KXHIGHTSEA': ['seattle', 'washington', 'pacific northwest', 'weather'],
-    'KXHIGHMIA': ['miami', 'florida', 'southeast', 'weather']
+    'KXIR': ['interest rate', 'fed funds', 'rate hike', 'rate cut'],
+    // Weather
+    'KXHIGHNY': ['new york', 'nyc', 'manhattan'],
+    'KXHIGHCHI': ['chicago', 'illinois', 'midwest'],
+    'KXHIGHTSEA': ['seattle', 'washington', 'pacific northwest'],
+    'KXHIGHMIA': ['miami', 'florida', 'southeast'],
+    'KXHIGHTPHX': ['phoenix', 'arizona', 'desert']
   };
 
   for (const article of articles) {
