@@ -115,7 +115,6 @@ class KalshiWebSocketClient {
     this.reconnectAttempts = 0;
     this.reconnectDelay = 1000;
     this.isConnecting = false;
-    this.isConnected = true;
 
     // Start heartbeat
     this.startHeartbeat();
@@ -340,7 +339,7 @@ class KalshiWebSocketClient {
    */
   sendSubscribe(ticker, sid) {
     // FIX: Queue subscription if not connected yet
-    if (!this.isConnected || this.ws?.readyState !== WebSocket.OPEN) {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
       console.log(`⏳ Queueing subscribe for ${ticker} (connection not ready)`);
       this.pendingSubscriptions.set(sid, { ticker, callback: null });
       return;
@@ -433,7 +432,6 @@ class KalshiWebSocketClient {
    */
   handleClose(code, reason) {
     console.log(`WebSocket closed: ${code} ${reason}`);
-    this.isConnected = false;
     this.stopHeartbeat();
     this.isConnecting = false;
     this.onDisconnect(code, reason);

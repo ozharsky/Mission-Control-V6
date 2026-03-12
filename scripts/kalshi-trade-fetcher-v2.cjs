@@ -5438,7 +5438,7 @@ async function main() {
         debugTotalMarkets++;
         
         // Subscribe to WebSocket for real-time updates if available
-        if (wsClient && wsClient.isConnected()) {
+        if (wsClient && wsClient.isConnected) {
           if (!wsClient.subscriptions.has(m.ticker)) {
             wsClient.subscribe(m.ticker, (type, book) => {
               if (book) {
