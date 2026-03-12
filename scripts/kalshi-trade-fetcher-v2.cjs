@@ -180,7 +180,7 @@ const SERIES = [
 const CONFIG = {
   minPrice: 1,
   maxPrice: 99,
-  minVolume: 10,
+  minVolume: 1,  // Lowered from 10 - too many markets filtered out
   minEdge: 5,
   maxMarketsPerSeries: 10,
   requestDelay: 200,
