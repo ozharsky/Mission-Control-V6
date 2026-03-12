@@ -47,30 +47,22 @@ function recordTradePrediction(trade, ourProb, signalType = 'unknown') {
  * @returns {number} Estimated probability (0-1)
  */
 function calculateOurProbability(trade) {
-  // If trade already has an edge calculation, derive probability from it
-  if (trade.edge !== undefined && trade.marketProb !== undefined) {
-    // ourProb = marketProb + edge
-    return Math.max(0, Math.min(1, trade.marketProb + (trade.edge / 100)));
-  }
+  // Calculate market-implied probability from price
+  const marketProb = trade.marketProb || (trade.price || trade.yesPrice || 50) / 100;
+  const edge = parseFloat(trade.edge) || 0;
 
-  // For penny picks, use a high probability estimate
-  if (trade.pennySignal) {
-    return 0.85; // 85% confidence for penny picks
-  }
+  // Convert edge from percentage points to decimal and add to market prob
+  // Edge represents our advantage over market (e.g., 10 = 10 percentage points)
+  const ourProb = Math.max(0.01, Math.min(0.99, marketProb + (edge / 100)));
 
-  // For fat pitches
-  if (trade.isFatPitch) {
-    return 0.90; // 90% confidence for fat pitches
-  }
+  // Override for specific high-confidence signal types
+  if (trade.pennySignal?.isFatPitch) return 0.90;
+  if (trade.isFatPitch) return 0.90;
+  if (trade.tailRiskSignal?.confidence === 'very_high') return 0.95;
+  if (trade.tailRiskSignal) return 0.85;
+  if (trade.pennySignal) return 0.85;
 
-  // For tail risk
-  if (trade.tailRiskSignal) {
-    return 0.95; // 95% confidence for tail risk
-  }
-
-  // Default: use implied probability plus small edge
-  const marketProb = (trade.price || trade.noPrice || trade.yesPrice || 50) / 100;
-  return Math.min(0.95, marketProb + 0.15);
+  return ourProb;
 }
 
 /**
