@@ -1620,9 +1620,9 @@ export function KalshiTradingView() {
 
     console.log(`Price: ${price}¢, Shares: ${shares}, Value: $${value.toFixed(2)}`);
 
-    if (value > stats.bankroll * 0.1) {
-      alert(`Position too large. Max 10% of bankroll ($${(stats.bankroll * 0.1).toFixed(0)})`);
-      return;
+    if (value > stats.bankroll * 0.5) {
+      const confirm = window.confirm(`Position is ${(value/stats.bankroll*100).toFixed(0)}% of bankroll. Max recommended is 50% ($${(stats.bankroll * 0.5).toFixed(0)}). Proceed anyway?`);
+      if (!confirm) return;
     }
     if (value > stats.bankroll) {
       alert('Insufficient funds');
