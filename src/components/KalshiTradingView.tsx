@@ -1749,10 +1749,10 @@ export function KalshiTradingView() {
             {lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString()}` : 'Loading...'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
           <button
             onClick={() => setActiveTab('opportunities')}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'opportunities' ? 'bg-primary text-white' : 'bg-surface text-gray-300 hover:bg-surface-hover'
             }`}
           >
@@ -1760,7 +1760,7 @@ export function KalshiTradingView() {
           </button>
           <button
             onClick={() => setActiveTab('portfolio')}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'portfolio' ? 'bg-primary text-white' : 'bg-surface text-gray-300 hover:bg-surface-hover'
             }`}
           >
@@ -1768,7 +1768,7 @@ export function KalshiTradingView() {
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'history' ? 'bg-primary text-white' : 'bg-surface text-gray-300 hover:bg-surface-hover'
             }`}
           >
@@ -1776,7 +1776,7 @@ export function KalshiTradingView() {
           </button>
           <button
             onClick={() => setActiveTab('heatmap')}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'heatmap' ? 'bg-primary text-white' : 'bg-surface text-gray-300 hover:bg-surface-hover'
             }`}
           >
