@@ -1229,21 +1229,69 @@ class WinRateAnalytics {
   }
 
   // Record a trade opportunity for later outcome tracking
+  // Stores all fields needed for reproducible backtesting and strategy replay
   async recordTradeOpportunity(trade) {
+    const marketProb = Number(trade.yesPrice) / 100;
+    const inferredTrueProb = Math.max(0, Math.min(1, marketProb + (Number(trade.edge || 0) / 100)));
+
     const record = {
+      // Market identification
       ticker: trade.ticker,
       category: trade.category,
       title: trade.title,
-      yesPrice: trade.yesPrice,
-      edge: parseFloat(trade.edge) || 0,
-      rScore: parseFloat(trade.rScore) || 0,
-      compositeScore: parseFloat(trade.compositeScore) || 0,
+      subtitle: trade.subtitle || '',
+      
+      // Price data
+      yesPrice: Number(trade.yesPrice),
+      noPrice: Number(trade.noPrice || (100 - trade.yesPrice)),
+      yesBid: Number(trade.yesBid || 0),
+      yesAsk: Number(trade.yesAsk || trade.yesPrice || 0),
+      
+      // Volume and liquidity
+      volume: Number(trade.volume || 0),
+      spread: Number(trade.spread || 0),
+      liquidityScore: Number(trade.liquidityScore || 0),
+      health: trade.health || 'unknown',
+      
+      // Edge and probability metrics
+      edge: Number(trade.edge) || 0,
+      rScore: Number(trade.rScore) || 0,
+      compositeScore: Number(trade.compositeScore) || 0,
+      grossEdge: Number(trade.grossEdge) || 0,
+      marketProb: marketProb,
+      trueProbability: Number.isFinite(Number(trade.trueProbability)) 
+        ? Math.max(0, Math.min(1, Number(trade.trueProbability)))
+        : inferredTrueProb,
+      
+      // Signal data
+      whale: Boolean(trade.whale),
+      whaleSpikeRatio: Number(trade.whaleSpikeRatio || 0),
+      momentum: trade.momentum || 'neutral',
+      momentumChange24h: Number(trade.momentumChange24h || 0),
+      
+      // Decay analysis
+      isEdgeDeteriorating: Boolean(trade.isEdgeDeteriorating),
+      decayTrend: trade.decayAnalysis?.trend || 'unknown',
+      stabilityScore: Number(trade.stabilityScore || 0),
+      
+      // Risk and sizing
+      kellyPct: Number(trade.kellyPct || 0),
+      position: Number(trade.position || 0),
+      recommendation: trade.recommendation || null,
+      
+      // Time tracking
       timestamp: new Date().toISOString(),
       hour: new Date().getHours(),
       dayOfWeek: new Date().getDay(), // 0-6 (Sun-Sat)
       month: new Date().getMonth(),
-      result: null, // Will be updated later when market resolves
-      actualReturn: null
+      closeTime: trade.closeTime || null,
+      
+      // Resolution tracking (filled in later)
+      result: null,
+      actualReturn: null,
+      contracts: null,
+      positionDollars: null,
+      resolvedAt: null
     };
 
     // Don't duplicate if we already recorded this ticker today
