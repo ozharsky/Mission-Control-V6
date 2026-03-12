@@ -687,20 +687,18 @@ async function calculateCryptoProbabilityFromMarketPrice(marketTitle, livePrice,
   return 0.5; // Default
 }
 
-// CoinGecko API configuration
-const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
-const COINGECKO_BASE_URL = COINGECKO_API_KEY
-  ? 'https://pro-api.coingecko.com/api/v3'
-  : 'https://api.coingecko.com/api/v3';
+// FreeCryptoAPI configuration (replacement for CoinGecko)
+const FREECRYPTO_API_KEY = process.env.FREECRYPTO_API_KEY || 'kjlqhxf4mad1grhb2qo8';
+const FREECRYPTO_BASE_URL = 'https://api.freecryptoapi.com/v1';
 
 // Cache for crypto prices
 const cryptoPriceCache = {
   data: null,
   timestamp: 0,
-  ttlMs: COINGECKO_API_KEY ? 30000 : 120000 // 30s with API key, 2min without
+  ttlMs: 60000 // 1 minute cache
 };
 
-// Fetch live crypto prices from CoinGecko
+// Fetch live crypto prices from FreeCryptoAPI
 async function fetchLiveCryptoPrices() {
   // Check cache first
   const now = Date.now();
@@ -710,24 +708,46 @@ async function fetchLiveCryptoPrices() {
   }
 
   try {
-    const url = `${COINGECKO_BASE_URL}/simple/price?ids=bitcoin,ethereum,solana,cardano,polkadot&vs_currencies=usd`;
-    const headers = COINGECKO_API_KEY ? { 'X-CG-PRO-API-KEY': COINGECKO_API_KEY } : {};
+    // Map our symbols to FreeCryptoAPI symbols
+    const symbols = 'BTC,ETH,SOL,ADA,DOT';
+    const url = `${FREECRYPTO_BASE_URL}/getData?symbols=${symbols}&apiKey=${FREECRYPTO_API_KEY}`;
 
-    console.log(`  💰 Fetching from ${COINGECKO_API_KEY ? 'CoinGecko Pro' : 'CoinGecko (free)'}`);
+    console.log('  💰 Fetching from FreeCryptoAPI');
 
-    const data = await fetchWithRetry(url, { headers }, 2);
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'KalshiScanner/1.0'
+      }
+    });
 
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+    }
+
+    const data = await response.json();
+
+    // Map API response to our format
+    // FreeCryptoAPI returns data in format: { BTC: { price: 65000, ... }, ... }
     const prices = {
-      'KXBTC': data.bitcoin?.usd,
-      'KXETH': data.ethereum?.usd,
-      'KXSOL': data.solana?.usd,
-      'KXADA': data.cardano?.usd,
-      'KXDOT': data.polkadot?.usd
+      'KXBTC': data.BTC?.price,
+      'KXETH': data.ETH?.price,
+      'KXSOL': data.SOL?.price,
+      'KXADA': data.ADA?.price,
+      'KXDOT': data.DOT?.price
     };
+
+    // Validate we got all prices
+    const missing = Object.entries(prices).filter(([k, v]) => !v).map(([k]) => k);
+    if (missing.length > 0) {
+      console.warn(`  ⚠️ Missing prices for: ${missing.join(', ')}`);
+    }
 
     // Update cache
     cryptoPriceCache.data = prices;
     cryptoPriceCache.timestamp = now;
+
+    console.log(`  ✅ Live prices: ${Object.entries(prices).filter(([k,v]) => v).map(([k,v]) => `${k}: $${v?.toLocaleString()}`).join(', ')}`);
 
     return prices;
   } catch (e) {

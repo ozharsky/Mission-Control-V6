@@ -12,6 +12,13 @@
 const WebSocket = require('ws');
 const crypto = require('crypto');
 
+// Simple log function for this module
+function log(level, ...args) {
+  // For now, just console.log everything
+  // Could be enhanced to check LOG_LEVEL env variable
+  console.log(...args);
+}
+
 class KalshiWebSocketClient {
   constructor(options = {}) {
     this.apiKey = options.apiKey || process.env.KALSHI_API_KEY;
@@ -27,6 +34,8 @@ class KalshiWebSocketClient {
     this.maxReconnectDelay = 30000;
     this.heartbeatInterval = null;
     this.isConnecting = false;
+    this.isConnected = false; // FIX: Track connection state
+    this.pendingSubscriptions = new Map(); // Queue for pending subs
     
     this.onConnect = options.onConnect || (() => {});
     this.onDisconnect = options.onDisconnect || (() => {});
@@ -106,11 +115,19 @@ class KalshiWebSocketClient {
     this.reconnectAttempts = 0;
     this.reconnectDelay = 1000;
     this.isConnecting = false;
+    this.isConnected = true;
 
     // Start heartbeat
     this.startHeartbeat();
 
-    // Resubscribe to all markets
+    // Process any pending subscriptions
+    for (const [sid, sub] of this.pendingSubscriptions) {
+      console.log(`Processing pending subscription for ${sub.ticker}`);
+      this.sendSubscribe(sub.ticker, sid);
+    }
+    this.pendingSubscriptions.clear();
+
+    // Resubscribe to all existing markets
     for (const [sid, sub] of this.subscriptions) {
       this.sendSubscribe(sub.ticker, sid);
     }
@@ -322,12 +339,19 @@ class KalshiWebSocketClient {
    * Send subscribe message
    */
   sendSubscribe(ticker, sid) {
-    // FIX: Check connection is ready before subscribing
-    if (this.ws?.readyState !== WebSocket.OPEN) {
-      log('DEBUG', `⏳ Queueing subscribe for ${ticker} (connection not ready)`);
+    // FIX: Queue subscription if not connected yet
+    if (!this.isConnected || this.ws?.readyState !== WebSocket.OPEN) {
+      console.log(`⏳ Queueing subscribe for ${ticker} (connection not ready)`);
+      this.pendingSubscriptions.set(sid, { ticker, callback: null });
       return;
     }
     
+    // Don't send duplicate subscriptions
+    if (this.subscriptions.has(sid)) {
+      return;
+    }
+    
+    console.log(`📡 Subscribing to ${ticker} (sid: ${sid})`);
     this.send({
       type: 'subscribe',
       channel: 'orderbook_delta',
@@ -409,6 +433,7 @@ class KalshiWebSocketClient {
    */
   handleClose(code, reason) {
     console.log(`WebSocket closed: ${code} ${reason}`);
+    this.isConnected = false;
     this.stopHeartbeat();
     this.isConnecting = false;
     this.onDisconnect(code, reason);
