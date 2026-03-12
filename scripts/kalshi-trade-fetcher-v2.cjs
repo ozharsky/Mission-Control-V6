@@ -337,12 +337,13 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // - 50¢ contract: 1.25% fee (max)
 // - 10¢ or 90¢ contract: 0.45% fee
 // - 1¢ or 99¢ contract: ~0.05% fee
-function calculateKalshiFees(contracts, priceCents, isTaker = true) {
+function calculateKalshiFees(contracts, priceCents, isTaker = true, seriesTicker = '') {
   // Convert cents to dollar decimal
   const priceDollars = priceCents / 100;
   
-  // Base fee rate is 5% (0.05)
-  const baseFeeRate = 0.05;
+  // Base fee rate is 5% (0.05), with special multipliers for some series
+  const feeMultiplier = getFeeMultiplier(seriesTicker);
+  const baseFeeRate = 0.05 * feeMultiplier;
   
   // Quadratic formula: price × (1 - price) peaks at 0.25 when price = 0.50
   const uncertaintyComponent = priceDollars * (1 - priceDollars);
@@ -366,12 +367,12 @@ function calculateKalshiFees(contracts, priceCents, isTaker = true) {
 }
 
 // Calculate effective edge after fees
-function calculateNetEdge(grossEdge, priceCents, positionSize, isTaker = true) {
+function calculateNetEdge(grossEdge, priceCents, positionSize, isTaker = true, seriesTicker = '') {
   // Estimate contracts from position size and price
   const priceDollars = priceCents / 100;
   const contracts = positionSize / priceDollars;
   
-  const feeResult = calculateKalshiFees(contracts, priceCents, isTaker);
+  const feeResult = calculateKalshiFees(contracts, priceCents, isTaker, seriesTicker);
   const feePercentage = feeResult.feeRate;
   
   return {
@@ -4132,7 +4133,10 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history 
   
   // Apply Brier-based calibration
   const brierCalibration = getBrierEdgeCalibration(category);
-  const calibratedEdge = edge * brierCalibration;
+  let calibratedEdge = edge * brierCalibration;
+  
+  // Validate edge doesn't exceed theoretical maximum (99%)
+  calibratedEdge = Math.min(calibratedEdge, 99);
   
   if (brierCalibration !== 1.0) {
     console.log(`   📊 Brier calibration for ${category}: ${brierCalibration.toFixed(2)}x (edge: ${edge.toFixed(1)}% → ${calibratedEdge.toFixed(1)}%)`);
@@ -4177,6 +4181,9 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history 
 function calculateKelly(trueProb, price, bankroll = 10000, category = 'unknown') {
   const marketProb = price / 100;
   if (trueProb <= marketProb) return { kellyPct: 0, position: 0 };
+  
+  // Guard against zero price
+  if (price <= 0) return { kellyPct: 0, position: 0 };
 
   const b = (100 - price) / price; // Decimal odds minus 1
   const p = trueProb; // Use actual calculated probability (0-1)
@@ -4193,9 +4200,6 @@ function calculateKelly(trueProb, price, bankroll = 10000, category = 'unknown')
   // Fat-tail protection: Cap at maxPerPosition (default 50%)
   const maxPosition = bankroll * CONFIG.positionLimits.maxPerPosition;
   position = Math.min(position, maxPosition);
-  
-  // Also cap at 10% for regular Kelly safety
-  position = Math.min(position, bankroll * 0.10);
   
   return { 
     kellyPct: (kellyFraction * 100).toFixed(1), 
@@ -4921,7 +4925,7 @@ async function main() {
 
         // Adjust edge for spread cost and fees
         const grossEdge = edgeCalc.edge;
-        const netEdgeResult = calculateNetEdge(grossEdge - spreadCost, yesPrice, 100, true); // Assume $100 position, taker
+        const netEdgeResult = calculateNetEdge(grossEdge - spreadCost, yesPrice, 100, true, series.ticker); // Assume $100 position, taker
         const netEdge = netEdgeResult.netEdge;
 
         // Calculate historical edge (CLV tracking)
