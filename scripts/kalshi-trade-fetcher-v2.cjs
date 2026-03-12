@@ -4848,6 +4848,15 @@ async function main() {
   const liveCryptoPrices = await fetchLiveCryptoPrices();
   console.log('  ✅ Live prices:', Object.entries(liveCryptoPrices).map(([k, v]) => `${k}: $${v?.toLocaleString()}`).join(', '));
 
+  // Debug counters
+  let debugTotalMarkets = 0;
+  let debugClosingSoon = 0;
+  let debugPoorLiquidity = 0;
+  let debugPriceFilter = 0;
+  let debugVolumeFilter = 0;
+  let debugEdgeFilter = 0;
+  let debugThresholdFilter = 0;
+
   for (let i = 0; i < SERIES.length; i += 5) {
     const batch = SERIES.slice(i, i + 5);
     const batchResults = await Promise.all(
@@ -4875,6 +4884,8 @@ async function main() {
       console.log(`✅ ${series.name}: ${markets.length} markets`);
 
       for (const m of markets.slice(0, CONFIG.maxMarketsPerSeries)) {
+        debugTotalMarkets++;
+        
         // Subscribe to WebSocket for real-time updates if available
         if (wsClient && wsClient.isConnected()) {
           if (!wsClient.subscriptions.has(m.ticker)) {
@@ -4915,11 +4926,15 @@ async function main() {
         const noPrice = book.noAsk || (100 - yesPrice);
         const volume = m.volume || 0;
 
-        if (isClosingSoon(m.close_time)) continue;
+        if (isClosingSoon(m.close_time)) {
+          debugClosingSoon++;
+          continue;
+        }
 
         // Get market health (now uses reciprocity-aware orderbook)
         const health = getMarketHealth({ ...m, ...book });
         if (!health.isLiquid) {
+          debugPoorLiquidity++;
           console.log(`  ⚠️ Skipping ${m.ticker}: poor liquidity (spread=${health.avgSpread.toFixed(1)}¢)`);
           continue;
         }
@@ -4964,6 +4979,7 @@ async function main() {
 
           // Check dynamic thresholds based on category calibration
           if (!passesDynamicThresholds({ edge: netEdge, rScore: edgeCalc.rScore }, series.category)) {
+            debugThresholdFilter++;
             continue;
           }
 
@@ -5063,13 +5079,39 @@ async function main() {
             volume,
             edge: netEdge
           });
+        } else {
+          // Track why market was filtered out
+          if (yesPrice < CONFIG.minPrice || yesPrice > CONFIG.maxPrice) debugPriceFilter++;
+          else if (volume < CONFIG.minVolume) debugVolumeFilter++;
+          else debugEdgeFilter++;
         }
       }
     }
   }
 
   const fetchTime = ((Date.now() - scanStartTime) / 1000).toFixed(1);
-  console.log(`\n⚡ Fetched ${SERIES.length} series in ${fetchTime}s (parallel mode)\n`);
+  console.log(`\n⚡ Fetched ${SERIES.length} series in ${fetchTime}s (parallel mode)`);
+  console.log(`📊 Markets fetched: ${allTrades.length + errors.length}, Passed filters: ${allTrades.length}, Errors: ${errors.length}\n`);
+  
+  // Debug: If no trades found, show why
+  if (allTrades.length === 0) {
+    console.log('⚠️ DEBUG: No opportunities found. Possible causes:');
+    console.log('   - API authentication failed (check KALSHI_API_KEY and KALSHI_PRIVATE_KEY secrets)');
+    console.log('   - All markets filtered out (edge too low, poor liquidity, closing soon)');
+    console.log('   - No markets matching series tickers found');
+    console.log(`   - Errors encountered: ${errors.length}`);
+    if (errors.length > 0) {
+      console.log('   - First error:', errors[0]?.error || 'Unknown');
+    }
+    console.log('\n📊 Filter breakdown:');
+    console.log(`   Total markets checked: ${debugTotalMarkets}`);
+    console.log(`   Filtered - Closing soon: ${debugClosingSoon}`);
+    console.log(`   Filtered - Poor liquidity: ${debugPoorLiquidity}`);
+    console.log(`   Filtered - Price out of range: ${debugPriceFilter}`);
+    console.log(`   Filtered - Low volume: ${debugVolumeFilter}`);
+    console.log(`   Filtered - Low edge: ${debugEdgeFilter}`);
+    console.log(`   Filtered - Threshold check: ${debugThresholdFilter}`);
+  }
 
   // Save updated history
   await saveHistory(history);
