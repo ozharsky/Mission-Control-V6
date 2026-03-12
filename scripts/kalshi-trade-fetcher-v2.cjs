@@ -5726,14 +5726,20 @@ async function main() {
   console.log('\n🎯 Running Tail-Risk Engine (all categories)...');
   const tailRiskEngine = new TailRiskEngine();
 
-  // Build external data sources map
+  // Build external data sources map using LIVE data where available
   const externalData = {
     weather: {}, // Will be populated per-city below
-    crypto: { currentPrice: 65000, volatility24h: 0.45 }, // Placeholder - should fetch from API
-    economics: { consensus: 3.1, stdDev: 0.1 }, // Placeholder
-    politics: 40.5, // Current approval rating - placeholder
-    spx: { currentPrice: 5200, vix: 15, dailyHigh: 5220, dailyLow: 5180 } // Placeholder
+    // Use live crypto prices from CoinGecko (already fetched)
+    crypto: { 
+      currentPrice: liveCryptoPrices['KXBTC'] || 65000, 
+      volatility24h: 0.45 // Could calculate from price history if available
+    },
+    economics: { consensus: 3.1, stdDev: 0.1 }, // Placeholder - needs FRED API
+    politics: 40.5, // Placeholder - needs approval rating API
+    spx: { currentPrice: 5200, vix: 15, dailyHigh: 5220, dailyLow: 5180 } // Placeholder - needs market data API
   };
+  
+  console.log(`   Live BTC price: $${externalData.crypto.currentPrice.toLocaleString()}`);
 
   // Populate weather forecasts
   for (const [cityCode, forecast] of Object.entries(nwsForecasts)) {
