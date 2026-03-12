@@ -4548,7 +4548,14 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
     return null;
   }
 
-  const prices = pmMarket.outcomePrices ? pmMarket.outcomePrices.split(',') : [];
+  // FIX #3: Properly parse outcomePrices as JSON (not split by comma)
+  let prices = [];
+  try {
+    prices = JSON.parse(pmMarket.outcomePrices || '[]');
+  } catch (e) {
+    // Fallback: try splitting by comma if JSON parse fails
+    prices = pmMarket.outcomePrices ? pmMarket.outcomePrices.split(',') : [];
+  }
   
   // FIX #1: Add safety check for string type and bounds
   const yesIndex = outcomes.findIndex(o => 
@@ -4560,9 +4567,13 @@ function calculatePolymarketArbitrage(kalshiTrade, pmEvents) {
     return null;
   }
   
-  // FIX: Handle array-wrapped price strings from Polymarket API
+  // Handle price value (might be string or number)
   let priceValue = prices[yesIndex];
-  if (Array.isArray(priceValue)) priceValue = priceValue[0];
+  
+  // If it's still a string with quotes, clean it up
+  if (typeof priceValue === 'string') {
+    priceValue = priceValue.replace(/^["']|["']$/g, '');
+  }
   
   const yesPriceValue = parseFloat(priceValue);
   if (isNaN(yesPriceValue)) {
