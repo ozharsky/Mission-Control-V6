@@ -5285,16 +5285,24 @@ function detectWeatherLag(kalshiMarket, nwsForecast) {
   const kalshiProb = kalshiMarket.yesPrice / 100;
   const probabilityDiff = (impliedProb - kalshiProb) * 100; // In percentage points
 
+  // FIX: For Below markets, also check if we should use NO probability
+  const isBelowMarket = !isAbove;
+  const displayProb = isBelowMarket ? kalshiProb : kalshiProb;
+  const displaySide = isBelowMarket ? 'Below' : 'Above';
+
   return {
     city,
     targetDate: `${monthStr}${dayStr}`,
     targetTemp,
     isAbove,
+    isBelow: isBelowMarket,
     forecastHigh,
     forecastDay: forecastDay.day,
     nwsForecast: forecastDay.shortForecast,
     impliedProbability: (impliedProb * 100).toFixed(1),
     kalshiProbability: (kalshiProb * 100).toFixed(1),
+    kalshiYesPrice: kalshiMarket.yesPrice,
+    kalshiNoPrice: 100 - kalshiMarket.yesPrice,
     probabilityDiff: probabilityDiff.toFixed(1),
     lagDetected: Math.abs(probabilityDiff) > 10, // >10% difference = potential lag
     recommendation: probabilityDiff > 10 ? 'BUY_YES' : probabilityDiff < -10 ? 'BUY_NO' : 'HOLD'
@@ -5738,7 +5746,8 @@ async function main() {
       if (lag && lag.lagDetected) {
         weatherLags.push(lag);
         trade.nwsSignal = lag;
-        console.log(`  🔥 LAG: ${trade.ticker} - NWS says ${lag.forecastHigh}°F, Kalshi implies ${lag.kalshiProbability}% (diff: ${lag.probabilityDiff}%)`);
+        const marketType = lag.isBelow ? 'Below' : 'Above';
+        console.log(`  🔥 LAG: ${trade.ticker} - NWS says ${lag.forecastHigh}°F, Kalshi ${marketType} ${lag.targetTemp}°F at ${lag.kalshiProbability}% (diff: ${lag.probabilityDiff}%)`);
       }
     }
   }
