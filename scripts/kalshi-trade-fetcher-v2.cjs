@@ -710,25 +710,34 @@ async function fetchLiveCryptoPrices() {
   try {
     // Map our symbols to FreeCryptoAPI symbols
     const symbols = 'BTC,ETH,SOL,ADA,DOT';
-    const url = `${FREECRYPTO_BASE_URL}/getData?symbols=${symbols}&apiKey=${FREECRYPTO_API_KEY}`;
+    
+    // FIX: Try different URL formats for FreeCryptoAPI
+    let url = `${FREECRYPTO_BASE_URL}/getData?symbols=${symbols}&apiKey=${FREECRYPTO_API_KEY}`;
+    
+    // Alternative: Some APIs use token instead of apiKey
+    // let url = `${FREECRYPTO_BASE_URL}/getData?symbols=${symbols}&token=${FREECRYPTO_API_KEY}`;
 
     console.log('  💰 Fetching from FreeCryptoAPI');
+    console.log(`  🔍 URL (key hidden): ${url.replace(FREECRYPTO_API_KEY, '***')}`);
 
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'KalshiScanner/1.0'
+        'User-Agent': 'KalshiScanner/1.0',
+        'Authorization': `Bearer ${FREECRYPTO_API_KEY}` // Try auth header too
       }
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      const errorText = await response.text();
+      console.log(`  ❌ FreeCryptoAPI error: HTTP ${response.status} - ${errorText}`);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
 
     // DEBUG: Log the response structure
-    console.log('  🔍 FreeCryptoAPI response:', JSON.stringify(data).slice(0, 200));
+    console.log('  🔍 FreeCryptoAPI response:', JSON.stringify(data).slice(0, 300));
 
     // Map API response to our format
     // FreeCryptoAPI returns data in format: { BTC: { price: 65000, ... }, ... }

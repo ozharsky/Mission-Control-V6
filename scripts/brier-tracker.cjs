@@ -122,6 +122,10 @@ function recordPrediction(trade, ourProb, signalType = 'unknown') {
   // Check if we already have this prediction
   const existingIndex = predictions.findIndex(p => p.ticker === trade.ticker);
   
+  // Calculate edge - use absolute difference since we track both YES and NO
+  const marketProb = (trade.price || trade.noPrice || trade.yesPrice) / 100;
+  const edge = Math.abs(ourProb - marketProb); // FIX: Use absolute difference
+  
   const prediction = {
     ticker: trade.ticker,
     eventTicker: trade.eventTicker || trade.ticker.split('-')[0],
@@ -131,9 +135,9 @@ function recordPrediction(trade, ourProb, signalType = 'unknown') {
     entryTime: new Date().toISOString(),
     closeDate: trade.closeDate || trade.expiration,
     entryPrice: trade.price || trade.noPrice || trade.yesPrice,
-    marketProb: (trade.price || trade.noPrice || trade.yesPrice) / 100,
+    marketProb: marketProb,
     ourProb: ourProb,
-    edge: (ourProb - ((trade.price || trade.noPrice || trade.yesPrice) / 100)),
+    edge: edge, // FIX: Now positive when probabilities differ
     signalType: signalType,
     status: 'pending', // pending -> resolved
     outcome: null,
