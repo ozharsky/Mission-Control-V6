@@ -1275,7 +1275,14 @@ export function KalshiTradingView() {
         console.log('=== LOADING KALSHI DATA ===');
         
         // 1. Load base data from Firebase (scanner writes here)
+        console.log('🔍 Fetching from Firebase path: v6/kalshi/latest_scan');
         const scannerOutput = await getData('v6/kalshi/latest_scan');
+        
+        console.log('🔍 scannerOutput:', scannerOutput);
+        console.log('🔍 scannerOutput type:', typeof scannerOutput);
+        console.log('🔍 scannerOutput?.opportunities:', scannerOutput?.opportunities);
+        console.log('🔍 Is array?:', Array.isArray(scannerOutput?.opportunities));
+        console.log('🔍 Length:', scannerOutput?.opportunities?.length);
         
         if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities) && scannerOutput.opportunities.length > 0) {
           console.log(`Base data: ${scannerOutput.opportunities.length} opportunities from scanner`);
