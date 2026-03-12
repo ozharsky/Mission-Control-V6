@@ -180,15 +180,15 @@ const SERIES = [
 const CONFIG = {
   minPrice: 1,
   maxPrice: 99,
-  minVolume: 1,  // Lowered from 10 - too many markets filtered out
-  minEdge: 5,
+  minVolume: 0,  // Allow all markets through
+  minEdge: -50,  // Allow negative edge (for tracking all markets)
   maxMarketsPerSeries: 10,
   requestDelay: 200,
   maxRetries: 3,
-  minHoursToClose: 1,
+  minHoursToClose: 0.1,  // Allow markets closing in 6 minutes
   kellyFraction: 0.5,
-  maxSpread: 10,
-  minLiquidityScore: 20,
+  maxSpread: 50,  // Allow wide spreads
+  minLiquidityScore: 0,  // Allow illiquid markets
   whaleVolumeThreshold: 50000,
   whaleVolumeMultiplier: 3,
   historyRetentionDays: 7,
@@ -210,10 +210,10 @@ const CONFIG = {
   },
   // Category-specific thresholds based on Brier calibration
   categoryThresholds: {
-    weather: { minEdge: 8, minRScore: 5, kellyMultiplier: 1.0 },      // Well calibrated
-    politics: { minEdge: 8, minRScore: 5, kellyMultiplier: 1.0 },     // Well calibrated
-    economics: { minEdge: 12, minRScore: 7, kellyMultiplier: 0.9 },   // Moderate
-    crypto: { minEdge: 15, minRScore: 8, kellyMultiplier: 0.6 }       // Poorly calibrated
+    weather: { minEdge: -100, minRScore: 0, kellyMultiplier: 1.0 },      // Allow all
+    politics: { minEdge: -100, minRScore: 0, kellyMultiplier: 1.0 },     // Allow all
+    economics: { minEdge: -100, minRScore: 0, kellyMultiplier: 0.9 },    // Allow all
+    crypto: { minEdge: -100, minRScore: 0, kellyMultiplier: 0.6 }        // Allow all
   },
   // Position sizing limits (fat-tail protection)
   positionLimits: {
