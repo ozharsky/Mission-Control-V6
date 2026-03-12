@@ -5888,35 +5888,51 @@ async function main() {
   allTrades.sort((a, b) => parseFloat(b.compositeScore) - parseFloat(a.compositeScore));
 
   // CORRELATION AVOIDANCE: Filter out highly correlated trades
-  // If two trades historically move together (>70% correlation), keep only the higher-edge one
+  // FIX: Only filter adjacent brackets (within 2 levels), not entire series
   function filterCorrelatedTrades(trades) {
     const filtered = [];
-    const correlations = new Map(); // ticker -> array of correlated tickers
-    
-    for (const trade of trades) {
+
+    // Sort by composite score (best first)
+    const sorted = [...trades].sort((a, b) => b.compositeScore - a.compositeScore);
+
+    for (const trade of sorted) {
       let shouldInclude = true;
-      
-      // Check against already included trades
+      let correlationReason = null;
+
       for (const included of filtered) {
-        // Simple correlation heuristic based on category and ticker patterns
-        // In production, this should use historical outcome data from Brier tracker
-        const sameCategory = trade.category === included.category;
-        const similarTicker = trade.ticker.split('-')[0] === included.ticker.split('-')[0];
-        
-        if (sameCategory && similarTicker) {
-          // Same event type - highly correlated
-          shouldInclude = false;
-          console.log(`   🔄 Correlation filter: Skipping ${trade.ticker} (correlated with ${included.ticker})`);
-          break;
+        // Only filter if both same event AND adjacent bracket
+        const sameEvent = trade.ticker.split('-').slice(0, 2).join('-') ===
+                          included.ticker.split('-').slice(0, 2).join('-');
+
+        if (sameEvent) {
+          // Adjacent brackets have ~80% correlation, skip ones 3+ apart
+          const bracket1 = extractBracketLevel(trade.ticker);
+          const bracket2 = extractBracketLevel(included.ticker);
+          const bracketDistance = Math.abs(bracket1 - bracket2);
+
+          if (bracketDistance <= 2) {
+            shouldInclude = false;
+            correlationReason = `Adjacent bracket (${bracketDistance} away from ${included.ticker})`;
+            break;
+          }
         }
       }
-      
+
       if (shouldInclude) {
         filtered.push(trade);
+      } else {
+        console.log(`   🔄 Correlation filter: Skipping ${trade.ticker} (${correlationReason})`);
       }
     }
-    
+
     return filtered;
+  }
+
+  // Helper: Extract numeric bracket level from ticker
+  // e.g., "KXHIGHNY-26MAR13-B51.5" → 51.5
+  function extractBracketLevel(ticker) {
+    const match = ticker.match(/[BT](\d+(?:\.\d+)?)/);
+    return match ? parseFloat(match[1]) : 0;
   }
 
   // Apply correlation filter to allTrades before selecting top trades
