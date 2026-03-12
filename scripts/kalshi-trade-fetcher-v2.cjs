@@ -4470,17 +4470,29 @@ function parseRSS(xmlData, source, category = 'general') {
   return items;
 }
 
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function extractField(xml, fieldNames) {
-  for (const field of fieldNames) {
-    // Try CDATA version first
-    const cdataRegex = new RegExp(`<${field}[\\s\\S]*?>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${field}>`, 'i');
-    const normalRegex = new RegExp(`<${field}[\s]*[^>]*>([^<]*)<\/${field}>`, 'i');
-
-    const cdataMatch = xml.match(cdataRegex);
-    if (cdataMatch) return cdataMatch[1].trim();
-
-    const normalMatch = xml.match(normalRegex);
-    if (normalMatch) return normalMatch[1].trim();
+  for (const fieldName of fieldNames) {
+    const field = escapeRegExp(fieldName);
+    // Unified regex that handles attributes, CDATA, and inner text
+    const regex = new RegExp(
+      `<${field}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${field}>`,
+      'i'
+    );
+    const match = xml.match(regex);
+    if (!match) continue;
+    
+    // Clean up the extracted value
+    const value = cleanText(match[1])
+      .replace(/^\u003c!\[CDATA\[/, '')  // Remove CDATA start
+      .replace(/\]\]\u003e$/, '')        // Remove CDATA end
+      .trim();
+    
+    if (value) return value;
   }
   return null;
 }
