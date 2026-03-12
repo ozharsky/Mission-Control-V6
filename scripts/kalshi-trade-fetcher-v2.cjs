@@ -2212,10 +2212,15 @@ class BacktestingFramework {
     const edge = parseFloat(trade.edge) || 0;
     const rScore = parseFloat(trade.rScore) || 0;
 
-    // Simulate win probability based on edge
-    const winProbability = 0.5 + (edge / 200); // Edge 10% = 55% win prob
+    // FIX: Use deterministic simulation based on ticker hash (not random)
+    // This makes backtests reproducible
+    const tickerHash = trade.ticker.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    const pseudoRandom = (tickerHash % 100) / 100;
+    
+    // Simulate win probability based on edge (higher edge = higher win rate)
+    const winProbability = Math.min(0.95, Math.max(0.05, 0.5 + (edge / 200)));
 
-    // Determine position size
+    // Determine position size (consistent with main Kelly calculator)
     let position = 100; // Default $100
     const marketProb = trade.yesPrice / 100;
     const trueProb = trade.trueProbability / 100 || (0.5 + (edge / 200));
@@ -2230,9 +2235,16 @@ class BacktestingFramework {
       position = 100;
     }
 
-    // Simulate outcome (random based on probability)
-    const won = Math.random() < winProbability;
-    const payout = won ? position * (edge / 100) : -position;
+    // FIX: Use deterministic outcome based on hash
+    const won = pseudoRandom < winProbability;
+    
+    // FIX: Include fees in P&L calculation (entry + exit)
+    const entryFee = position * 0.005; // 0.5% entry fee
+    const exitFee = position * 0.005; // 0.5% exit fee
+    const totalFees = entryFee + exitFee;
+    
+    const grossPayout = won ? position * (edge / 100) : -position;
+    const payout = grossPayout - totalFees;
 
     return {
       ...trade,
@@ -2240,7 +2252,8 @@ class BacktestingFramework {
       result: won ? 'win' : 'loss',
       pnl: payout,
       position,
-      winProbability: Math.round(winProbability * 100) / 100
+      winProbability: Math.round(winProbability * 100) / 100,
+      fees: totalFees
     };
   }
 
@@ -2258,8 +2271,13 @@ class BacktestingFramework {
     const kelly = (winProb * b - lossProb) / b;
     const adjustedKelly = Math.max(0, kelly * fraction);
 
-    // Convert to dollar amount (capped at $500)
-    return Math.min(500, Math.max(10, adjustedKelly * 1000));
+    // FIX: Use consistent max with main Kelly calculator (50% of bankroll)
+    // For $10,000 bankroll, max is $5,000
+    const bankroll = 10000; // Assume $10k bankroll for backtesting
+    const maxPosition = bankroll * 0.5; // 50% max per position
+    const position = adjustedKelly * bankroll;
+    
+    return Math.min(maxPosition, Math.max(10, position));
   }
 
   // Calculate maximum drawdown
