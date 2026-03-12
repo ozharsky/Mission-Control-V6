@@ -4634,6 +4634,11 @@ function matchNewsToMarkets(articles, trades) {
     'KXHIGHTPHX': ['phoenix', 'arizona', 'desert']
   };
 
+  // Debug: show what series we're tracking
+  const uniqueSeries = [...new Set(trades.map(t => t.ticker?.split('-')[0]).filter(Boolean))];
+  console.log(`  🔍 News matching: ${articles.length} articles, ${trades.length} trades, ${uniqueSeries.length} series`);
+  console.log(`     Series tracked: ${uniqueSeries.slice(0, 10).join(', ')}${uniqueSeries.length > 10 ? '...' : ''}`);
+
   for (const article of articles) {
     const text = `${article.title} ${article.description}`.toLowerCase();
     const sentiment = analyzeSentiment(text);
@@ -4642,24 +4647,27 @@ function matchNewsToMarkets(articles, trades) {
     article.weatherBias = sentiment.weatherBias;
 
     for (const trade of trades) {
-      const series = trade.ticker.split('-')[0];
+      const series = trade.ticker?.split('-')[0];
       const keywords = keywordMap[series] || [];
 
       const isRelevant = keywords.some(kw => text.includes(kw));
       if (isRelevant) {
-        article.relevance = Math.max(article.relevance, 0.7);
+        article.relevance = Math.max(article.relevance || 0, 0.7);
         trade.sentimentSignal = {
           score: sentiment.score,
           label: sentiment.label,
           source: article.source,
-          headline: article.title.slice(0, 100),
+          headline: article.title?.slice(0, 100),
           timestamp: article.pubDate
         };
       }
     }
   }
 
-  return articles.filter(a => a.relevance > 0);
+  const matchedCount = articles.filter(a => (a.relevance || 0) > 0).length;
+  console.log(`  📰 Matched ${matchedCount}/${articles.length} articles to markets`);
+  
+  return articles.filter(a => (a.relevance || 0) > 0);
 }
 
 // NWS Weather Lag Detection - compare Kalshi with National Weather Service
