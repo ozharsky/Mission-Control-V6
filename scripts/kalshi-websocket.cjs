@@ -74,10 +74,17 @@ class KalshiWebSocketClient {
       const timestamp = Date.now().toString();
       const signature = this.signRequest(timestamp);
 
-      const url = `${this.baseUrl}?key=${this.apiKey}&timestamp=${timestamp}&signature=${encodeURIComponent(signature)}`;
+      // Kalshi WebSocket requires auth headers, not query params
+      const wsOptions = {
+        headers: {
+          'KALSHI-ACCESS-KEY': this.apiKey,
+          'KALSHI-ACCESS-TIMESTAMP': timestamp,
+          'KALSHI-ACCESS-SIGNATURE': signature
+        }
+      };
       
       console.log('🔌 Connecting to Kalshi WebSocket...');
-      this.ws = new WebSocket(url);
+      this.ws = new WebSocket(this.baseUrl, wsOptions);
 
       this.ws.on('open', () => this.handleOpen());
       this.ws.on('message', (data) => this.handleMessage(data));
