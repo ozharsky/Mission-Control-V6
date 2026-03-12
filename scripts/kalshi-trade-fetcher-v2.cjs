@@ -429,7 +429,8 @@ function getPriceCents(market, fieldPrefix) {
     }
   }
   
-  console.warn(`⚠️ Could not extract ${fieldPrefix} for ${market.ticker || 'unknown market'}`);
+  // Silently return 0 if field not found (market may not have price data yet)
+  // This prevents log spam for markets that are closed or not yet trading
   return 0;
 }
 
@@ -4849,6 +4850,11 @@ async function main() {
         const yesPrice = book.yesAsk || book.yesPrice || 0;
         const noPrice = book.noAsk || (100 - yesPrice);
         const volume = m.volume || 0;
+
+        // Skip markets with no valid price data
+        if (!yesPrice || yesPrice <= 0) {
+          continue;
+        }
 
         if (isClosingSoon(m.close_time)) continue;
 
