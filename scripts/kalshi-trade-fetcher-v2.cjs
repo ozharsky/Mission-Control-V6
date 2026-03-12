@@ -4773,7 +4773,7 @@ async function main() {
   // Initialize WebSocket for real-time data if available
   if (KalshiWebSocket && privateKey && KALSHI_ACCESS_KEY) {
     console.log('🔌 Initializing WebSocket for real-time prices...');
-    wsClient = new KalshiWebSocketClient({
+    wsClient = new KalshiWebSocket({
       apiKey: KALSHI_ACCESS_KEY,
       privateKey: privateKey,
       onConnect: () => console.log('✅ WebSocket connected for live prices'),
