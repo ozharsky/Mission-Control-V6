@@ -131,17 +131,26 @@ try {
   const { initializeApp, cert } = require('firebase-admin/app');
   const { getDatabase } = require('firebase-admin/database');
 
+  console.log('🔥 Firebase: Checking for SERVICE_ACCOUNT...');
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    console.log('🔥 Firebase: SERVICE_ACCOUNT found, parsing...');
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    initializeApp({
+    console.log(`🔥 Firebase: Project ID: ${serviceAccount.project_id}`);
+    
+    const app = initializeApp({
       credential: cert(serviceAccount),
       databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://mission-control-sync-default-rtdb.firebaseio.com'
     });
-    db = getDatabase();
+    console.log('🔥 Firebase: App initialized');
+    
+    db = getDatabase(app);
     console.log('✅ Firebase connected');
+  } else {
+    console.log('⚠️ Firebase: FIREBASE_SERVICE_ACCOUNT not set');
   }
 } catch (e) {
-  console.log('⚠️ Firebase not available:', e.message);
+  console.log('⚠️ Firebase initialization failed:', e.message);
+  console.log('   Stack:', e.stack);
 }
 
 // Series to monitor with research-based true probabilities
@@ -5566,13 +5575,33 @@ async function main() {
 
   if (db) {
     try {
+      console.log('🔥 Firebase: Starting save...');
+      console.log(`   Opportunities: ${topTrades.length}`);
+      console.log(`   Output keys: ${Object.keys(output).join(', ')}`);
+      
       // Sanitize output to remove undefined values for Firebase
       const sanitizedOutput = sanitizeForFirebase(output);
-      await db.ref('v6/kalshi/latest_scan').set(sanitizedOutput);
-      console.log('✅ Saved to Firebase');
+      console.log('🔥 Firebase: Sanitized output');
+      
+      const dbRef = db.ref('v6/kalshi/latest_scan');
+      console.log('🔥 Firebase: Got ref, attempting set...');
+      
+      await dbRef.set(sanitizedOutput);
+      console.log('✅ Saved to Firebase at v6/kalshi/latest_scan');
+      
+      // Verify the write
+      const verify = await dbRef.once('value');
+      console.log(`✅ Firebase verify: ${verify.val() ? 'Data exists' : 'NO DATA'}`);
+      if (verify.val()) {
+        console.log(`   Opportunities in DB: ${verify.val().opportunities?.length || 0}`);
+      }
     } catch (e) {
       console.error('❌ Firebase save failed:', e.message);
+      console.error('   Stack:', e.stack);
     }
+  } else {
+    console.log('⚠️ Firebase not initialized (db is null)');
+    console.log('   Check FIREBASE_SERVICE_ACCOUNT env var');
   }
 
   console.log('\n📊 RESULTS:');
