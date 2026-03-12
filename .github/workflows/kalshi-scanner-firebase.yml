@@ -1,5 +1,9 @@
 name: Kalshi Scanner v2 to Firebase
 
+# Note: Node.js 20 deprecation warning (June 2026)
+# GitHub will auto-migrate to Node.js 24 - no action needed
+# See: https://github.blog/changelog/2025-09-19-deprecation-of-node-20/
+
 on:
   schedule:
     # Run every 5 minutes for more frequent price updates
@@ -23,7 +27,7 @@ jobs:
         
     - name: Install dependencies
       run: |
-        npm install firebase-admin
+        npm install firebase-admin ws
         
     - name: Resolve Brier Predictions
       run: node scripts/kalshi-resolution-fetcher.cjs --days=7
