@@ -5703,22 +5703,24 @@ async function main() {
         const hoursToClose = Math.max(0, (new Date(rawMarket.close_time) - new Date()) / (1000 * 60 * 60));
         const forecastDelta = penny.forecastDelta || 0;
         
-        // Sigmoid-like function: probability increases with delta, decreases with time
-        // At 5° delta with 24h remaining = ~75% probability
-        // At 10° delta with 2h remaining = ~95% probability
-        const timeFactor = Math.max(0.1, Math.min(1, 24 / (hoursToClose + 1))); // 0.1 to 1
-        const deltaFactor = Math.min(1, forecastDelta / 10); // Normalize to 0-1 (10° = max)
-        
-        // Combine: higher delta + less time = higher probability
-        let estimatedProb = 0.5 + (deltaFactor * 0.25 * timeFactor) + (timeFactor * 0.15);
-        
-        // Fat pitch bonus: +10% if far from forecast with little time
+        // FIX: Improved probability calculation for penny picks
+        // Higher forecast delta + less time = higher probability NO wins
+        const timeFactor = Math.min(1, 24 / (hoursToClose + 1));
+        const deltaFactor = Math.min(1, forecastDelta / 10);
+
+        // Base probability calculation
+        // - At 0° delta: 50% (coin flip)
+        // - At 5° delta with 24h: ~70%
+        // - At 10° delta with 2h: ~90%
+        let estimatedProb = 0.5 + (deltaFactor * 0.3 * timeFactor) + (timeFactor * 0.1);
+
+        // Fat pitch bonus
         if (penny.isFatPitch && forecastDelta >= 5 && hoursToClose <= 12) {
-          estimatedProb += 0.1;
+          estimatedProb += 0.08;
         }
-        
-        // Clamp between 0.6 and 0.98
-        estimatedProb = Math.max(0.6, Math.min(0.98, estimatedProb));
+
+        // Clamp to valid range
+        estimatedProb = Math.max(0.55, Math.min(0.98, estimatedProb));
         
         const marketProb = noPrice / 100; // Market implied probability
         const edge = (estimatedProb - marketProb) * 100; // Edge in percentage points
