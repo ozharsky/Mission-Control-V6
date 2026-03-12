@@ -75,11 +75,22 @@ async function kalshiRequest(endpoint, params = {}) {
   });
 }
 
-// Simple RSA signing (placeholder - use same logic as main scanner)
+// Proper RSA-PSS signing (same as main scanner)
 function signRequest(method, path, timestamp) {
-  // In production, use proper RSA-PSS signing like in kalshi-trade-fetcher-v2.cjs
-  // For now, return a placeholder
-  return 'placeholder-signature';
+  if (!KALSHI_PRIVATE_KEY) {
+    throw new Error('KALSHI_PRIVATE_KEY not set');
+  }
+  
+  const crypto = require('crypto');
+  const sign = crypto.createSign('RSA-SHA256');
+  sign.update(`${timestamp}${method}${path}`);
+  sign.end();
+  
+  return sign.sign({
+    key: KALSHI_PRIVATE_KEY,
+    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+    saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
+  }, 'base64');
 }
 
 // Fetch historical cutoff timestamps
