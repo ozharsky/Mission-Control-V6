@@ -46,6 +46,27 @@ function sanitizeForFirebase(obj) {
   return sanitized;
 }
 
+// FIX #4: Error function approximation for normal CDF (Black-Scholes)
+function erf(x) {
+  const sign = x >= 0 ? 1 : -1;
+  x = Math.abs(x);
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const p = 0.3275911;
+  
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return sign * y;
+}
+
+// FIX #4: Normal cumulative distribution function
+function normalCDF(x) {
+  return 0.5 * (1 + erf(x / Math.sqrt(2)));
+}
+
 // Kalshi API Configuration
 const KALSHI_ACCESS_KEY = process.env.KALSHI_ACCESS_KEY || process.env.KALSHI_API_KEY || '';
 
@@ -375,19 +396,28 @@ function calculateKalshiFees(contracts, priceCents, isTaker = true, seriesTicker
   };
 }
 
-// Calculate effective edge after fees
-function calculateNetEdge(grossEdge, priceCents, positionSize, isTaker = true, seriesTicker = '') {
+// FIX #6: Calculate effective edge after fees (entry + exit)
+function calculateNetEdge(grossEdge, priceCents, positionSize, isTaker = true, seriesTicker = '', spreadCost = 0) {
   // Estimate contracts from position size and price
   const priceDollars = priceCents / 100;
   const contracts = positionSize / priceDollars;
   
-  const feeResult = calculateKalshiFees(contracts, priceCents, isTaker, seriesTicker);
-  const feePercentage = feeResult.feeRate;
+  // Entry fee (buying)
+  const entryFeeResult = calculateKalshiFees(contracts, priceCents, isTaker, seriesTicker);
+  
+  // Exit fee (selling at current price - assume same price for simplicity)
+  const exitFeeResult = calculateKalshiFees(contracts, priceCents, isTaker, seriesTicker);
+  
+  // Total cost = entry fee + exit fee + spread
+  const totalFeePercentage = entryFeeResult.feeRate + exitFeeResult.feeRate + spreadCost;
   
   return {
-    netEdge: grossEdge - feePercentage,
-    feeAmount: feeResult.fee,
-    feePercentage,
+    netEdge: grossEdge - totalFeePercentage,
+    entryFee: entryFeeResult.fee,
+    exitFee: exitFeeResult.fee,
+    totalFees: entryFeeResult.fee + exitFeeResult.fee,
+    feePercentage: totalFeePercentage,
+    spreadCost,
     grossEdge
   };
 }
@@ -519,65 +549,51 @@ function getOrderbookWithReciprocity(market) {
   };
 }
 
-// Calculate probability for crypto markets based on live external price vs bracket
-// Uses CoinGecko API for live prices - NOT circular like Kalshi price history
-async function calculateCryptoProbabilityFromMarketPrice(marketTitle, livePrice) {
+// FIX #4: Calculate probability for crypto markets using Black-Scholes log-normal model
+// Replaces arbitrary heuristics with proper time-aware volatility modeling
+async function calculateCryptoProbabilityFromMarketPrice(marketTitle, livePrice, hoursToClose = 24) {
   if (!livePrice) return 0.5; // Default if can't fetch price
   
   // Extract bracket threshold from market title
-  // Examples: "Will BTC be above $65,000?", "Will ETH be $3,000-$3,500?"
   const aboveMatch = marketTitle.match(/above\s*\$?([\d,]+)/i);
   const belowMatch = marketTitle.match(/below\s*\$?([\d,]+)/i);
   const rangeMatch = marketTitle.match(/\$?([\d,]+)\s*-\s*\$?([\d,]+)/);
   
-  if (rangeMatch) {
-    // Range bracket: probability based on where current price sits in range
-    const low = parseFloat(rangeMatch[1].replace(/,/g, ''));
-    const high = parseFloat(rangeMatch[2].replace(/,/g, ''));
-    const mid = (low + high) / 2;
-    const range = high - low;
-    
-    // Probability decreases as price moves away from range
-    if (livePrice >= low && livePrice <= high) {
-      // Price is inside range - high probability
-      const distFromMid = Math.abs(livePrice - mid) / (range / 2);
-      return Math.max(0.7, 0.95 - distFromMid * 0.25); // 70-95% depending on position
-    } else if (livePrice < low) {
-      // Price below range
-      const distance = (low - livePrice) / low;
-      return Math.max(0.05, 0.3 - distance); // Decreases as price drops further below
-    } else {
-      // Price above range
-      const distance = (livePrice - high) / high;
-      return Math.max(0.05, 0.3 - distance); // Decreases as price rises further above
-    }
-  } else if (aboveMatch) {
-    // Above threshold bracket
+  // Default volatility for crypto (45% annual)
+  const volatility = 0.45;
+  
+  // Convert annual volatility to period volatility
+  const hoursPerYear = 365 * 24;
+  const periodVol = volatility * Math.sqrt(Math.max(0.001, hoursToClose) / hoursPerYear);
+  
+  if (aboveMatch) {
     const threshold = parseFloat(aboveMatch[1].replace(/,/g, ''));
-    const distance = (livePrice - threshold) / threshold;
-    
-    if (livePrice > threshold) {
-      // Price is above - probability increases with distance
-      return Math.min(0.95, 0.6 + distance * 0.5);
-    } else {
-      // Price is below - probability decreases with distance
-      return Math.max(0.05, 0.4 + distance * 0.5); // distance is negative here
-    }
-  } else if (belowMatch) {
-    // Below threshold bracket
-    const threshold = parseFloat(belowMatch[1].replace(/,/g, ''));
-    const distance = (threshold - livePrice) / threshold;
-    
-    if (livePrice < threshold) {
-      // Price is below - probability increases as price drops further
-      return Math.min(0.95, 0.6 + distance * 0.5);
-    } else {
-      // Price is above - probability decreases
-      return Math.max(0.05, 0.4 - distance * 0.5);
-    }
+    // Probability price > threshold at expiration
+    const d1 = (Math.log(livePrice / threshold) + 0.5 * periodVol * periodVol) / periodVol;
+    return Math.max(0.01, Math.min(0.99, 1 - normalCDF(d1)));
   }
   
-  return 0.5; // Default if can't parse bracket
+  if (belowMatch) {
+    const threshold = parseFloat(belowMatch[1].replace(/,/g, ''));
+    // Probability price < threshold at expiration
+    const d1 = (Math.log(livePrice / threshold) + 0.5 * periodVol * periodVol) / periodVol;
+    return Math.max(0.01, Math.min(0.99, normalCDF(d1)));
+  }
+  
+  if (rangeMatch) {
+    const low = parseFloat(rangeMatch[1].replace(/,/g, ''));
+    const high = parseFloat(rangeMatch[2].replace(/,/g, ''));
+    
+    const d_low = (Math.log(livePrice / low) + 0.5 * periodVol * periodVol) / periodVol;
+    const d_high = (Math.log(livePrice / high) + 0.5 * periodVol * periodVol) / periodVol;
+    
+    const probBelowLow = normalCDF(d_low);
+    const probBelowHigh = normalCDF(d_high);
+    
+    return Math.max(0.01, Math.min(0.99, probBelowHigh - probBelowLow));
+  }
+  
+  return 0.5; // Default
 }
 
 // Fetch live crypto prices from CoinGecko
@@ -4157,21 +4173,25 @@ function calculateEdge(yesPrice, baseProb, volume, closeTime, category, history 
   }
 
   // Calculate proper R-Score: edge divided by historical volatility (signal-to-noise)
-  // If no history, use a default volatility of 5% to avoid division by zero
+  // FIX #5: Use sample standard deviation (Bessel's correction) and minimum sample check
   
   if (calibratedEdge > 0) {
-    if (history && ticker && history[ticker] && history[ticker].length >= 5) {
-      // Calculate standard deviation of historical edges
+    const minSamples = 10; // Minimum samples for reliable R-Score
+    
+    if (history && ticker && history[ticker] && history[ticker].length >= minSamples) {
+      // Calculate sample standard deviation of historical edges
       const edges = history[ticker].map(h => h.edge).filter(e => typeof e === 'number');
-      if (edges.length >= 5) {
+      if (edges.length >= minSamples) {
         const mean = edges.reduce((a, b) => a + b, 0) / edges.length;
         const squaredDiffs = edges.map(e => Math.pow(e - mean, 2));
-        const variance = squaredDiffs.reduce((a, b) => a + b, 0) / edges.length;
+        // FIX #5: Sample standard deviation (divide by n-1, not n)
+        const variance = squaredDiffs.reduce((a, b) => a + b, 0) / (edges.length - 1);
         historicalVolatility = Math.sqrt(variance);
-        // Ensure minimum volatility to avoid extreme R-scores
-        historicalVolatility = Math.max(historicalVolatility, 2);
       }
     }
+    
+    // FIX #5: Minimum volatility floor to prevent extreme R-scores
+    historicalVolatility = Math.max(historicalVolatility, 2);
     
     // R-Score = edge / historical volatility (signal-to-noise ratio)
     rScore = calibratedEdge / historicalVolatility;
@@ -5005,8 +5025,10 @@ async function main() {
         const momentum = calculateMomentum(yesPrice, history, m.ticker);
 
         // Use live external price for crypto probability (NOT circular Kalshi prices)
+        // FIX #4: Pass hoursToClose for time-aware volatility calculation
+        const hoursToClose = (new Date(m.close_time) - Date.now()) / (1000 * 60 * 60);
         const effectiveBaseProb = series.category === 'crypto'
-          ? await calculateCryptoProbabilityFromMarketPrice(m.title, liveCryptoPrices[series.ticker])
+          ? await calculateCryptoProbabilityFromMarketPrice(m.title, liveCryptoPrices[series.ticker], hoursToClose)
           : series.baseProb;
 
         // Calculate edge with time adjustment (now with proper R-Score)
@@ -5015,9 +5037,9 @@ async function main() {
         // Calculate spread cost (exit liquidity risk) using reciprocity-aware orderbook
         const spreadCost = calculateSpreadCost(book.yesBid, book.yesAsk);
 
-        // Adjust edge for spread cost and fees
+        // FIX #6: Adjust edge for spread cost and fees (entry + exit)
         const grossEdge = edgeCalc.edge;
-        const netEdgeResult = calculateNetEdge(grossEdge - spreadCost, yesPrice, 100, true, series.ticker); // Assume $100 position, taker
+        const netEdgeResult = calculateNetEdge(grossEdge, yesPrice, 100, true, series.ticker, spreadCost);
         const netEdge = netEdgeResult.netEdge;
 
         // Calculate historical edge (CLV tracking)
@@ -5091,8 +5113,11 @@ async function main() {
             timeAdjustment: parseFloat((edgeCalc.timeAdjustment * 100).toFixed(1)),
             volumeBoost: parseFloat((edgeCalc.volumeBoost * 100).toFixed(1)),
             spreadCost: parseFloat(spreadCost.toFixed(1)), // Exit liquidity cost
-            estimatedFees: parseFloat(calculateKalshiFees(100, yesPrice, true).fee.toFixed(2)), // Fees on $100 position
-            feeRate: parseFloat(calculateKalshiFees(100, yesPrice, true).feeRate.toFixed(2)), // Fee percentage
+            // FIX #6: Updated fee structure with entry + exit fees
+            estimatedFees: parseFloat(netEdgeResult.totalFees.toFixed(2)), // Total fees on $100 position
+            entryFee: parseFloat(netEdgeResult.entryFee.toFixed(2)),
+            exitFee: parseFloat(netEdgeResult.exitFee.toFixed(2)),
+            feeRate: parseFloat(netEdgeResult.feePercentage.toFixed(2)), // Total fee percentage
             kellyPct: parseFloat(kelly.kellyPct),
             position: kelly.position,
             recommendation,
