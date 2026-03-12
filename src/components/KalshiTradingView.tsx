@@ -355,25 +355,26 @@ function TradeDetailPanel({
   
   return (
     <div className="mt-4 border-t border-surface-hover pt-4">
-      {/* Tab Navigation */}
-      <div className="flex gap-1 mb-4 border-b border-surface-hover">
+      {/* Tab Navigation - Scrollable on mobile */}
+      <div className="flex gap-1 mb-4 border-b border-surface-hover overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
         {[
-          { id: 'overview', label: 'Overview', icon: BarChart3 },
-          { id: 'risk', label: 'Risk & Score', icon: Activity },
-          { id: 'signals', label: 'Signals', icon: Zap },
-          { id: 'sizing', label: 'Position Sizing', icon: DollarSign },
+          { id: 'overview', label: 'Overview', shortLabel: 'Overview', icon: BarChart3 },
+          { id: 'risk', label: 'Risk & Score', shortLabel: 'Risk', icon: Activity },
+          { id: 'signals', label: 'Signals', shortLabel: 'Signals', icon: Zap },
+          { id: 'sizing', label: 'Position Sizing', shortLabel: 'Sizing', icon: DollarSign },
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            className={`flex items-center gap-1.5 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px flex-shrink-0 ${
               activeTab === tab.id 
                 ? 'text-primary border-primary' 
                 : 'text-gray-400 border-transparent hover:text-gray-300'
             }`}
           >
             <tab.icon className="h-4 w-4" />
-            {tab.label}
+            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="sm:hidden">{tab.shortLabel}</span>
           </button>
         ))}
       </div>
@@ -386,21 +387,21 @@ function TradeDetailPanel({
             {/* Core Metrics */}
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-gray-400">Core Metrics</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                 <div className="bg-surface-hover/50 rounded p-2">
-                  <span className="text-gray-500">True Probability</span>
+                  <span className="text-gray-500 text-xs sm:text-sm">True Prob</span>
                   <p className="text-white font-medium">{trade.trueProbability}%</p>
                 </div>
                 <div className="bg-surface-hover/50 rounded p-2">
-                  <span className="text-gray-500">Market Price</span>
+                  <span className="text-gray-500 text-xs sm:text-sm">Price</span>
                   <p className="text-white font-medium">{trade.yesPrice}¢</p>
                 </div>
                 <div className="bg-surface-hover/50 rounded p-2">
-                  <span className="text-gray-500">Edge</span>
+                  <span className="text-gray-500 text-xs sm:text-sm">Edge</span>
                   <p className="text-success font-medium">+{trade.edge}¢</p>
                 </div>
                 <div className="bg-surface-hover/50 rounded p-2">
-                  <span className="text-gray-500">R-Score</span>
+                  <span className="text-gray-500 text-xs sm:text-sm">R-Score</span>
                   <p className={`font-medium ${(trade.rScore || 0) >= 1.5 ? 'text-success' : 'text-primary'}`}>
                     {(trade.rScore || 0).toFixed(2)}
                   </p>
@@ -524,20 +525,22 @@ function TradeDetailPanel({
               </div>
               
               {/* Buy Buttons */}
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <button
                   onClick={() => onBuy('yes', Math.min(100, bankroll * 0.05))}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-success/20 px-3 py-2 text-sm font-medium text-success hover:bg-success/30"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-success/20 px-3 py-2 text-xs sm:text-sm font-medium text-success hover:bg-success/30"
                 >
                   <Plus className="h-4 w-4" />
-                  Buy Yes @{trade.yesPrice}¢
+                  <span className="sm:hidden">Yes @{trade.yesPrice}¢</span>
+                  <span className="hidden sm:inline">Buy Yes @{trade.yesPrice}¢</span>
                 </button>
                 <button
                   onClick={() => onBuy('no', Math.min(100, bankroll * 0.05))}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-danger/20 px-3 py-2 text-sm font-medium text-danger hover:bg-danger/30"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-danger/20 px-3 py-2 text-xs sm:text-sm font-medium text-danger hover:bg-danger/30"
                 >
                   <Plus className="h-4 w-4" />
-                  Buy No @{trade.noPrice}¢
+                  <span className="sm:hidden">No @{trade.noPrice}¢</span>
+                  <span className="hidden sm:inline">Buy No @{trade.noPrice}¢</span>
                 </button>
               </div>
             </div>
