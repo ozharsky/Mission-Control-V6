@@ -2353,16 +2353,16 @@ export function KalshiTradingView() {
                   ref={(el) => {
                     if (el) tradeRefs.current.set(trade.id, el);
                   }}
-                  className={`rounded-xl border p-4 transition-all hover:border-primary/50 ${
+                  className={`rounded-xl border p-2 sm:p-4 transition-all hover:border-primary/50 ${
                     trade.pennySignal || trade.tailRiskSignal
                       ? 'border-purple-500/50 bg-purple-500/5'
                       : 'border-surface-hover bg-surface'
                   }`}
                 >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
                   {/* Left: Trade Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0 sm:flex-wrap">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CATEGORY_COLORS[trade.category] || CATEGORY_COLORS.default}`}>
                         {trade.category}
                       </span>
