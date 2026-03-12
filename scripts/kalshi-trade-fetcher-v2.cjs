@@ -5576,12 +5576,24 @@ async function main() {
   if (db) {
     try {
       console.log('🔥 Firebase: Starting save...');
-      console.log(`   Opportunities: ${topTrades.length}`);
+      console.log(`   topTrades length: ${topTrades.length}`);
+      console.log(`   output.opportunities length: ${output.opportunities?.length}`);
       console.log(`   Output keys: ${Object.keys(output).join(', ')}`);
+      
+      // Check if opportunities is in output before sanitization
+      if (!output.opportunities) {
+        console.error('❌ CRITICAL: output.opportunities is missing before sanitization!');
+      }
       
       // Sanitize output to remove undefined values for Firebase
       const sanitizedOutput = sanitizeForFirebase(output);
       console.log('🔥 Firebase: Sanitized output');
+      console.log(`   Sanitized keys: ${Object.keys(sanitizedOutput).join(', ')}`);
+      console.log(`   Sanitized opportunities: ${sanitizedOutput.opportunities?.length}`);
+      
+      if (!sanitizedOutput.opportunities) {
+        console.error('❌ CRITICAL: sanitizedOutput.opportunities is missing!');
+      }
       
       const dbRef = db.ref('v6/kalshi/latest_scan');
       console.log('🔥 Firebase: Got ref, attempting set...');
@@ -5591,9 +5603,11 @@ async function main() {
       
       // Verify the write
       const verify = await dbRef.once('value');
-      console.log(`✅ Firebase verify: ${verify.val() ? 'Data exists' : 'NO DATA'}`);
-      if (verify.val()) {
-        console.log(`   Opportunities in DB: ${verify.val().opportunities?.length || 0}`);
+      const verifyData = verify.val();
+      console.log(`✅ Firebase verify: ${verifyData ? 'Data exists' : 'NO DATA'}`);
+      if (verifyData) {
+        console.log(`   Keys in DB: ${Object.keys(verifyData).join(', ')}`);
+        console.log(`   Opportunities in DB: ${verifyData.opportunities?.length || 'MISSING'}`);
       }
     } catch (e) {
       console.error('❌ Firebase save failed:', e.message);
