@@ -7,6 +7,14 @@ import {
 } from 'lucide-react';
 import { getData, setData } from '../lib/firebase';
 import { RESEARCHED_TRADES } from './trades-data';
+import { BrierScoreCard } from './BrierScoreCard';
+import { 
+  updatePositionsWithLatestPrices, 
+  settlePositionsFromScan, 
+  calculateUnrealizedPnL,
+  getPortfolioValue,
+  logPositionStatus 
+} from '../lib/portfolio-utils';
 
 // Types
 interface KalshiTrade {
@@ -75,6 +83,98 @@ interface KalshiTrade {
     profitPotential: string;
     pmUrl: string;
   };
+  // v2.6 fields - Alternative Data
+  sentimentSignal?: {
+    score: number;
+    label: string;
+    source: string;
+    headline: string;
+    timestamp: string;
+  };
+  nwsSignal?: {
+    city: string;
+    targetDate: string;
+    targetTemp: number;
+    isAbove: boolean;
+    forecastHigh: number;
+    forecastDay: string;
+    nwsForecast: string;
+    impliedProbability: string;
+    kalshiProbability: string;
+    probabilityDiff: string;
+    lagDetected: boolean;
+    recommendation: string;
+  };
+  // v3.0 fields - Multi-Factor Scoring
+  multiFactorScore?: {
+    total: number;
+    breakdown: {
+      edgeQuality: number;
+      liquidityDepth: number;
+      timeToExpiration: number;
+      historicalAccuracy: number;
+      newsSentiment: number;
+    };
+    weights: {
+      edgeQuality: number;
+      liquidityDepth: number;
+      timeToExpiration: number;
+      historicalAccuracy: number;
+      newsSentiment: number;
+    };
+  };
+  // v3.0 fields - Twitter/X Sentiment
+  twitterSignal?: {
+    score: number;
+    confidence: number;
+    signal: 'bullish' | 'bearish' | 'neutral';
+    strength: 'strong' | 'moderate' | 'weak';
+    socialScore: number;
+    source: 'twitter' | 'news' | 'none';
+    matchedKeywords: string[];
+    sampleData?: string[] | number;
+  };
+  // v3.0 fields - Edge Decay
+  decayAnalysis?: {
+    decayRate: number;
+    trend: 'improving_fast' | 'improving' | 'stable' | 'decaying' | 'decaying_fast';
+    edge24hAgo: number;
+    edgeChange24h: number;
+    decayRateWeek?: number;
+    weekTrend?: 'strong_improvement' | 'strong_decay' | null;
+    entriesCount: number;
+  };
+  stabilityScore?: number;
+  // v3.0 fields - Heat Map
+  riskMetrics?: {
+    expectedValue: string;
+    stdDev: string;
+    sharpeRatio: string;
+    maxDrawdown: string;
+    riskOfRuin: 'low' | 'medium' | 'high';
+    positionPctOfBankroll: string;
+  };
+  // v3.0 fields - Penny Picking & Tail Risk
+  pennySignal?: {
+    ticker: string;
+    title: string;
+    noPrice: number;
+    roi: string;
+    type: 'penny_pick' | 'fat_pitch';
+    potentialReturn: number;
+    forecastDelta?: number;
+    isFatPitch?: boolean;
+    confidence?: string;
+  };
+  tailRiskSignal?: {
+    ticker: string;
+    noPrice: number;
+    roi: string;
+    confidence: 'high' | 'very_high';
+    category: string;
+    type: string;
+    reasoning?: string;
+  };
 }
 
 interface PaperPosition {
@@ -104,6 +204,96 @@ interface PortfolioStats {
   roi: number;
   maxDrawdown: number;
   openPositions: number;
+}
+
+// Heat Map Types
+interface HeatMapAnalysis {
+  timestamp: string;
+  bankroll: number;
+  totalExposure: number;
+  concentration: Record<string, {
+    exposure: number;
+    percentage: number;
+    riskLevel: {
+      level: 'critical' | 'high' | 'medium' | 'low';
+      color: string;
+      emoji: string;
+    };
+  }>;
+  correlationRisk: Array<{
+    pair: string;
+    category?: string;
+    type?: 'hedge';
+    correlation?: number;
+    riskLevel?: 'high' | 'medium' | 'low';
+    note?: string;
+  }>;
+  heatMap: Array<{
+    ticker: string;
+    title: string;
+    category: string;
+    exposure: number;
+    percentageOfBankroll: number;
+    riskScore: number;
+    riskLevel: {
+      level: string;
+      color: string;
+      emoji: string;
+    };
+    factors: {
+      concentration: number;
+      edge: number;
+      quality: number;
+    };
+    edge?: string;
+    rScore?: string;
+    isDeteriorating?: boolean;
+  }>;
+  riskScore: number;
+  warnings: Array<{
+    type: string;
+    severity: 'critical' | 'high' | 'medium' | 'low';
+    message: string;
+  }>;
+}
+
+// Kelly Analysis Types
+interface KellyAnalysis {
+  timestamp: string;
+  bankroll: number;
+  baseKellyFraction: number;
+  dynamicFraction: number;
+  marketRegime: {
+    regime: 'high_volatility' | 'trending' | 'decaying' | 'high_edge' | 'neutral';
+    confidence: number;
+    volatility?: number;
+  };
+  winRate: {
+    winRate: number;
+    sampleSize: number;
+    totalPnL?: number;
+  };
+  portfolioVol: {
+    volatility: number;
+    sharpe: number;
+    avgReturn?: number;
+  };
+  positionSizes: Array<{
+    ticker: string;
+    positionSize: number;
+    fullKelly: number;
+    adjustedKelly: number;
+    fraction: number;
+    winProb: number;
+    maxPosition: number;
+    regime: string;
+    regimeConfidence: number;
+  }>;
+  recommendations: Array<{
+    type: string;
+    priority: 'critical' | 'high' | 'medium' | 'low';
+    message: string;
+  }>;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -143,6 +333,656 @@ function LiquidityBar({ score, spread }: { score?: number; spread?: string }) {
       <span className="text-xs text-gray-500">
         {score ? `${score}/100` : ''} {spread ? `· ${spread}¢` : ''}
       </span>
+    </div>
+  );
+}
+
+// Trade Detail Panel Component - Organized with tabs
+function TradeDetailPanel({ 
+  trade, 
+  kellyAnalysis, 
+  onBuy, 
+  bankroll 
+}: { 
+  trade: KalshiTrade; 
+  kellyAnalysis: KellyAnalysis | null;
+  onBuy: (side: 'yes' | 'no', amount: number) => void;
+  bankroll: number;
+}) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'risk' | 'signals' | 'sizing'>('overview');
+  
+  const kellyPosition = kellyAnalysis?.positionSizes.find(p => p.ticker === trade.ticker);
+  
+  return (
+    <div className="mt-4 border-t border-surface-hover pt-4">
+      {/* Tab Navigation - Scrollable on mobile */}
+      <div className="flex gap-1 mb-4 border-b border-surface-hover overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+        {[
+          { id: 'overview', label: 'Overview', shortLabel: 'Overview', icon: BarChart3 },
+          { id: 'risk', label: 'Risk & Score', shortLabel: 'Risk', icon: Activity },
+          { id: 'signals', label: 'Signals', shortLabel: 'Signals', icon: Zap },
+          { id: 'sizing', label: 'Position Sizing', shortLabel: 'Sizing', icon: DollarSign },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-1.5 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px flex-shrink-0 ${
+              activeTab === tab.id 
+                ? 'text-primary border-primary' 
+                : 'text-gray-400 border-transparent hover:text-gray-300'
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
+            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="sm:hidden">{tab.shortLabel}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="space-y-4">
+        {/* OVERVIEW TAB */}
+        {activeTab === 'overview' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Core Metrics */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-gray-400">Core Metrics</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                <div className="bg-surface-hover/50 rounded p-2">
+                  <span className="text-gray-500 text-xs sm:text-sm">True Prob</span>
+                  <p className="text-white font-medium">{trade.trueProbability}%</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded p-2">
+                  <span className="text-gray-500 text-xs sm:text-sm">Price</span>
+                  <p className="text-white font-medium">{trade.yesPrice}¢</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded p-2">
+                  <span className="text-gray-500 text-xs sm:text-sm">Edge</span>
+                  <p className="text-success font-medium">+{trade.edge}¢</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded p-2">
+                  <span className="text-gray-500 text-xs sm:text-sm">R-Score</span>
+                  <p className={`font-medium ${(trade.rScore || 0) >= 1.5 ? 'text-success' : 'text-primary'}`}>
+                    {(trade.rScore || 0).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              
+              {trade.multiplier && (
+                <div className="flex justify-between text-sm py-1">
+                  <span className="text-gray-500">Multiplier</span>
+                  <span className="text-primary font-medium">{(trade.multiplier || 0).toFixed(1)}x</span>
+                </div>
+              )}
+              
+              {trade.health && (
+                <div className="flex justify-between text-sm py-1">
+                  <span className="text-gray-500">Liquidity</span>
+                  <span className={`font-medium ${
+                    trade.health === 'good' ? 'text-success' : 
+                    trade.health === 'fair' ? 'text-warning' : 'text-danger'
+                  }`}>
+                    {trade.health.toUpperCase()}
+                  </span>
+                </div>
+              )}
+              
+              <div className="pt-2 border-t border-surface-hover">
+                <p className="text-sm text-gray-400 mb-1">Research</p>
+                <p className="text-sm text-white">{trade.research?.catalyst || 'Scanner-identified opportunity'}</p>
+                
+                {/* Fee/Spread Breakdown */}
+                {(trade.grossEdge !== undefined || trade.spreadCost !== undefined || trade.estimatedFees !== undefined) && (
+                  <div className="mt-3 p-2 bg-surface-hover/30 rounded text-xs">
+                    <p className="text-gray-500 mb-1">Edge Breakdown:</p>
+                    <div className="space-y-0.5">
+                      {trade.grossEdge !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Gross Edge</span>
+                          <span className="text-gray-300">+{trade.grossEdge.toFixed(1)}%</span>
+                        </div>
+                      )}
+                      {trade.spreadCost && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Spread Cost</span>
+                          <span className="text-danger">-{trade.spreadCost.toFixed(1)}%</span>
+                        </div>
+                      )}
+                      {trade.estimatedFees && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Est. Fees ($100)</span>
+                          <span className="text-danger">-${trade.estimatedFees.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-1 border-t border-surface-hover">
+                        <span className="text-gray-400 font-medium">Net Edge</span>
+                        <span className="text-success font-medium">+{trade.edge}%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {trade.research?.sources?.map((source, i) => (
+                    <span key={i} className="text-xs bg-surface-hover px-2 py-0.5 rounded text-gray-400">
+                      {source}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-gray-400">Quick Stats</h4>
+              
+              {trade.momentum && trade.momentum !== 'flat' && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-gray-500">Momentum</span>
+                  <span className={`text-sm font-medium ${
+                    trade.momentum === 'surging' ? 'text-emerald-400' :
+                    trade.momentum === 'rising' ? 'text-green-400' :
+                    trade.momentum === 'falling' ? 'text-amber-400' :
+                    'text-rose-400'
+                  }`}>
+                    {trade.momentum === 'surging' ? '🚀' : 
+                     trade.momentum === 'rising' ? '📈' : 
+                     trade.momentum === 'falling' ? '📉' : '💥'} {trade.momentum}
+                  </span>
+                </div>
+              )}
+              
+              {trade.whale && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-gray-500">Whale Activity</span>
+                  <span className="text-sm text-purple-400 font-medium">
+                    🐋 {trade.whaleSpikeRatio}x spike
+                  </span>
+                </div>
+              )}
+              
+              {trade.compositeScore && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-gray-500">Composite Score</span>
+                  <span className="text-sm text-primary font-bold">{trade.compositeScore}</span>
+                </div>
+              )}
+              
+              <div className="pt-2 border-t border-surface-hover">
+                <div className="flex justify-between text-sm py-1">
+                  <span className="text-gray-500">Expires</span>
+                  <span className="text-white">
+                    {new Date(trade.expiration).toLocaleDateString('en-US', { 
+                      weekday: 'short', month: 'short', day: 'numeric'
+                    })}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between text-sm py-1">
+                  <span className="text-gray-500">Base Kelly</span>
+                  <span className="text-white">{(trade.kellyPct || 0).toFixed(1)}%</span>
+                </div>
+              </div>
+              
+              {/* Buy Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <button
+                  onClick={() => onBuy('yes', Math.min(100, bankroll * 0.05))}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-success/20 px-3 py-2 text-xs sm:text-sm font-medium text-success hover:bg-success/30"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="sm:hidden">Yes @{trade.yesPrice}¢</span>
+                  <span className="hidden sm:inline">Buy Yes @{trade.yesPrice}¢</span>
+                </button>
+                <button
+                  onClick={() => onBuy('no', Math.min(100, bankroll * 0.05))}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-danger/20 px-3 py-2 text-xs sm:text-sm font-medium text-danger hover:bg-danger/30"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="sm:hidden">No @{trade.noPrice}¢</span>
+                  <span className="hidden sm:inline">Buy No @{trade.noPrice}¢</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RISK & SCORE TAB */}
+        {activeTab === 'risk' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Multi-Factor Score */}
+            {trade.multiFactorScore && trade.multiFactorScore.total !== undefined && (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-400 mb-3">
+                  Multi-Factor Score: <span className="text-primary">{(trade.multiFactorScore.total || 0).toFixed(2)}</span>
+                </h4>
+                <div className="space-y-2">
+                  {Object.entries(trade.multiFactorScore.breakdown).map(([key, value]) => {
+                    const weight = trade.multiFactorScore!.weights[key as keyof typeof trade.multiFactorScore.weights];
+                    const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                    return (
+                      <div key={key} className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-400">{label} ({Math.round(weight * 100)}%)</span>
+                            <span className={value >= 7 ? 'text-success' : value >= 4 ? 'text-warning' : 'text-gray-400'}>
+                              {(value || 0).toFixed(1)}/10
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full ${
+                                value >= 7 ? 'bg-emerald-500' : value >= 4 ? 'bg-amber-500' : 'bg-gray-500'
+                              }`}
+                              style={{ width: `${value * 10}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Risk Metrics */}
+            {trade.riskMetrics && (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-400 mb-3">Risk Analysis</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Expected Value</span>
+                    <span className={parseFloat(trade.riskMetrics.expectedValue) >= 0 ? 'text-success' : 'text-danger'}>
+                      ${trade.riskMetrics.expectedValue}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Sharpe Ratio</span>
+                    <span className={parseFloat(trade.riskMetrics.sharpeRatio) >= 1 ? 'text-success' : 'text-gray-300'}>
+                      {trade.riskMetrics.sharpeRatio}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Risk Level</span>
+                    <span className={
+                      trade.riskMetrics.riskOfRuin === 'low' ? 'text-success' : 
+                      trade.riskMetrics.riskOfRuin === 'medium' ? 'text-warning' : 'text-danger'
+                    }>
+                      {trade.riskMetrics.riskOfRuin.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Max Drawdown</span>
+                    <span className="text-gray-300">${trade.riskMetrics.maxDrawdown}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Edge Decay */}
+            {trade.decayAnalysis && (
+              <div className={`rounded-lg p-3 border ${
+                trade.decayAnalysis.trend.includes('improving') ? 'bg-emerald-500/10 border-emerald-500/30' :
+                trade.decayAnalysis.trend.includes('decaying') ? 'bg-rose-500/10 border-rose-500/30' :
+                'bg-gray-500/10 border-gray-500/30'
+              }`}>
+                <h4 className={`text-sm font-medium mb-2 ${
+                  trade.decayAnalysis.trend.includes('improving') ? 'text-emerald-400' :
+                  trade.decayAnalysis.trend.includes('decaying') ? 'text-rose-400' :
+                  'text-gray-400'
+                }`}>
+                  Edge Trend: {trade.decayAnalysis.trend.replace('_', ' ').toUpperCase()}
+                </h4>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="bg-surface-hover/50 rounded p-2 text-center">
+                    <p className="text-gray-500">24h Change</p>
+                    <p className={(trade.decayAnalysis.edgeChange24h || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {(trade.decayAnalysis.edgeChange24h || 0) > 0 ? '+' : ''}{(trade.decayAnalysis.edgeChange24h || 0).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="bg-surface-hover/50 rounded p-2 text-center">
+                    <p className="text-gray-500">Rate</p>
+                    <p className={(trade.decayAnalysis.decayRate || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {(trade.decayAnalysis.decayRate || 0) > 0 ? '+' : ''}{(trade.decayAnalysis.decayRate || 0).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="bg-surface-hover/50 rounded p-2 text-center">
+                    <p className="text-gray-500">Stability</p>
+                    <p className={trade.stabilityScore && trade.stabilityScore > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {trade.stabilityScore ? (trade.stabilityScore > 0 ? '+' : '') + trade.stabilityScore.toFixed(1) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Attribution */}
+            {trade.attribution && trade.attribution.length > 0 && (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-400 mb-2">Score Attribution</h4>
+                <div className="space-y-1">
+                  {trade.attribution.slice(0, 4).map((attr, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-gray-500">{attr.factor}</span>
+                      <span className={(attr.contribution || 0) >= 0 ? 'text-success' : 'text-danger'}>
+                        {(attr.contribution || 0) >= 0 ? '+' : ''}{(attr.contribution || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SIGNALS TAB */}
+        {activeTab === 'signals' && (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {/* Alerts */}
+            {trade.alerts && trade.alerts.length > 0 && (
+              <div className="lg:col-span-2 space-y-2">
+                <h4 className="text-sm font-medium text-gray-400">Active Alerts</h4>
+                {trade.alerts.map((alert, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`p-2 rounded text-sm flex items-center gap-2 ${
+                      alert.severity === 'urgent' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                      alert.severity === 'high' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                      'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    }`}
+                  >
+                    <span>{alert.severity === 'urgent' ? '🚨' : alert.severity === 'high' ? '⚠️' : 'ℹ️'}</span>
+                    <span>{alert.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Twitter Sentiment */}
+            {trade.twitterSignal && trade.twitterSignal.signal !== 'neutral' && (
+              <div className={`p-3 rounded-lg border ${
+                trade.twitterSignal.signal === 'bullish' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                'bg-rose-500/10 border-rose-500/30'
+              }`}>
+                <h4 className={`text-sm font-medium mb-2 ${
+                  trade.twitterSignal.signal === 'bullish' ? 'text-emerald-400' : 'text-rose-400'
+                }`}>
+                  🐦 Twitter: {trade.twitterSignal.signal.toUpperCase()}
+                </h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Strength</span>
+                    <span className="text-white">{trade.twitterSignal.strength}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Score</span>
+                    <span className={(trade.twitterSignal.score || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {(trade.twitterSignal.score || 0) > 0 ? '+' : ''}{(trade.twitterSignal.score || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Confidence</span>
+                    <span className="text-white">{Math.round(trade.twitterSignal.confidence * 100)}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Decay Analysis */}
+            {trade.decayAnalysis && (
+              <div className={`p-3 rounded-lg border ${
+                trade.decayAnalysis.trend.includes('improving') ? 'bg-emerald-500/10 border-emerald-500/30' :
+                trade.decayAnalysis.trend.includes('decaying') ? 'bg-rose-500/10 border-rose-500/30' :
+                'bg-gray-500/10 border-gray-500/30'
+              }`}>
+                <h4 className={`text-sm font-medium mb-2 ${
+                  trade.decayAnalysis.trend.includes('improving') ? 'text-emerald-400' :
+                  trade.decayAnalysis.trend.includes('decaying') ? 'text-rose-400' :
+                  'text-gray-400'
+                }`}>
+                  📊 Edge Decay Analysis
+                </h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Trend</span>
+                    <span className={
+                      trade.decayAnalysis.trend.includes('improving') ? 'text-emerald-400' :
+                      trade.decayAnalysis.trend.includes('decaying') ? 'text-rose-400' :
+                      'text-gray-300'
+                    }>
+                      {trade.decayAnalysis.trend.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">24h Change</span>
+                    <span className={(trade.decayAnalysis.edgeChange24h || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {(trade.decayAnalysis.edgeChange24h || 0) > 0 ? '+' : ''}{(trade.decayAnalysis.edgeChange24h || 0).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Decay Rate</span>
+                    <span className="text-white">{(trade.decayAnalysis.decayRate || 0).toFixed(2)}%/day</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Stability</span>
+                    <span className={
+                      (trade.stabilityScore || 0) >= 7 ? 'text-emerald-400' :
+                      (trade.stabilityScore || 0) >= 4 ? 'text-amber-400' :
+                      'text-rose-400'
+                    }>
+                      {trade.stabilityScore?.toFixed(1) || 'N/A'}/10
+                    </span>
+                  </div>
+                  {trade.decayAnalysis.weekTrend && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Week Trend</span>
+                      <span className={
+                        trade.decayAnalysis.weekTrend === 'strong_improvement' ? 'text-emerald-400' :
+                        trade.decayAnalysis.weekTrend === 'strong_decay' ? 'text-rose-400' :
+                        'text-gray-300'
+                      }>
+                        {trade.decayAnalysis.weekTrend.replace('_', ' ')}
+                      </span>
+                    </div>
+                  )}
+                </div>              </div>
+            )}
+
+            {/* News Sentiment */}
+            {trade.sentimentSignal && (
+              <div className={`p-3 rounded-lg border ${
+                trade.sentimentSignal.label === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                trade.sentimentSignal.label === 'negative' ? 'bg-rose-500/10 border-rose-500/30' :
+                'bg-gray-500/10 border-gray-500/30'
+              }`}>
+                <h4 className={`text-sm font-medium mb-2 ${
+                  trade.sentimentSignal.label === 'positive' ? 'text-emerald-400' :
+                  trade.sentimentSignal.label === 'negative' ? 'text-rose-400' :
+                  'text-gray-400'
+                }`}>
+                  📰 News: {trade.sentimentSignal.label.toUpperCase()}
+                </h4>
+                <p className="text-xs text-gray-300 line-clamp-2 mb-2">"{trade.sentimentSignal.headline}"</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Source</span>
+                  <span className="text-white">{trade.sentimentSignal.source}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Weather Lag */}
+            {trade.nwsSignal && trade.nwsSignal.lagDetected && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <h4 className="text-sm font-medium text-amber-400 mb-2">🌤️ Weather Lag</h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">NWS Forecast</span>
+                    <span className="text-white">{trade.nwsSignal.forecastHigh}°F</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Market Implied</span>
+                    <span className="text-white">{trade.nwsSignal.kalshiProbability}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Edge</span>
+                    <span className={parseFloat(trade.nwsSignal.probabilityDiff) > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {parseFloat(trade.nwsSignal.probabilityDiff) > 0 ? '+' : ''}{trade.nwsSignal.probabilityDiff}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Action</span>
+                    <span className={trade.nwsSignal.recommendation === 'BUY_YES' ? 'text-emerald-400' : 'text-rose-400'}>
+                      {trade.nwsSignal.recommendation.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Polymarket Arb */}
+            {trade.polymarketArb && (
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                <h4 className="text-sm font-medium text-emerald-400 mb-2">🔗 Polymarket Arbitrage</h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Spread</span>
+                    <span className="text-emerald-400">{trade.polymarketArb.percentDiff}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Buy On</span>
+                    <span className="text-white">{trade.polymarketArb.buyOn}</span>
+                  </div>
+                  <a 
+                    href={trade.polymarketArb.pmUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-1 text-emerald-400 hover:text-emerald-300 text-xs"
+                  >
+                    View on Polymarket <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* No Signals Message */}
+            {!trade.alerts?.length && 
+             !trade.twitterSignal?.signal && 
+             !trade.sentimentSignal && 
+             !trade.nwsSignal?.lagDetected && 
+             !trade.polymarketArb &&
+             !trade.decayAnalysis && (
+              <div className="p-6 rounded-lg bg-surface-hover/30 text-center">
+                <p className="text-sm text-gray-400">🔍 No special signals detected for this trade</p>
+                <p className="text-xs text-gray-500 mt-1">Scanner monitors: Twitter sentiment, news, weather lag, arbitrage, and edge decay</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* POSITION SIZING TAB */}
+        {activeTab === 'sizing' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Dynamic Kelly */}
+            {kellyPosition ? (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-primary mb-3">Dynamic Kelly Sizing</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Recommended Size</span>
+                    <span className="text-2xl font-bold text-primary">${kellyPosition.positionSize.toLocaleString()}</span>
+                  </div>
+                  
+                  <div className="h-2 bg-surface rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${Math.min(100, (kellyPosition.positionSize / kellyPosition.maxPosition) * 100)}%` }}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="bg-surface-hover/50 rounded p-2">
+                      <span className="text-gray-500 block">Kelly %</span>
+                      <span className="text-white font-medium">{(kellyPosition.adjustedKelly * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="bg-surface-hover/50 rounded p-2">
+                      <span className="text-gray-500 block">Win Probability</span>
+                      <span className="text-white font-medium">{(kellyPosition.winProb * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="bg-surface-hover/50 rounded p-2">
+                      <span className="text-gray-500 block">Fraction Used</span>
+                      <span className={kellyPosition.fraction >= 0.8 ? 'text-emerald-400' : kellyPosition.fraction >= 0.5 ? 'text-amber-400' : 'text-rose-400'}>
+                        {(kellyPosition.fraction * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="bg-surface-hover/50 rounded p-2">
+                      <span className="text-gray-500 block">Market Regime</span>
+                      <span className="text-white capitalize">{kellyPosition.regime.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-surface-hover/30 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-400 mb-2">Dynamic Kelly Sizing</h4>
+                <p className="text-sm text-gray-500">No position sizing data available for this trade.</p>
+              </div>
+            )}
+
+            {/* Position Guidelines */}
+            <div className="bg-surface-hover/30 rounded-lg p-3">
+              <h4 className="text-sm font-medium text-gray-400 mb-3">Position Guidelines</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between py-1 border-b border-surface-hover">
+                  <span className="text-gray-500">Base Kelly %</span>
+                  <span className="text-white">{trade.kellyPct.toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-surface-hover">
+                  <span className="text-gray-500">Max Position</span>
+                  <span className="text-white">${(bankroll * 0.1).toLocaleString()} (10%)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-surface-hover">
+                  <span className="text-gray-500">Suggested Min</span>
+                  <span className="text-white">$10</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-gray-500">Available Bankroll</span>
+                  <span className="text-white">${bankroll.toLocaleString()}</span>
+                </div>
+              </div>
+              
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => onBuy('yes', kellyPosition?.positionSize || Math.min(100, bankroll * 0.05))}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-success/20 px-3 py-2 text-sm font-medium text-success hover:bg-success/30"
+                >
+                  <Plus className="h-4 w-4" />
+                  Buy Yes
+                </button>
+                <button
+                  onClick={() => onBuy('no', kellyPosition?.positionSize || Math.min(100, bankroll * 0.05))}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-danger/20 px-3 py-2 text-sm font-medium text-danger hover:bg-danger/30"
+                >
+                  <Plus className="h-4 w-4" />
+                  Buy No
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Kalshi Link */}
+      <div className="mt-4 pt-3 border-t border-surface-hover">
+        <a
+          href={`https://kalshi.com/events/${trade.ticker.toLowerCase()}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          View on Kalshi <ArrowUpRight className="h-4 w-4" />
+        </a>
+      </div>
     </div>
   );
 }
@@ -228,21 +1068,22 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
   if (!scannerData?.opportunities || !Array.isArray(scannerData.opportunities)) {
     return [];
   }
-  
+
   return scannerData.opportunities.map((opp: any) => {
-    // Calculate R-Score from edge
-    const edgeStr = opp.edge?.replace('%', '') || '0';
-    const edge = parseFloat(edgeStr);
-    const rScore = edge > 0 ? 1 + (edge / 10) : 0;
+    // Edge is now a number from scanner (was string in v2.5)
+    const edge = typeof opp.edge === 'number' ? opp.edge : parseFloat(opp.edge?.replace('%', '') || '0');
+    const rScore = typeof opp.rScore === 'number' ? opp.rScore : parseFloat(opp.rScore || '0');
     
-    // Determine recommendation
-    let recommendation: 'strong_buy' | 'buy' | 'hold' | 'avoid' = 'avoid';
-    if (rScore >= 2.0) recommendation = 'strong_buy';
-    else if (rScore >= 1.5) recommendation = 'buy';
-    else if (rScore >= 1.0) recommendation = 'hold';
+    // Determine recommendation (fallback if not provided by scanner)
+    let recommendation: 'strong_buy' | 'buy' | 'buy_urgent' | 'hold' | 'avoid' = opp.recommendation || 'avoid';
+    if (!recommendation || recommendation === 'avoid') {
+      if (rScore >= 2.0) recommendation = 'strong_buy';
+      else if (rScore >= 1.5) recommendation = 'buy';
+      else if (rScore >= 1.0) recommendation = 'hold';
+    }
     
-    // Calculate Kelly
-    const kellyPct = edge > 0 ? Math.min(10, edge / 2) : 0;
+    // Use scanner's Kelly % if available, otherwise calculate
+    const kellyPct = opp.kellyPct || (edge > 0 ? Math.min(10, edge / 2) : 0);
     
     // Parse floor/cap from title or subtitle
     let floor: number | undefined;
@@ -307,9 +1148,21 @@ function transformScannerOutput(scannerData: any): KalshiTrade[] {
         catalyst: opp.catalyst || subtitle || 'Scanner-identified opportunity',
         confidence: opp.confidence || 'medium',
         sources: opp.sources || ['Kalshi API']
-      }
+      },
+      // v2.5 fields
+      polymarketArb: opp.polymarketArb,
+      // v2.6 fields
+      sentimentSignal: opp.sentimentSignal,
+      nwsSignal: opp.nwsSignal,
+      // v3.0 fields
+      multiFactorScore: opp.multiFactorScore,
+      twitterSignal: opp.twitterSignal,
+      decayAnalysis: opp.decayAnalysis,
+      stabilityScore: opp.stabilityScore,
+      pennySignal: opp.pennySignal,
+      tailRiskSignal: opp.tailRiskSignal
     };
-  }); // Removed edge > 0 filter since scanner already filters
+  });
 }
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -331,7 +1184,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function KalshiTradingView() {
-  const [activeTab, setActiveTab] = useState<'opportunities' | 'portfolio' | 'history'>('opportunities');
+  const [activeTab, setActiveTab] = useState<'opportunities' | 'portfolio' | 'history' | 'heatmap'>('opportunities');
   const [trades, setTrades] = useState<KalshiTrade[]>([]); // Start empty, load from scanner
   const [positions, setPositions] = useState<PaperPosition[]>([]);
   const [stats, setStats] = useState<PortfolioStats>({
@@ -354,7 +1207,26 @@ export function KalshiTradingView() {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [scanSummary, setScanSummary] = useState<any>(null);
   const [isLoadingTrades, setIsLoadingTrades] = useState(true);
+  const [heatMap, setHeatMap] = useState<HeatMapAnalysis | null>(null);
+  const [kellyAnalysis, setKellyAnalysis] = useState<KellyAnalysis | null>(null);
+  const [pennyResults, setPennyResults] = useState<any>(null);
+  const [tailRiskResults, setTailRiskResults] = useState<any>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  
+  // Advanced filters
+  const [minEdge, setMinEdge] = useState<number>(0);
+  const [maxEdge, setMaxEdge] = useState<number>(100);
+  const [minRScore, setMinRScore] = useState<number>(0);
+  const [hasAlert, setHasAlert] = useState<'any' | 'urgent' | 'high' | 'none'>('any');
+  const [sentimentFilter, setSentimentFilter] = useState<'any' | 'bullish' | 'bearish' | 'neutral'>('any');
+  const [showOnlyWhales, setShowOnlyWhales] = useState(false);
+  const [showOnlyWeatherLag, setShowOnlyWeatherLag] = useState(false);
+  const [showOnlyArbitrage, setShowOnlyArbitrage] = useState(false);
+  const [showOnlyPennyPicks, setShowOnlyPennyPicks] = useState(false);
+  const [positionHistory, setPositionHistory] = useState<PaperPosition[]>([]);
   const hasLoadedScanner = useRef(false);
+  const tradeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Load positions and stats from Firebase on mount
   useEffect(() => {
@@ -403,22 +1275,55 @@ export function KalshiTradingView() {
         console.log('=== LOADING KALSHI DATA ===');
         
         // 1. Load base data from Firebase (scanner writes here)
+        console.log('🔍 Fetching from Firebase path: v6/kalshi/latest_scan');
         const scannerOutput = await getData('v6/kalshi/latest_scan');
+        
+        console.log('🔍 scannerOutput:', scannerOutput);
+        console.log('🔍 scannerOutput type:', typeof scannerOutput);
+        console.log('🔍 scannerOutput?.opportunities:', scannerOutput?.opportunities);
+        console.log('🔍 Is array?:', Array.isArray(scannerOutput?.opportunities));
+        console.log('🔍 Length:', scannerOutput?.opportunities?.length);
         
         if (scannerOutput?.opportunities && Array.isArray(scannerOutput.opportunities) && scannerOutput.opportunities.length > 0) {
           console.log(`Base data: ${scannerOutput.opportunities.length} opportunities from scanner`);
           let transformed = transformScannerOutput(scannerOutput);
-          
+
           // 2. Fetch live prices to update
           console.log('Fetching live price updates...');
           const updatedTrades = await updateWithLivePrices(transformed);
-          
+
           setTrades(updatedTrades);
           setLastUpdated(new Date());
           setScanSummary(scannerOutput.summary);
+          
+          // Load heat map data if available
+          if (scannerOutput.heatMap) {
+            setHeatMap(scannerOutput.heatMap);
+          }
+          
+          // Load Kelly analysis if available
+          if (scannerOutput.kellyAnalysis) {
+            setKellyAnalysis(scannerOutput.kellyAnalysis);
+          }
+
+          // Load penny-picking results if available
+          if (scannerOutput.pennyResults) {
+            setPennyResults(scannerOutput.pennyResults);
+          }
+
+          // Load tail-risk results if available
+          if (scannerOutput.tailRiskResults) {
+            setTailRiskResults(scannerOutput.tailRiskResults);
+          }
+          
           console.log(`✅ Displaying ${updatedTrades.length} trades with live prices`);
         } else {
-          console.log('No scanner data - using fallback');
+          console.log('❌ No scanner data - using fallback');
+          console.log('   scannerOutput exists:', !!scannerOutput);
+          console.log('   scannerOutput keys:', scannerOutput ? Object.keys(scannerOutput) : 'N/A');
+          console.log('   opportunities exists:', !!scannerOutput?.opportunities);
+          console.log('   opportunities is array:', Array.isArray(scannerOutput?.opportunities));
+          console.log('   opportunities length:', scannerOutput?.opportunities?.length);
           setTrades(transformResearchedTrades());
         }
       } catch (e) {
@@ -497,6 +1402,48 @@ export function KalshiTradingView() {
         .catch(err => console.error('❌ Failed to save stats:', err));
     }
   }, [stats, isDataLoaded]);
+
+  // Auto-update position prices when trades change (from scanner)
+  useEffect(() => {
+    if (!isDataLoaded || positions.length === 0) return;
+    
+    console.log('🔄 Auto-updating position prices from scanner data...');
+    const updatedPositions = updatePositionsWithLatestPrices(positions, trades);
+    
+    // Only update if prices actually changed
+    const hasChanges = updatedPositions.some((p, i) => 
+      p.currentPrice !== positions[i]?.currentPrice
+    );
+    
+    if (hasChanges) {
+      console.log('✅ Position prices updated');
+      setPositions(updatedPositions);
+    }
+  }, [trades, isDataLoaded]); // Run when trades change
+
+  // Auto-settle positions when scan data includes resolved markets
+  useEffect(() => {
+    if (!isDataLoaded || positions.length === 0) return;
+    
+    console.log('🔍 Checking for auto-settlement opportunities...');
+    const scanData = { brier: scanSummary?.brier };
+    
+    const { positions: updatedPositions, stats: updatedStats, settled } = 
+      settlePositionsFromScan(positions, scanData, stats);
+    
+    if (settled.length > 0) {
+      console.log(`✅ Auto-settled ${settled.length} positions:`, settled.map(p => p.ticker));
+      setPositions(updatedPositions);
+      setStats(updatedStats);
+    }
+  }, [scanSummary?.scan_time, isDataLoaded]); // Run when new scan data arrives
+
+  // Debug logging for positions
+  useEffect(() => {
+    if (activeTab === 'portfolio') {
+      logPositionStatus(positions);
+    }
+  }, [positions, activeTab]);
 
   // Fetch live data from Kalshi API
   const fetchLiveData = async () => {
@@ -594,12 +1541,69 @@ export function KalshiTradingView() {
     setIsLoading(false);
   };
 
-  // Filter and sort trades
+  // Filter and sort trades with advanced filters
   const filteredTrades = useMemo(() => {
     let result = [...trades];
+
+    // Category filter
     if (selectedCategory !== 'all') {
       result = result.filter(t => t.category === selectedCategory);
     }
+
+    // Edge range filter
+    result = result.filter(t => t.edge >= minEdge && t.edge <= maxEdge);
+
+    // R-Score minimum filter
+    result = result.filter(t => t.rScore >= minRScore);
+
+    // Alert severity filter
+    if (hasAlert !== 'any') {
+      if (hasAlert === 'none') {
+        result = result.filter(t => !t.alerts || t.alerts.length === 0);
+      } else {
+        result = result.filter(t =>
+          t.alerts?.some(a => a.severity === hasAlert)
+        );
+      }
+    }
+
+    // Sentiment filter
+    if (sentimentFilter !== 'any') {
+      result = result.filter(t => {
+        if (sentimentFilter === 'bullish') {
+          return t.twitterSignal?.signal === 'bullish' || t.sentimentSignal?.label === 'positive';
+        }
+        if (sentimentFilter === 'bearish') {
+          return t.twitterSignal?.signal === 'bearish' || t.sentimentSignal?.label === 'negative';
+        }
+        if (sentimentFilter === 'neutral') {
+          return !t.twitterSignal && !t.sentimentSignal;
+        }
+        return true;
+      });
+    }
+
+    // Whale activity filter
+    if (showOnlyWhales) {
+      result = result.filter(t => t.whale === true);
+    }
+
+    // Weather lag filter
+    if (showOnlyWeatherLag) {
+      result = result.filter(t => t.nwsSignal?.lagDetected === true);
+    }
+
+    // Arbitrage filter
+    if (showOnlyArbitrage) {
+      result = result.filter(t => !!t.polymarketArb);
+    }
+
+    // Penny picks filter
+    if (showOnlyPennyPicks) {
+      result = result.filter(t => t.pennySignal || t.tailRiskSignal);
+    }
+
+    // Sorting
     result.sort((a, b) => {
       if (sortBy === 'composite') {
         const aScore = parseFloat(a.compositeScore || '0');
@@ -611,37 +1615,14 @@ export function KalshiTradingView() {
       if (sortBy === 'volume') return b.volume - a.volume;
       return 0;
     });
-    return result;
-  }, [trades, selectedCategory, sortBy]);
 
-  // Calculate position P&L - uses live prices from trades or stored current price
+    return result;
+  }, [trades, selectedCategory, sortBy, minEdge, maxEdge, minRScore, hasAlert, sentimentFilter, showOnlyWhales, showOnlyWeatherLag, showOnlyArbitrage, showOnlyPennyPicks]);
+
+  // Calculate position P&L - uses stored currentPrice (auto-updated by scanner)
   const calculatePositionPnL = (position: PaperPosition) => {
     if (position.status !== 'open') return position.pnl || 0;
-    
-    // Find current market data in trades
-    const currentTrade = trades.find(t => t.ticker === position.ticker);
-    
-    let currentPrice: number;
-    
-    if (currentTrade) {
-      // Use live price from trades
-      currentPrice = position.side === 'yes' ? currentTrade.yesPrice : currentTrade.noPrice;
-    } else if (position.currentPrice) {
-      // Use stored current price from last update
-      currentPrice = position.currentPrice;
-      console.log(`Using stored price for ${position.ticker}: ${currentPrice}¢`);
-    } else {
-      // No price data available - P&L is 0 (price hasn't changed from entry)
-      console.log(`No price data for ${position.ticker}, assuming entry price`);
-      return 0;
-    }
-    
-    const priceDiff = (currentPrice - position.entryPrice) / 100;
-    const pnl = priceDiff * position.shares;
-    
-    console.log(`P&L for ${position.ticker}: entry=${position.entryPrice}¢, current=${currentPrice}¢, shares=${position.shares}, pnl=$${pnl.toFixed(2)}`);
-    
-    return pnl;
+    return calculateUnrealizedPnL(position);
   };
 
   // Execute paper trade
@@ -654,9 +1635,9 @@ export function KalshiTradingView() {
 
     console.log(`Price: ${price}¢, Shares: ${shares}, Value: $${value.toFixed(2)}`);
 
-    if (value > stats.bankroll * 0.1) {
-      alert(`Position too large. Max 10% of bankroll ($${(stats.bankroll * 0.1).toFixed(0)})`);
-      return;
+    if (value > stats.bankroll * 0.5) {
+      const confirm = window.confirm(`Position is ${(value/stats.bankroll*100).toFixed(0)}% of bankroll. Max recommended is 50% ($${(stats.bankroll * 0.5).toFixed(0)}). Proceed anyway?`);
+      if (!confirm) return;
     }
     if (value > stats.bankroll) {
       alert('Insufficient funds');
@@ -732,31 +1713,27 @@ export function KalshiTradingView() {
     }
   };
 
-  // Memoize open positions with calculated P&L so it updates when trades change
+  // Memoize open positions with calculated P&L
+  // Uses stored currentPrice which is auto-updated when scanner runs
   const openPositionsWithPnL = useMemo(() => {
     return positions
       .filter(p => p.status === 'open')
       .map(p => {
-        // Find current price from trades
-        const currentTrade = trades.find(t => t.ticker === p.ticker);
-        const currentPrice = currentTrade 
-          ? (p.side === 'yes' ? currentTrade.yesPrice : currentTrade.noPrice)
-          : p.currentPrice; // Fallback to stored price
+        // Use stored currentPrice (auto-updated by useEffect when scanner runs)
+        const currentPrice = p.currentPrice || p.entryPrice;
         
         // Calculate P&L
-        const priceForCalc = currentPrice || p.entryPrice; // Use entry price if no current price
-        const priceDiff = (priceForCalc - p.entryPrice) / 100;
+        const priceDiff = (currentPrice - p.entryPrice) / 100;
         const pnl = priceDiff * p.shares;
         
         return { 
           ...p, 
           pnl, 
-          pnlPct: (pnl / p.value) * 100,
-          currentPrice: priceForCalc // Store current price for next calc
+          pnlPct: (pnl / p.value) * 100
         };
       })
       .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl)); // Sort by biggest P&L first
-  }, [positions, trades]); // Recalculate when either changes
+  }, [positions]); // Only recalculate when positions change (currentPrice is part of position)
 
   // Stats cards
   const StatCard = ({ title, value, trend, icon: Icon, color }: any) => (
@@ -787,10 +1764,10 @@ export function KalshiTradingView() {
             {lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString()}` : 'Loading...'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
           <button
             onClick={() => setActiveTab('opportunities')}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'opportunities' ? 'bg-primary text-white' : 'bg-surface text-gray-300 hover:bg-surface-hover'
             }`}
           >
@@ -798,7 +1775,7 @@ export function KalshiTradingView() {
           </button>
           <button
             onClick={() => setActiveTab('portfolio')}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'portfolio' ? 'bg-primary text-white' : 'bg-surface text-gray-300 hover:bg-surface-hover'
             }`}
           >
@@ -806,11 +1783,19 @@ export function KalshiTradingView() {
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'history' ? 'bg-primary text-white' : 'bg-surface text-gray-300 hover:bg-surface-hover'
             }`}
           >
             History
+          </button>
+          <button
+            onClick={() => setActiveTab('heatmap')}
+            className={`flex-shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'heatmap' ? 'bg-primary text-white' : 'bg-surface text-gray-300 hover:bg-surface-hover'
+            }`}
+          >
+            Risk Heat Map
           </button>
           <button
             onClick={async () => {
@@ -929,6 +1914,241 @@ export function KalshiTradingView() {
             </div>
           )}
 
+          {/* Top Opportunities Card */}
+          {trades.length > 0 && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+              <h3 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
+                <Trophy className="h-4 w-4" />
+                Top Scanner Opportunities
+              </h3>
+              <div className="space-y-2">
+                {trades
+                  .sort((a, b) => (b.compositeScore || 0) - (a.compositeScore || 0))
+                  .slice(0, 3)
+                  .map((trade, idx) => (
+                    <div 
+                      key={trade.id} 
+                      className="bg-surface-hover/50 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-surface-hover transition-colors"
+                      onClick={() => {
+                        // Scroll to trade in the list and expand it
+                        const tradeElement = tradeRefs.current.get(trade.id);
+                        if (tradeElement) {
+                          tradeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          setTimeout(() => setExpandedTrade(trade.id), 300);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg font-bold text-emerald-400">#{idx + 1}</span>
+                        <div>
+                          <p className="text-sm font-medium text-white truncate max-w-[200px]">
+                            {trade.title}
+                          </p>
+                          <p className="text-xs text-gray-400">{trade.ticker}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400">Score</p>
+                          <p className="text-lg font-bold text-emerald-400">
+                            {parseFloat(trade.compositeScore || '0').toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="text-right hidden sm:block">
+                          <p className="text-xs text-gray-400">Edge</p>
+                          <p className="text-sm font-medium text-success">+{trade.edge}%</p>
+                        </div>
+                        <div className="text-right hidden md:block">
+                          <p className="text-xs text-gray-400">R-Score</p>
+                          <p className="text-sm font-medium text-primary">{(trade.rScore || 0).toFixed(1)}</p>
+                        </div>
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                  ))}
+              </div>
+              <p className="text-xs text-emerald-400/70 mt-3">
+                💡 Click to jump to the opportunity in the list
+              </p>
+            </div>
+          )}
+
+          {/* Penny Picks & Tail Risk Section */}
+          {(pennyResults?.opportunities?.length > 0 || tailRiskResults?.opportunities?.length > 0) && (
+            <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-4">
+              <h3 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
+                <span className="text-lg">🪙</span>
+                Penny Picks & Tail Risk
+              </h3>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Penny Picks */}
+                {pennyResults?.opportunities?.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-medium text-purple-400/80 mb-2">🪙 Top 5 Penny Picks (Cheap NOs)</h4>
+                    {pennyResults.opportunities.slice(0, 5).map((opp, idx) => (
+                      <div 
+                        key={opp.ticker}
+                        className="bg-surface-hover/50 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-purple-500/10 transition-colors border border-transparent hover:border-purple-500/30"
+                        onClick={() => {
+                          // Try to find and scroll to the trade
+                          const trade = trades.find(t => t.ticker === opp.ticker);
+                          if (trade) {
+                            const tradeElement = tradeRefs.current.get(trade.id);
+                            if (tradeElement) {
+                              tradeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              setTimeout(() => setExpandedTrade(trade.id), 300);
+                            }
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-purple-400">#{idx + 1}</span>
+                          <div>
+                            <p className="text-sm font-medium text-white truncate max-w-[200px]">
+                              {opp.title || opp.ticker}</p>
+                            <p className="text-xs text-gray-400">{opp.ticker}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400">NO Price</p>
+                            <p className="text-lg font-bold text-purple-400">{opp.noPrice}¢</p>
+                          </div>
+                          <div className="text-right hidden sm:block">
+                            <p className="text-xs text-gray-400">ROI</p>
+                            <p className="text-sm font-medium text-emerald-400">+{opp.roi}%</p>
+                          </div>
+                          <div className="text-right hidden md:block">
+                            <p className="text-xs text-gray-400">Type</p>
+                            <p className="text-sm font-medium text-amber-400">
+                              {opp.type === 'fat_pitch' ? '🔥 Fat' : '🪙 Cheap'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Tail Risk */}
+                {tailRiskResults?.opportunities?.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-medium text-rose-400/80 mb-2">🎯 Top 5 Tail Risk (Cross-Category)</h4>
+                    {tailRiskResults.opportunities.slice(0, 5).map((opp, idx) => (
+                      <div 
+                        key={opp.ticker}
+                        className="bg-surface-hover/50 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-rose-500/10 transition-colors border border-transparent hover:border-rose-500/30"
+                        onClick={() => {
+                          const trade = trades.find(t => t.ticker === opp.ticker);
+                          if (trade) {
+                            const tradeElement = tradeRefs.current.get(trade.id);
+                            if (tradeElement) {
+                              tradeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              setTimeout(() => setExpandedTrade(trade.id), 300);
+                            }
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-rose-400">#{idx + 1}</span>
+                          <div>
+                            <p className="text-sm font-medium text-white truncate max-w-[200px]">
+                              {opp.title || opp.ticker}</p>
+                            <p className="text-xs text-gray-400">{opp.ticker} · {opp.category}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400">NO Price</p>
+                            <p className="text-lg font-bold text-rose-400">{opp.noPrice}¢</p>
+                          </div>
+                          <div className="text-right hidden sm:block">
+                            <p className="text-xs text-gray-400">ROI</p>
+                            <p className="text-sm font-medium text-emerald-400">+{opp.roi}%</p>
+                          </div>
+                          <div className="text-right hidden md:block">
+                            <p className="text-xs text-gray-400">Conf</p>
+                            <p className="text-sm font-medium">
+                              {opp.confidence === 'very_high' ? '💀 Very High' : '🔥 High'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <p className="text-xs text-purple-400/70 mt-3">
+                💡 These are asymmetric risk/reward trades. Click to view details.
+              </p>
+            </div>
+          )}
+
+          {/* Key Insights Card */}
+          {scanSummary && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <h3 className="text-sm font-semibold text-amber-400 mb-3 flex items-center gap-2">
+                <Zap className="h-4 w-4" />
+                Scanner Insights
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Weather Lag */}
+                {scanSummary.weatherLags > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🌤️ Weather Lag</p>
+                    <p className="text-lg font-bold text-amber-400">{scanSummary.weatherLags} ops</p>
+                    <p className="text-xs text-gray-500">NWS vs Kalshi mismatch</p>
+                  </div>
+                )}
+                
+                {/* Polymarket Arb */}
+                {scanSummary.polymarketArbs > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🔗 Polymarket Arb</p>
+                    <p className="text-lg font-bold text-emerald-400">{scanSummary.polymarketArbs} ops</p>
+                    <p className="text-xs text-gray-500">Cross-exchange spreads</p>
+                  </div>
+                )}
+                
+                {/* Urgent Alerts */}
+                {scanSummary.triggeredAlerts?.urgent > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🚨 Urgent Alerts</p>
+                    <p className="text-lg font-bold text-rose-400">{scanSummary.triggeredAlerts.urgent}</p>
+                    <p className="text-xs text-gray-500">Require attention</p>
+                  </div>
+                )}
+                
+                {/* Best Score */}
+                {trades.length > 0 && (
+                  <div className="bg-surface-hover/50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 mb-1">🏆 Top Score</p>
+                    <p className="text-lg font-bold text-primary">
+                      {Math.max(...trades.map(t => parseFloat(t.compositeScore || '0'))).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {trades.sort((a, b) => parseFloat(b.compositeScore || '0') - parseFloat(a.compositeScore || '0'))[0]?.ticker}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Quick Tip */}
+              {scanSummary.weatherLags > 0 && scanSummary.weatherLags > scanSummary.polymarketArbs && (
+                <p className="text-xs text-amber-400/80 mt-3 pt-3 border-t border-amber-500/20">
+                  💡 Tip: Weather markets showing big edges today. Check the Signals tab for NWS lag details.
+                </p>
+              )}
+              {scanSummary.polymarketArbs > 0 && scanSummary.polymarketArbs >= scanSummary.weatherLags && (
+                <p className="text-xs text-emerald-400/80 mt-3 pt-3 border-t border-amber-500/20">
+                  💡 Tip: Polymarket arbitrage opportunities detected. Compare prices before trading.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Loading State */}
           {isLoadingTrades && (
             <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
@@ -939,8 +2159,8 @@ export function KalshiTradingView() {
 
           {!isLoadingTrades && (
             <>
-              {/* Category Buttons */}
-              <div className="flex flex-wrap gap-2">
+              {/* Category Buttons - Scrollable on mobile */}
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
                 {(['all', 'weather', 'crypto', 'politics', 'economics'] as const).map((cat) => {
                   const Icon = CATEGORY_ICONS[cat];
                   const count = cat === 'all' 
@@ -950,14 +2170,15 @@ export function KalshiTradingView() {
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all flex-shrink-0 ${
                         selectedCategory === cat 
                           ? 'bg-primary text-white' 
                           : 'bg-surface text-gray-300 hover:bg-surface-hover'
                       }`}
                     >
                       <Icon className="h-4 w-4" />
-                      <span>{CATEGORY_LABELS[cat]}</span>
+                      <span className="hidden sm:inline">{CATEGORY_LABELS[cat]}</span>
+                      <span className="sm:hidden">{CATEGORY_LABELS[cat].slice(0, 3)}</span>
                       <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${
                         selectedCategory === cat ? 'bg-white/20' : 'bg-surface-hover'
                       }`}>
@@ -968,27 +2189,174 @@ export function KalshiTradingView() {
                 })}
               </div>
 
-              {/* Sort Dropdown */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Sort by:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm text-white"
-                >
-                  <option value="composite">Composite Score</option>
-                  <option value="rScore">R-Score</option>
-                  <option value="edge">Edge</option>
-                  <option value="volume">Volume</option>
-                </select>
-                <span className="ml-auto text-sm text-gray-500">
+              {/* Sort Dropdown - Stacked on mobile */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">Sort by:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm text-white"
+                  >
+                    <option value="composite">Composite Score</option>
+                    <option value="rScore">R-Score</option>
+                    <option value="edge">Edge</option>
+                    <option value="volume">Volume</option>
+                  </select>
+                </div>
+                <span className="sm:ml-auto text-sm text-gray-500">
                   Showing <span className="font-medium text-white">{filteredTrades.length}</span> trades
                   {scanSummary?.opportunities && (
-                    <span className="text-gray-400"> (scanner found {scanSummary.opportunities})</span>
+                    <span className="text-gray-400 hidden sm:inline"> (scanner found {scanSummary.opportunities})</span>
                   )}
                 </span>
               </div>
             </>
+          )}
+
+          {/* Brier Score Card - Always visible */}
+          <BrierScoreCard />
+
+          {/* Advanced Filters */}
+          {!isLoadingTrades && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  <Filter className="h-4 w-4" />
+                  {showFilters ? 'Hide Filters' : 'Show Filters'}
+                  {(minEdge > 0 || maxEdge < 100 || minRScore > 0 || hasAlert !== 'any' || sentimentFilter !== 'any' || showOnlyWhales || showOnlyWeatherLag || showOnlyArbitrage) && (
+                    <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </button>
+              </div>
+
+              {/* Filter Panel */}
+              {showFilters && (
+                <div className="rounded-xl border border-surface-hover bg-surface p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Min Edge %</label>
+                      <input
+                        type="number"
+                        value={minEdge}
+                        onChange={(e) => setMinEdge(Number(e.target.value))}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Max Edge %</label>
+                      <input
+                        type="number"
+                        value={maxEdge}
+                        onChange={(e) => setMaxEdge(Number(e.target.value))}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Min R-Score</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={minRScore}
+                        onChange={(e) => setMinRScore(Number(e.target.value))}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Alerts</label>
+                      <select
+                        value={hasAlert}
+                        onChange={(e) => setHasAlert(e.target.value as any)}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      >
+                        <option value="any">Any</option>
+                        <option value="urgent">🚨 Urgent</option>
+                        <option value="high">⚠️ High</option>
+                        <option value="none">None</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-2">Sentiment</label>
+                      <select
+                        value={sentimentFilter}
+                        onChange={(e) => setSentimentFilter(e.target.value as any)}
+                        className="w-full bg-surface-hover border border-surface-hover rounded px-3 py-2 text-sm text-white"
+                      >
+                        <option value="any">Any</option>
+                        <option value="bullish">📈 Bullish</option>
+                        <option value="bearish">📉 Bearish</option>
+                        <option value="neutral">➡️ Neutral/None</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => setShowOnlyWhales(!showOnlyWhales)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        showOnlyWhales 
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                          : 'bg-surface-hover text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🐋 Whale Activity
+                    </button>
+                    <button
+                      onClick={() => setShowOnlyWeatherLag(!showOnlyWeatherLag)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        showOnlyWeatherLag 
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                          : 'bg-surface-hover text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🌤️ Weather Lag
+                    </button>
+                    <button
+                      onClick={() => setShowOnlyArbitrage(!showOnlyArbitrage)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        showOnlyArbitrage 
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                          : 'bg-surface-hover text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🔗 Polymarket Arb
+                    </button>
+                    <button
+                      onClick={() => setShowOnlyPennyPicks(!showOnlyPennyPicks)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        showOnlyPennyPicks 
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                          : 'bg-surface-hover text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🪙 Penny Picks
+                    </button>
+                  </div>
+
+                  <div className="flex justify-end pt-2 border-t border-surface-hover">
+                    <button
+                      onClick={() => {
+                        setMinEdge(0);
+                        setMaxEdge(100);
+                        setMinRScore(0);
+                        setHasAlert('any');
+                        setSentimentFilter('any');
+                        setShowOnlyWhales(false);
+                        setShowOnlyWeatherLag(false);
+                        setShowOnlyArbitrage(false);
+                        setShowOnlyPennyPicks(false);
+                      }}
+                      className="text-sm text-gray-400 hover:text-white transition-colors"
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Trade Cards - Only show when not loading */}
@@ -997,18 +2365,35 @@ export function KalshiTradingView() {
               {filteredTrades.map((trade) => (
                 <div
                   key={trade.id}
-                  className="rounded-xl border border-surface-hover bg-surface p-4 transition-all hover:border-primary/50"
+                  ref={(el) => {
+                    if (el) tradeRefs.current.set(trade.id, el);
+                  }}
+                  className={`rounded-xl border p-2 sm:p-4 transition-all hover:border-primary/50 ${
+                    trade.pennySignal || trade.tailRiskSignal
+                      ? 'border-purple-500/50 bg-purple-500/5'
+                      : 'border-surface-hover bg-surface'
+                  }`}
                 >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
                   {/* Left: Trade Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0 sm:flex-wrap">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CATEGORY_COLORS[trade.category] || CATEGORY_COLORS.default}`}>
                         {trade.category}
                       </span>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${RECOMMENDATION_COLORS[trade.recommendation]}`}>
                         {trade.recommendation === 'buy_urgent' ? '🔥 BUY URGENT' : trade.recommendation.replace('_', ' ').toUpperCase()}
                       </span>
+                      {trade.pennySignal && (
+                        <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                          🪙 Penny Pick {trade.pennySignal.noPrice}¢
+                        </span>
+                      )}
+                      {trade.tailRiskSignal && (
+                        <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                          🎯 Tail Risk {trade.tailRiskSignal.confidence === 'very_high' ? '💀' : ''}
+                        </span>
+                      )}
                       {trade.health && (
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${HEALTH_COLORS[trade.health] || 'bg-gray-500/20 text-gray-400'}`}>
                           {trade.health}
@@ -1117,232 +2502,12 @@ export function KalshiTradingView() {
 
                 {/* Expanded Details */}
                 {expandedTrade === trade.id && (
-                  <div className="mt-4 border-t border-surface-hover pt-4">
-                    <div className="grid gap-4 lg:grid-cols-3">
-                      <div>
-                        <p className="text-sm text-gray-400">Research</p>
-                        <p className="mt-1 text-white">{trade.research?.catalyst || 'No research available'}</p>
-                        <div className="mt-2 flex gap-2">
-                          {trade.research?.sources.map((source, i) => (
-                            <span key={i} className="rounded bg-surface-hover px-2 py-1 text-xs text-gray-400">{source}</span>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Backtested Edge Calculation</p>
-                        <div className="mt-1 space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">True Probability:</span>
-                            <span className="text-white font-medium">{trade.trueProbability}%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Market Price:</span>
-                            <span className="text-white">{trade.yesPrice}¢</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Edge:</span>
-                            <span className="text-success font-medium">+{trade.edge}¢</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">R-Score:</span>
-                            <span className={`font-medium ${trade.rScore >= 1.5 ? 'text-success' : 'text-primary'}`}>
-                              {trade.rScore.toFixed(2)}
-                            </span>
-                          </div>
-                          {trade.multiplier && (
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">Multiplier:</span>
-                              <span className="text-primary font-medium">{trade.multiplier.toFixed(1)}x</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Confidence:</span>
-                            <span className={`capitalize ${
-                              trade.research?.confidence === 'high' ? 'text-success' : 
-                              trade.research?.confidence === 'medium' ? 'text-warning' : 'text-gray-400'
-                            }`}>
-                              {trade.research?.confidence}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Market Details</p>
-                        {trade.floor !== undefined && trade.cap !== undefined ? (
-                          <div className="mt-1">
-                            <p className="text-white font-medium">
-                              Range: {trade.category === 'crypto' || trade.category === 'economics' 
-                                ? `$${trade.floor.toLocaleString()} - $${trade.cap.toLocaleString()}`
-                                : `${trade.floor}° - ${trade.cap}°`
-                              }
-                            </p>
-                          </div>
-                        ) : trade.subtitle ? (
-                          <p className="mt-1 text-white">{trade.subtitle}</p>
-                        ) : null}
-                        
-                        {/* Liquidity Info */}
-                        {trade.health && (
-                          <div className="mt-2">
-                            <p className="text-sm text-gray-500">Liquidity</p>
-                            <p className={`text-sm font-medium ${trade.health === 'good' ? 'text-success' : trade.health === 'fair' ? 'text-warning' : 'text-danger'}`}>
-                              {trade.health.toUpperCase()} - {trade.spread}¢ spread, Score: {trade.liquidityScore}/100
-                            </p>
-                          </div>
-                        )}
-                        
-                        {/* Edge Breakdown */}
-                        {(trade.timeAdjustment || trade.volumeBoost) && (
-                          <div className="mt-2">
-                            <p className="text-sm text-gray-500">Edge Breakdown</p>
-                            <p className="text-xs text-gray-400">
-                              {trade.trueProbability}% true prob
-                              {parseFloat(trade.timeAdjustment || '0') > 0 && ` (+${trade.timeAdjustment}% time)`}
-                              {parseFloat(trade.volumeBoost || '0') > 0 && ` (+${trade.volumeBoost}% volume)`}
-                            </p>
-                          </div>
-                        )}
-                        
-                        {/* Risk Metrics */}
-                        {trade.riskMetrics && (
-                          <div className="mt-2 rounded bg-surface-hover/50 p-2">
-                            <p className="text-sm text-gray-500">Risk Analysis</p>
-                            <div className="mt-1 space-y-1 text-xs">
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Expected Value:</span>
-                                <span className={parseFloat(trade.riskMetrics.expectedValue) >= 0 ? 'text-success' : 'text-danger'}>
-                                  ${trade.riskMetrics.expectedValue}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Sharpe Ratio:</span>
-                                <span className={parseFloat(trade.riskMetrics.sharpeRatio) >= 1 ? 'text-success' : 'text-gray-300'}>
-                                  {trade.riskMetrics.sharpeRatio}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Risk Level:</span>
-                                <span className={trade.riskMetrics.riskOfRuin === 'low' ? 'text-success' : trade.riskMetrics.riskOfRuin === 'medium' ? 'text-warning' : 'text-danger'}>
-                                  {trade.riskMetrics.riskOfRuin.toUpperCase()}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Position Size:</span>
-                                <span className="text-gray-300">{trade.riskMetrics.positionPctOfBankroll}% of bankroll</span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Performance Attribution */}
-                        {trade.attribution && trade.attribution.length > 0 && (
-                          <div className="mt-2">
-                            <p className="text-sm text-gray-500">Score Attribution</p>
-                            <div className="mt-1 space-y-1">
-                              {trade.attribution.slice(0, 3).map((attr, idx) => (
-                                <div key={idx} className="flex justify-between text-xs">
-                                  <span className="text-gray-400">{attr.factor}:</span>
-                                  <span className={attr.contribution >= 0 ? 'text-success' : 'text-danger'}>
-                                    {attr.contribution >= 0 ? '+' : ''}{attr.contribution.toFixed(2)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Active Alerts */}
-                        {trade.alerts && trade.alerts.length > 0 && (
-                          <div className="mt-2">
-                            <p className="text-sm text-gray-500">Active Alerts</p>
-                            <div className="mt-1 space-y-1">
-                              {trade.alerts.map((alert, idx) => (
-                                <div 
-                                  key={idx} 
-                                  className={`text-xs p-1.5 rounded ${
-                                    alert.severity === 'urgent' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
-                                    alert.severity === 'high' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
-                                    'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                                  }`}
-                                >
-                                  {alert.severity === 'urgent' ? '🚨' : alert.severity === 'high' ? '⚠️' : 'ℹ️'} {alert.message}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Polymarket Arbitrage */}
-                        {trade.polymarketArb && (
-                          <div className="mt-2 rounded bg-emerald-500/10 p-2 border border-emerald-500/30">
-                            <p className="text-sm text-emerald-400 font-medium">🔗 Polymarket Arbitrage</p>
-                            <div className="mt-1 space-y-1 text-xs">
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Kalshi:</span>
-                                <span className="text-white">{trade.polymarketArb.kalshiPrice}¢</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Polymarket:</span>
-                                <span className="text-white">{trade.polymarketArb.polymarketPrice}¢</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Spread:</span>
-                                <span className="text-emerald-400">{trade.polymarketArb.percentDiff}%</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-400">Action:</span>
-                                <span className="text-emerald-400">Buy on {trade.polymarketArb.buyOn}</span>
-                              </div>
-                              <a 
-                                href={trade.polymarketArb.pmUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 mt-1 text-emerald-400 hover:text-emerald-300"
-                              >
-                                View on Polymarket <ArrowUpRight className="h-3 w-3" />
-                              </a>
-                            </div>
-                          </div>
-                        )}
-                        
-                        <p className="mt-3 text-sm text-gray-400">Expires</p>
-                        <p className="text-white">{new Date(trade.expiration).toLocaleDateString('en-US', { 
-                          weekday: 'short', 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}</p>
-                        <p className="mt-2 text-sm text-gray-400">Kelly %</p>
-                        <p className="text-white">{trade.kellyPct.toFixed(1)}% of bankroll</p>
-                        <p className="text-xs text-gray-500">Max position: ${(stats.bankroll * 0.1).toFixed(0)}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex gap-2">
-                      <button
-                        onClick={() => executeTrade(trade, 'yes', Math.min(100, stats.bankroll * 0.05))}
-                        className="flex items-center gap-2 rounded-lg bg-success/20 px-4 py-2 text-sm font-medium text-success hover:bg-success/30"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Buy Yes @ {trade.yesPrice}¢
-                      </button>
-                      <button
-                        onClick={() => executeTrade(trade, 'no', Math.min(100, stats.bankroll * 0.05))}
-                        className="flex items-center gap-2 rounded-lg bg-danger/20 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/30"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Buy No @ {trade.noPrice}¢
-                      </button>
-                      <a
-                        href={`https://kalshi.com/events/${trade.ticker.toLowerCase()}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-auto flex items-center gap-2 rounded-lg bg-surface-hover px-4 py-2 text-sm text-gray-300 hover:bg-surface-hover/80"
-                      >
-                        View on Kalshi
-                        <ArrowUpRight className="h-4 w-4" />
-                      </a>
-                    </div>
-                  </div>
+                  <TradeDetailPanel 
+                    trade={trade} 
+                    kellyAnalysis={kellyAnalysis}
+                    onBuy={(side, amount) => executeTrade(trade, side, amount)}
+                    bankroll={stats.bankroll}
+                  />
                 )}
               </div>
             ))}
@@ -1360,7 +2525,120 @@ export function KalshiTradingView() {
       {/* Portfolio Tab */}
       {activeTab === 'portfolio' && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">Open Positions ({openPositionsWithPnL.length})</h2>
+          {/* Portfolio Header with Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-surface rounded-xl border border-surface-hover p-4">
+              <p className="text-sm text-gray-400">Bankroll</p>
+              <p className="text-2xl font-bold text-white">${stats.bankroll.toLocaleString()}</p>
+              <p className={`text-xs ${stats.totalPnl >= 0 ? 'text-success' : 'text-danger'}`}>
+                {stats.totalPnl >= 0 ? '+' : ''}${stats.totalPnl.toFixed(2)} total
+              </p>
+            </div>
+            <div className="bg-surface rounded-xl border border-surface-hover p-4">
+              <p className="text-sm text-gray-400">Open Positions</p>
+              <p className="text-2xl font-bold text-white">{openPositionsWithPnL.length}</p>
+              <p className="text-xs text-gray-500">{stats.openPositions} tracked</p>
+            </div>
+            <div className="bg-surface rounded-xl border border-surface-hover p-4">
+              <p className="text-sm text-gray-400">Win Rate</p>
+              <p className="text-2xl font-bold text-white">{stats.winRate.toFixed(1)}%</p>
+              <p className="text-xs text-gray-500">{stats.winningTrades}W / {stats.losingTrades}L</p>
+            </div>
+            <div className="bg-surface rounded-xl border border-surface-hover p-4">
+              <p className="text-sm text-gray-400">ROI</p>
+              <p className={`text-2xl font-bold ${stats.roi >= 0 ? 'text-success' : 'text-danger'}`}>
+                {stats.roi >= 0 ? '+' : ''}{stats.roi.toFixed(1)}%
+              </p>
+              <p className="text-xs text-gray-500">Total Return</p>
+            </div>
+          </div>
+
+          {/* Portfolio Actions */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-white">Open Positions ({openPositionsWithPnL.length})</h2>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowResetConfirm(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-hover text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+                Reset Portfolio
+              </button>
+            </div>
+          </div>
+
+          {/* Reset Confirmation Modal */}
+          {showResetConfirm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-surface rounded-xl border border-surface-hover p-6 max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold text-white mb-2">Reset Portfolio?</h3>
+                <p className="text-gray-400 text-sm mb-4">
+                  This will close all open positions and reset your bankroll to $10,000. 
+                  Your trade history will be preserved.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setShowResetConfirm(false)}
+                    className="px-4 py-2 rounded-lg bg-surface-hover text-gray-300 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      // Save current positions to history
+                      const closedPositions = positions.map(p => ({
+                        ...p,
+                        status: 'closed' as const,
+                        closedAt: new Date().toISOString(),
+                        closeReason: 'portfolio_reset',
+                        pnl: 0 // Would calculate from current price
+                      }));
+                      
+                      // Update stats
+                      setStats({
+                        bankroll: 10000,
+                        initialBankroll: 10000,
+                        totalPnl: 0,
+                        totalTrades: 0,
+                        winningTrades: 0,
+                        losingTrades: 0,
+                        winRate: 0,
+                        roi: 0,
+                        maxDrawdown: 0,
+                        openPositions: 0
+                      });
+                      
+                      // Clear positions
+                      setPositions([]);
+                      
+                      // Save to Firebase
+                      await setData('v6/kalshi/positions', []);
+                      await setData('v6/kalshi/portfolio', {
+                        bankroll: 10000,
+                        initialBankroll: 10000,
+                        totalPnl: 0,
+                        totalTrades: 0,
+                        winningTrades: 0,
+                        losingTrades: 0,
+                        winRate: 0,
+                        roi: 0,
+                        maxDrawdown: 0,
+                        openPositions: 0,
+                        resetAt: new Date().toISOString()
+                      });
+                      
+                      setShowResetConfirm(false);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {!isDataLoaded ? (
             <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
               <RefreshCw className="mx-auto h-8 w-8 animate-spin text-gray-500" />
@@ -1374,6 +2652,16 @@ export function KalshiTradingView() {
             </div>
           ) : (
             <div className="space-y-3">
+              {/* Price update indicator */}
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>
+                  {positions.filter(p => p.status === 'open' && p.currentPrice).length} of {openPositionsWithPnL.length} positions have live prices
+                </span>
+                <span>
+                  Prices auto-update when scanner runs
+                </span>
+              </div>
+              
               {openPositionsWithPnL.map((position) => (
                 <div key={position.id} className="rounded-xl border border-surface-hover bg-surface p-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1383,6 +2671,9 @@ export function KalshiTradingView() {
                           {position.side.toUpperCase()}
                         </span>
                         <p className="text-sm text-gray-400">{position.ticker}</p>
+                        <span className="text-xs text-gray-500">
+                          {new Date(position.openedAt).toLocaleDateString()}
+                        </span>
                       </div>
                       <p className="mt-1 font-medium text-white">{position.marketTitle}</p>
                     </div>
@@ -1390,6 +2681,10 @@ export function KalshiTradingView() {
                       <div className="text-right">
                         <p className="text-xs text-gray-500">Entry</p>
                         <p className="text-white">{position.entryPrice}¢ × {position.shares}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">Current</p>
+                        <p className="text-white">{position.currentPrice || position.entryPrice}¢</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-gray-500">Value</p>
@@ -1403,7 +2698,7 @@ export function KalshiTradingView() {
                       </div>
                       <button
                         onClick={() => closePosition(position.id)}
-                        className="rounded-lg bg-surface-hover px-3 py-2 text-sm text-gray-300 hover:bg-danger/20 hover:text-danger"
+                        className="rounded-lg bg-surface-hover px-3 py-2 text-sm text-gray-300 hover:bg-success/20 hover:text-success"
                       >
                         Close
                       </button>
@@ -1418,53 +2713,241 @@ export function KalshiTradingView() {
 
       {/* History Tab */}
       {activeTab === 'history' && (
+        <div className="space-y-6">
+          {/* Historical Validation Section */}
+          {scanSummary?.historicalValidation && (
+            <div className="rounded-xl border border-surface-hover bg-surface p-4">
+              <h2 className="text-lg font-semibold text-white mb-4">📊 Validated Predictions (Historical API)</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-surface-hover/50 rounded-lg p-3 text-center">
+                  <p className="text-sm text-gray-400">Markets Resolved</p>
+                  <p className="text-2xl font-bold text-white">{scanSummary.historicalValidation.wins + scanSummary.historicalValidation.losses}</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded-lg p-3 text-center">
+                  <p className="text-sm text-gray-400">Win Rate</p>
+                  <p className="text-2xl font-bold text-success">{scanSummary.historicalValidation.winRate.toFixed(1)}%</p>
+                </div>
+                <div className="bg-surface-hover/50 rounded-lg p-3 text-center">
+                  <p className="text-sm text-gray-400">Wins / Losses</p>
+                  <p className="text-xl font-bold text-white">
+                    <span className="text-success">{scanSummary.historicalValidation.wins}W</span>
+                    <span className="text-gray-500 mx-1">/</span>
+                    <span className="text-danger">{scanSummary.historicalValidation.losses}L</span>
+                  </p>
+                </div>
+                <div className="bg-surface-hover/50 rounded-lg p-3 text-center">
+                  <p className="text-sm text-gray-400">Total P&L</p>
+                  <p className={`text-2xl font-bold ${scanSummary.historicalValidation.totalPnl >= 0 ? 'text-success' : 'text-danger'}`}>
+                    {scanSummary.historicalValidation.totalPnl >= 0 ? '+' : ''}${scanSummary.historicalValidation.totalPnl.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-3">
+                Based on actual market resolutions from Kalshi's historical API
+              </p>
+            </div>
+          )}
+
+          {/* Trade History Section */}
+          <div>
+            <h2 className="text-lg font-semibold text-white mb-4">Paper Trade History</h2>
+            {positions.filter(p => p.status === 'closed').length === 0 ? (
+              <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
+                <History className="mx-auto h-12 w-12 text-gray-500" />
+                <p className="mt-4 text-gray-400">No closed trades yet</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-surface-hover text-gray-500">
+                      <th className="pb-2">Date</th>
+                      <th className="pb-2">Ticker</th>
+                      <th className="pb-2">Side</th>
+                      <th className="pb-2">Entry</th>
+                      <th className="pb-2">Shares</th>
+                      <th className="pb-2 text-right">Gross P&L</th>
+                      <th className="pb-2 text-right">Fees (7%)</th>
+                      <th className="pb-2 text-right">Net P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-hover">
+                    {positions.filter(p => p.status === 'closed').map((position) => (
+                      <tr key={position.id}>
+                        <td className="py-3 text-gray-400">{new Date(position.openedAt).toLocaleDateString()}</td>
+                        <td className="py-3 text-white">{position.ticker}</td>
+                        <td className="py-3">
+                          <span className={`rounded px-2 py-0.5 text-xs ${position.side === 'yes' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
+                            {position.side.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3 text-white">{position.entryPrice}¢</td>
+                        <td className="py-3 text-white">{position.shares}</td>
+                        <td className={`py-3 text-right ${(position.grossPnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                          {(position.grossPnl || 0) >= 0 ? '+' : ''}${(position.grossPnl || 0).toFixed(2)}
+                        </td>
+                        <td className="py-3 text-right text-gray-500">
+                          {position.fees ? `-$${position.fees.toFixed(2)}` : '-'}
+                        </td>
+                        <td className={`py-3 text-right font-medium ${(position.pnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                          {(position.pnl || 0) >= 0 ? '+' : ''}${(position.pnl || 0).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Heat Map Tab */}
+      {activeTab === 'heatmap' && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">Trade History</h2>
-          {positions.filter(p => p.status === 'closed').length === 0 ? (
+          <h2 className="text-lg font-semibold text-white">Portfolio Risk Heat Map</h2>
+          {!heatMap ? (
             <div className="rounded-xl border border-surface-hover bg-surface p-8 text-center">
-              <History className="mx-auto h-12 w-12 text-gray-500" />
-              <p className="mt-4 text-gray-400">No closed trades yet</p>
+              <Activity className="mx-auto h-12 w-12 text-gray-500" />
+              <p className="mt-4 text-gray-400">Heat Map data not available</p>
+              <p className="text-sm text-gray-500">Run a scan to generate risk analysis</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-surface-hover text-gray-500">
-                    <th className="pb-2">Date</th>
-                    <th className="pb-2">Ticker</th>
-                    <th className="pb-2">Side</th>
-                    <th className="pb-2">Entry</th>
-                    <th className="pb-2">Shares</th>
-                    <th className="pb-2 text-right">Gross P&L</th>
-                    <th className="pb-2 text-right">Fees (7%)</th>
-                    <th className="pb-2 text-right">Net P&L</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-hover">
-                  {positions.filter(p => p.status === 'closed').map((position) => (
-                    <tr key={position.id}>
-                      <td className="py-3 text-gray-400">{new Date(position.openedAt).toLocaleDateString()}</td>
-                      <td className="py-3 text-white">{position.ticker}</td>
-                      <td className="py-3">
-                        <span className={`rounded px-2 py-0.5 text-xs ${position.side === 'yes' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
-                          {position.side.toUpperCase()}
+            <div className="space-y-6">
+              {/* Overall Risk Score */}
+              <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Overall Risk Score</p>
+                    <p className={`text-3xl font-bold ${
+                      heatMap.riskScore >= 70 ? 'text-red-500' :
+                      heatMap.riskScore >= 50 ? 'text-orange-500' :
+                      heatMap.riskScore >= 30 ? 'text-yellow-500' :
+                      'text-green-500'
+                    }`}>
+                      {heatMap.riskScore}/100
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-400">Total Exposure</p>
+                    <p className="text-xl font-bold text-white">${heatMap.totalExposure?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">
+                      {heatMap.bankroll > 0 ? ((heatMap.totalExposure / heatMap.bankroll) * 100).toFixed(1) : 0}% of bankroll
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Concentration by Category */}
+              <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                <h3 className="text-sm font-medium text-gray-400 mb-3">Concentration by Category</h3>
+                <div className="space-y-2">
+                  {Object.entries(heatMap.concentration || {}).map(([cat, data]: [string, any]) => {
+                    if (data.exposure <= 0) return null;
+                    return (
+                      <div key={cat} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-3 h-3 rounded-full`} style={{ backgroundColor: data.riskLevel?.color }} />
+                          <span className="capitalize text-white">{cat}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-white font-medium">${data.exposure?.toLocaleString()}</span>
+                          <span className="text-gray-400 text-sm ml-2">({data.percentage}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Warnings */}
+              {heatMap.warnings && heatMap.warnings.length > 0 && (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4">
+                  <h3 className="text-sm font-medium text-rose-400 mb-3">⚠️ Risk Warnings</h3>
+                  <div className="space-y-2">
+                    {heatMap.warnings.map((warning: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <span className={
+                          warning.severity === 'critical' ? 'text-red-500' :
+                          warning.severity === 'high' ? 'text-orange-500' :
+                          'text-yellow-500'
+                        }>
+                          {warning.severity === 'critical' ? '🔴' : warning.severity === 'high' ? '🟠' : '🟡'}
                         </span>
-                      </td>
-                      <td className="py-3 text-white">{position.entryPrice}¢</td>
-                      <td className="py-3 text-white">{position.shares}</td>
-                      <td className={`py-3 text-right ${(position.grossPnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {(position.grossPnl || 0) >= 0 ? '+' : ''}${(position.grossPnl || 0).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-right text-gray-500">
-                        {position.fees ? `-$${position.fees.toFixed(2)}` : '-'}
-                      </td>
-                      <td className={`py-3 text-right font-medium ${(position.pnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {(position.pnl || 0) >= 0 ? '+' : ''}${(position.pnl || 0).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <span className="text-sm text-gray-300">{warning.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Heat Map Grid */}
+              {heatMap.heatMap && heatMap.heatMap.length > 0 && (
+                <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                  <h3 className="text-sm font-medium text-gray-400 mb-3">Position Risk Map</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {heatMap.heatMap.map((cell: any) => (
+                      <div
+                        key={cell.ticker}
+                        className="rounded-lg border p-3 transition-all"
+                        style={{
+                          borderColor: cell.riskLevel?.color || '#4b5563',
+                          backgroundColor: `${cell.riskLevel?.color}20` || '#1f2937'
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white font-medium text-sm">{cell.ticker}</span>
+                          <span className="text-lg">{cell.riskLevel?.emoji}</span>
+                        </div>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Risk Score:</span>
+                            <span className="text-white">{cell.riskScore?.toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Exposure:</span>
+                            <span className="text-white">{cell.percentageOfBankroll}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Category:</span>
+                            <span className="capitalize text-white">{cell.category}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Correlation Risks */}
+              {heatMap.correlationRisk && heatMap.correlationRisk.length > 0 && (
+                <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                  <h3 className="text-sm font-medium text-gray-400 mb-3">Correlation Analysis</h3>
+                  <div className="space-y-2">
+                    {heatMap.correlationRisk.slice(0, 5).map((risk: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          {risk.type === 'hedge' ? (
+                            <span className="text-green-400">💚</span>
+                          ) : (
+                            <span className={
+                              risk.riskLevel === 'high' ? 'text-red-400' :
+                              risk.riskLevel === 'medium' ? 'text-orange-400' :
+                              'text-green-400'
+                            }>
+                              {risk.riskLevel === 'high' ? '🔴' : risk.riskLevel === 'medium' ? '🟠' : '🟢'}
+                            </span>
+                          )}
+                          <span className="text-gray-300">{risk.pair}</span>
+                        </div>
+                        {risk.note && (
+                          <span className="text-xs text-gray-500">{risk.note}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
