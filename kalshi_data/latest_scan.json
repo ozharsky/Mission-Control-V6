@@ -1,0 +1,42 @@
+{
+  "scan_time": "2026-03-14T18:20:54.531Z",
+  "source": "kalshi-fetcher-v2.7",
+  "version": "2.7.0",
+  "changelog": [
+    "Added real-time crypto price feeds (CoinGecko)",
+    "Improved NWS weather forecast parsing with better date matching",
+    "Added rate limiting for all external APIs",
+    "Improved RSS parsing with xml2js fallback",
+    "Enhanced error handling with graceful fallbacks",
+    "Expanded Polymarket arbitrage mappings",
+    "Added real crypto probability recalculation"
+  ],
+  "summary": {
+    "totalMarkets": 200,
+    "analyzed": 0,
+    "opportunities": 0,
+    "arbitrage": 0,
+    "polymarketArbs": 0,
+    "whaleAlerts": 0,
+    "correlations": 0,
+    "newsArticles": 0,
+    "relevantNews": 0,
+    "weatherLags": 0,
+    "totalAlerts": 0,
+    "errors": 0,
+    "byCategory": {
+      "weather": 0,
+      "crypto": 0,
+      "politics": 0,
+      "economics": 0
+    }
+  },
+  "arbitrage": [],
+  "polymarketArbs": [],
+  "whaleAlerts": [],
+  "correlations": [],
+  "news": [],
+  "weatherLags": [],
+  "errors": [],
+  "opportunities": []
+}

@@ -1,0 +1,40 @@
+name: Kalshi Scanner v2 to Firebase
+
+on:
+  schedule:
+    # Run every 5 minutes for more frequent price updates
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Install dependencies
+      run: |
+        npm install firebase-admin
+        
+    - name: Run Kalshi Trade Fetcher v2
+      run: node scripts/kalshi-trade-fetcher-v2.cjs
+      env:
+        FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+        FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        
+    - name: Commit scan results
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add kalshi_data/ || true
+        git diff --staged --quiet || git commit -m "Kalshi scan v2 - $(date -u)"
+        git push || true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

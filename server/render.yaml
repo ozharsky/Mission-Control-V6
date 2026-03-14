@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: mission-control-discord-webhook
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DISCORD_WEBHOOK_PORT
+        value: 10000
+      - key: OPENCLAW_TOKEN
+        sync: false

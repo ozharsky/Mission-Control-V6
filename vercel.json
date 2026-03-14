@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/kalshi", "destination": "/api/kalshi.mjs" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

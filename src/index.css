@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dark theme (default) */
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #252542;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0b0;
+  --text-muted: #6b7280;
+  --border-color: #2d2d44;
+}
+
+:root.light {
+  /* Light theme */
+  --bg-primary: #f8f9fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e9ecef;
+  --text-primary: #1a1a2e;
+  --text-secondary: #495057;
+  --text-muted: #6c757d;
+  --border-color: #dee2e6;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Box sizing for all elements */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Prevent horizontal overflow */
+html, body {
+  /* overflow handled by sections */
+  max-width: 100%;
+}
+
+/* Ensure text breaks and doesn't overflow */
+* {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Smooth theme transition */
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* ============================================
+   VISUAL FEEDBACK - BUTTON PRESS ANIMATIONS
+   ============================================ */
+
+/* Button press effect - scale down on active */
+button, .btn {
+  transition: transform 0.1s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:active, .btn:active {
+  transform: scale(0.96);
+}
+
+/* Card press effect */
+.card-press {
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.card-press:active {
+  transform: scale(0.98);
+}
+
+/* Ripple effect base */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ripple:active::after {
+  width: 200%;
+  height: 200%;
+  opacity: 1;
+}
+
+/* Touch feedback for mobile */
+@media (hover: none) {
+  button, .btn, .touch-feedback {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  button:active, .btn:active, .touch-feedback:active {
+    transform: scale(0.96);
+    opacity: 0.9;
+  }
+}
+
+/* Focus states for accessibility */
+button:focus-visible, .btn:focus-visible {
+  outline: 2px solid var(--primary, #6366f1);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   LIGHT MODE OVERRIDES
+   ============================================ */
+
+:root.light .text-white {
+  color: var(--text-primary);
+}
+
+:root.light .text-gray-400 {
+  color: var(--text-secondary);
+}
+
+:root.light .text-gray-500 {
+  color: var(--text-muted);
+}
+
+:root.light .text-gray-600 {
+  color: var(--text-muted);
+}
+
+:root.light .text-gray-700 {
+  color: var(--text-secondary);
+}
+
+:root.light .bg-gray-800 {
+  background-color: var(--bg-secondary);
+}
+
+:root.light .bg-gray-900 {
+  background-color: var(--bg-primary);
+}
+
+:root.light .border-gray-700 {
+  border-color: var(--border-color);
+}
+
+/* Light mode ripple */
+:root.light .ripple::after {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   CUSTOM SCROLLBAR
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-color);
+}
+
+/* Hide scrollbar for mobile */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -1,0 +1,159 @@
+/**
+ * Discord Notification Service
+ * Mission Control V6
+ * 
+ * Sends notifications via webhook server or queues to Firebase
+ */
+
+import { Database, ref, set } from 'firebase/database';
+import type { AgentTask, AgentId } from '../types/agentTask';
+import { AGENT_NAMES, AGENT_EMOJIS } from '../constants/agents';
+
+// Webhook server URL - update this after deploying to Render
+const WEBHOOK_SERVER_URL = import.meta.env.VITE_DISCORD_WEBHOOK_URL || 'http://localhost:3001';
+
+// Discord channel IDs for each agent
+const AGENT_CHANNELS: Record<AgentId, string> = {
+  planner: '1478488078870909088',      // #🎯-strategist
+  ideator: '1478488081186291928',      // #💡-inventor
+  critic: '1478488084386418689',       // #🔬-analyst
+  scout: '1478488086672441536',        // #📡-scout
+  coder: '1478488318927700091',        // #💻-architect
+  writer: '1478488320454557727',       // #✍️-wordsmith
+  reviewer: '1478488321914310758',     // #🔍-editor
+  surveyor: '1478488543692194045'      // #📚-researcher
+};
+
+// Agent Discord user IDs for mentions
+const AGENT_DISCORD_IDS: Record<AgentId, string> = {
+  planner: '1478495012416131193',
+  ideator: '1478496025328091269',
+  critic: '1478496289036697890',
+  scout: '1478496531496698036',
+  coder: '1478496764658061312',
+  writer: '1478496947202691103',
+  reviewer: '1478497225918255114',
+  surveyor: '1478497423654649907'
+};
+
+const COORDINATION_CHANNEL = '1478488567020785867'; // #🎯-agent-coordination
+
+export class DiscordNotificationService {
+  private db: Database;
+
+  constructor(firebaseDb: Database) {
+    this.db = firebaseDb;
+  }
+
+  /**
+   * Queue notification for agent's Discord channel
+   */
+  /**
+   * Send Discord message immediately via webhook server
+   * Falls back to queuing if server is unavailable
+   */
+  async notifyAgentOfTask(task: AgentTask, previousOutput?: string): Promise<void> {
+    const channelId = AGENT_CHANNELS[task.assignee];
+    const agentDiscordId = AGENT_DISCORD_IDS[task.assignee];
+    if (!channelId) {
+      return;
+    }
+
+    const agentName = AGENT_NAMES[task.assignee];
+    const agentEmoji = AGENT_EMOJIS[task.assignee];
+    
+    const mention = agentDiscordId ? `<@${agentDiscordId}>` : '';
+    
+    let message = `${mention} ${agentEmoji} **New Task for ${agentName}**\n\n` +
+      `**${task.title}**\n`;
+    
+    if (previousOutput) {
+      const truncated = previousOutput.length > 1500;
+      message += `\n📋 **Previous Agent's Output:**\n` +
+        `\`\`\`\n${previousOutput.substring(0, 1500)}${truncated ? '...' : ''}\n\`\`\`\n`;
+      if (truncated) {
+        message += `\n⚠️ **Output truncated.** Full content available in Mission Control task details.\n`;
+      }
+    } else if (task.input?.topic) {
+      message += `\n📝 **Prompt:** "${task.input.topic}"\n`;
+    }
+    
+    message += `\n⚡ Priority: ${this.getPriorityEmoji(task.priority)} ${task.priority} | Status: ${task.status}\n` +
+      `🆔 Task ID: \`${task.id}\`\n\n` +
+      `✏️ Type your response to complete this task.`;
+
+    // Try to send via webhook server first
+    try {
+      const response = await fetch(`${WEBHOOK_SERVER_URL}/send-discord`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId, message })
+      });
+      
+      if (response.ok) {
+        return;
+      }
+    } catch (error) {
+    }
+    
+    // Fallback: queue to Firebase
+    await this.queueNotification(channelId, message, task.id);
+  }
+
+  /**
+   * Queue notification to coordination channel
+   */
+  async notifyWorkflowStarted(workflowName: string, firstAgent: AgentId, input: any): Promise<void> {
+    const topic = typeof input === 'string' ? input : input?.topic || 'New workflow';
+    
+    const message = `🚀 **Workflow Started: ${workflowName}**\n\n` +
+      `Input: "${topic}"\n` +
+      `First Agent: ${AGENT_EMOJIS[firstAgent]} ${AGENT_NAMES[firstAgent]}`;
+
+    await this.queueNotification(COORDINATION_CHANNEL, message, `workflow-${Date.now()}`);
+  }
+
+  /**
+   * Queue notification for task handoff
+   */
+  async notifyTaskHandoff(
+    completedTask: AgentTask, 
+    nextAgent: AgentId
+  ): Promise<void> {
+    const message = `✅ **Task Completed** → ${AGENT_EMOJIS[nextAgent]} **${AGENT_NAMES[nextAgent]}**\n\n` +
+      `"${completedTask.title}" completed by ${AGENT_NAMES[completedTask.assignee]}`;
+
+    await this.queueNotification(COORDINATION_CHANNEL, message, completedTask.id);
+  }
+
+  /**
+   * Queue notification in Firebase for background worker
+   */
+  private async queueNotification(channelId: string, message: string, referenceId: string): Promise<void> {
+    const notification = {
+      id: `discord-notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      channelId,
+      message,
+      referenceId,
+      status: 'pending',
+      createdAt: Date.now()
+    };
+
+    try {
+      await set(ref(this.db, `v6/discordNotifications/${notification.id}`), notification);
+    } catch (error) {
+    }
+  }
+
+  private getPriorityEmoji(priority: string): string {
+    switch (priority) {
+      case 'urgent': return '🔴';
+      case 'high': return '🟠';
+      case 'medium': return '🟡';
+      case 'low': return '🟢';
+      default: return '⚪';
+    }
+  }
+}
+
+export default DiscordNotificationService;
